@@ -3,8 +3,33 @@ use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::keyboard::Keycode;
 
+use std::error::Error;
+use std::io::prelude::*;
+use std::fs::File;
+use std::path::Path;
+
 const SCREEN_WIDTH: u32 = 800;
 const SCREEN_HEIGHT: u32 = 600;
+
+fn open_file(filename: &str)
+{
+    let path = Path::new(&filename);
+    
+    let mut file = match File::open(&path) {
+        Err(why) => panic!("Couldn't open {}: {}", path.display(), Error::description(&why)),
+        Ok(file) => file,
+    };
+    
+    let mut buf = Vec::<u8>::new();
+
+    let result = match file.read_to_end(&mut buf) {
+        Err(why) => panic!("Error reading file: {}", Error::description(&why)),
+        Ok(result) => println!("Read {}: {} bytes", path.display(), result),
+    };    
+
+    result
+}
+
 
 fn main()
 {
@@ -17,6 +42,8 @@ fn main()
         .build()
         .unwrap();
 
+    open_file("rom/kernal.rom");
+    
     let mut running = true;
     let mut renderer = window.renderer().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
