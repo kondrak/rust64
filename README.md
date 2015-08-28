@@ -1,2 +1,2 @@
 # rust64
-Still secret!
+Learning rust by doing something practical. TBA.
