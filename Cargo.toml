@@ -1,0 +1,5 @@
+[package]
+
+name = "rust64"
+version = "0.0.1"
+authors = [ "Krzysztof Kondrak <krzysztof.kondrak@gmail.com>" ]
