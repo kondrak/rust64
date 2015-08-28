@@ -3,3 +3,10 @@
 name = "rust64"
 version = "0.0.1"
 authors = [ "Krzysztof Kondrak <krzysztof.kondrak@gmail.com>" ]
+
+[dependencies]
+
+sdl2 = "0.8"
+
+[dependencies.glium]
+version = "0.8"
