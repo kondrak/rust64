@@ -1,3 +1,4 @@
+mod cpu;
 extern crate sdl2;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
@@ -42,7 +43,11 @@ fn main()
         .build()
         .unwrap();
 
+    let cpu = cpu::CPU::new();
+    
     open_file("rom/kernal.rom");
+
+    cpu.reset();
     
     let mut running = true;
     let mut renderer = window.renderer().build().unwrap();
@@ -102,7 +107,8 @@ fn main()
                 _ => ()
             }
         }
-        
+
+        cpu.update();
     }
     
     println!("Here we go.");

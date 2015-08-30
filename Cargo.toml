@@ -7,6 +7,3 @@ authors = [ "Krzysztof Kondrak <krzysztof.kondrak@gmail.com>" ]
 [dependencies]
 
 sdl2 = "0.8"
-
-[dependencies.glium]
-version = "0.8"
