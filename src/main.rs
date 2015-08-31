@@ -43,7 +43,7 @@ fn main()
         .build()
         .unwrap();
 
-    let cpu = cpu::CPU::new();
+    let mut cpu = cpu::CPU::new();
     
     open_file("rom/kernal.rom");
 

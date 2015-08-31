@@ -4,6 +4,24 @@
 mod opcodes;
 use std::mem;
 
+struct Memory
+{
+    bytes: [u8;65536]
+}
+
+impl Memory
+{
+    pub fn new() -> Memory
+    {
+        Memory
+        {
+            bytes: [0;65536]
+        }        
+    }
+}
+
+
+
 // status flags for P register
 enum StatusFlag
 {
@@ -25,7 +43,8 @@ pub struct CPU
     P: u8,   // processor status
     A: u8,   // accumulator
     X: u8,   // index register
-    Y: u8    // index register
+    Y: u8,   // index register
+    mem: Memory
 }
 
 impl CPU
@@ -39,7 +58,8 @@ impl CPU
             P: 0,
             A: 0,
             X: 0,
-            Y: 0
+            Y: 0,
+            mem: Memory::new()
         }        
     }
     
@@ -48,11 +68,18 @@ impl CPU
         // set the registers to initial state on power up
     }
 
-    pub fn update(&self)
+    pub fn update(&mut self)
     {
         //self.process_op(15);
         //self.process_op(16);
         // process opcodes, to the cpu stuff
+        //self.mem.bytes[0] = 1;
+
+        //for i in (0..65536)
+        //{
+        //println!("{}", self.mem.bytes[i]);
+        //}
+        
     }     
  
 
