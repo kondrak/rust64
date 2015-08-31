@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 #![allow(non_snake_case)]
 mod opcodes;
+use utils;
 use std::mem;
 
 struct Memory
@@ -18,6 +19,75 @@ impl Memory
             bytes: [0;65536]
         }        
     }
+
+    pub fn reset(&mut self)
+    {
+        self.write_byte_be(0x0000, 0xFF);
+        self.write_byte_be(0x0001, 0x07);
+    }
+
+    // Write to memory using little endian memory address
+    pub fn write_byte_le(&mut self, addr_le: u16, value: u8)
+    {
+        let addr_be = ((addr_le << 8) & 0xFF) | ((addr_le >> 8) & 0xFF);
+        self.bytes[addr_be as usize] = value;
+    }
+
+
+    // Read from memory using little endian memory address
+    pub fn read_byte_le(&mut self, addr_le: u16) -> u8
+    {
+        let addr_be = ((addr_le << 8) & 0xFF) | ((addr_le >> 8) & 0xFF);
+        self.bytes[addr_be as usize]
+    }
+    
+
+    // Write to memory using big endian memory address
+    pub fn write_byte_be(&mut self, addr_be: u16, value: u8)
+    {
+        self.bytes[addr_be as usize] = value;
+    }
+    
+    // Read from memory using big endian memory address
+    pub fn read_byte_be(&mut self, addr_be: u16) -> u8
+    {
+        self.bytes[addr_be as usize]
+    }
+
+    // Read a word from memory, convert it to little endian
+    pub fn read_word_lele(&mut self, addr_le: u16) -> u16
+    {
+        let addr_be = ((addr_le << 8) & 0xFF) | ((addr_le >> 8) & 0xFF);
+        let value_be: u16 = ((self.bytes[addr_be as usize] as u16) << 8 & 0xFF00) |
+                            ((self.bytes[(addr_be+1) as usize] as u16) & 0x00FF);
+
+        let value_le: u16 = ((value_be << 8) & 0xFF00) | ((value_be >> 8) & 0x00FF);
+        value_le
+    }
+     
+    pub fn read_word_bele(&mut self, addr_be: u16) -> u16
+    {
+        let value_be: u16 = ((self.bytes[addr_be as usize] as u16) << 8 & 0xFF00) |
+                            ((self.bytes[(addr_be+1) as usize] as u16) & 0x00FF);
+
+        let value_le: u16 = ((value_be << 8) & 0xFF00) | ((value_be >> 8) & 0x00FF);
+        value_le            
+    }
+
+    pub fn read_word_bebe(&mut self, addr_be: u16) -> u16
+    {
+        let value_be: u16 = ((self.bytes[addr_be as usize] as u16) << 8 & 0xFF00) |
+                            ((self.bytes[(addr_be+1) as usize] as u16) & 0x00FF);
+        value_be
+    }
+    
+    pub fn read_word_lebe(&mut self, addr_le: u16) -> u16
+    {
+        let addr_be = ((addr_le << 8) & 0xFF) | ((addr_le >> 8) & 0xFF);
+        let value_be: u16 = ((self.bytes[addr_be as usize] as u16) << 8 & 0xFF00) |
+                            ((self.bytes[(addr_be+1) as usize] as u16) & 0x00FF);
+        value_be     
+    }    
 }
 
 
@@ -63,9 +133,40 @@ impl CPU
         }        
     }
     
-    pub fn reset(&self)
+    pub fn reset(&mut self)
     {
         // set the registers to initial state on power up
+        self.mem.reset();
+
+        // load basic
+        let mut startAddress: u32 = 0xA000;
+        let basic = utils::open_file("rom/basic.rom");
+        
+        for (i,addr) in (startAddress..0xC000).enumerate()
+        {
+            self.mem.write_byte_be(addr as u16, basic[i as usize]);
+        }
+
+        // load chargen
+        startAddress = 0xD000;
+        let chargen = utils::open_file("rom/chargen.rom");
+        
+        for (i,addr) in (startAddress..0xE000).enumerate()
+        {
+            self.mem.write_byte_be(addr as u16, chargen[i as usize]);
+        }
+              
+        // load kernal
+        startAddress = 0xE000;
+        let kernal = utils::open_file("rom/kernal.rom");
+        
+        for (i,addr) in (startAddress..0x10000).enumerate()
+        {
+            self.mem.write_byte_be(addr as u16, kernal[i as usize]);
+        }
+
+        // reset program counter
+        self.PC = self.mem.read_word_bele(0xFFFC);     
     }
 
     pub fn update(&mut self)
@@ -79,13 +180,22 @@ impl CPU
         //{
         //println!("{}", self.mem.bytes[i]);
         //}
-        
     }     
  
 
     fn u8_to_enum(v: u8) -> opcodes::Opcodes
     {
         unsafe { mem::transmute(v) }
+    }
+
+    fn mem_dump(&mut self)
+    {
+        for i in (0..0x10000)
+        {
+            let val = self.mem.read_byte_be(i as u16);
+            if val != 0
+                { println!("Addr: {} {}", i, val); }
+        }        
     }
     
     
