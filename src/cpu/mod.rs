@@ -1,6 +1,9 @@
 // The CPU
+#![allow(dead_code)]
+#![allow(non_snake_case)]
 mod opcodes;
-    
+use std::mem;
+
 // status flags for P register
 enum StatusFlag
 {
@@ -35,7 +38,7 @@ impl CPU
             S: 0,
             P: 0,
             A: 0,
-            X: StatusFlag::X as u8,
+            X: 0,
             Y: 0
         }        
     }
@@ -47,15 +50,64 @@ impl CPU
 
     pub fn update(&self)
     {
+        //self.process_op(15);
+        //self.process_op(16);
         // process opcodes, to the cpu stuff
     }     
+ 
 
-    fn process_op(opcode: u8)
+    fn u8_to_enum(v: u8) -> opcodes::Opcodes
     {
-        match opcode
+        unsafe { mem::transmute(v) }
+    }
+    
+    
+    fn process_op(&self, opcode: u8)
+    {
+        use cpu::opcodes::Opcodes;
+        match CPU::u8_to_enum(opcode)
         {
-            0x00 => println!("TODO: {}", opcode),
-            _ => println!("opcode")
+            Opcodes::BRK => println!("TODO: {}", opcode),
+            Opcodes::NOP_zp   => (),
+            Opcodes::NOP_abs  => (),
+            Opcodes::HLT1 => panic!("Received HLT1 instruction: 0x{0:X}", opcode),            
+            Opcodes::NOP_zpx  => (),
+            Opcodes::NOP0     => (),
+            Opcodes::NOP_abx  => (),
+            Opcodes::HLT2 => panic!("Received HLT2 instruction: 0x{0:X}", opcode),
+            Opcodes::HLT3 => panic!("Received HLT3 instruction: 0x{0:X}", opcode),         
+            Opcodes::NOP_zpx2 => (),
+            Opcodes::NOP1     => (),
+            Opcodes::NOP_abx2 => (),
+            Opcodes::HLT4 => panic!("Received HLT4 instruction: 0x{0:X}", opcode),            
+            Opcodes::NOP2     => (),
+            Opcodes::HLT5 => panic!("Received HLT5 instruction: 0x{0:X}", opcode),            
+            Opcodes::NOP_zpx3 => (),
+            Opcodes::NOP3     => (),
+            Opcodes::NOP_abx3 => (),
+            Opcodes::HLT6 => panic!("Received HLT6 instruction: 0x{0:X}", opcode),            
+            Opcodes::NOP_zp2  => (),
+            Opcodes::HLT7 => panic!("Received HLT7 instruction: 0x{0:X}", opcode),            
+            Opcodes::NOP_zpx4 => (),
+            Opcodes::NOP4     => (),
+            Opcodes::NOP_abx4 => (),
+            Opcodes::NOP_imm  => (),
+            Opcodes::NOP_imm2 => (),
+            Opcodes::NOP_imm3 => (),
+            Opcodes::HLT8 => panic!("Received HLT8 instruction: 0x{0:X}", opcode),
+            Opcodes::HLT9 => panic!("Received HLT9 instruction: 0x{0:X}", opcode),            
+            Opcodes::NOP_imm4 => (),
+            Opcodes::HLT10 => panic!("Received HLT10 instruction: 0x{0:X}", opcode),            
+            Opcodes::NOP_zpx5 => (),
+            Opcodes::NOP5     => (),
+            Opcodes::NOP_abx5 => (),
+            Opcodes::NOP_imm5 => (),           
+            Opcodes::NOP      => (),
+            Opcodes::HLT11 => panic!("Received HLT11 instruction: 0x{0:X}", opcode),            
+            Opcodes::NOP_zpx6 => (),
+            Opcodes::NOP6     => (),
+            Opcodes::NOP_abx6 => (),
+            _ => println!("Unknown opcode: 0x{0:X}", opcode)
         }        
     }
 }

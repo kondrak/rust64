@@ -110,6 +110,4 @@ fn main()
 
         cpu.update();
     }
-    
-    println!("Here we go.");
 }
