@@ -22,82 +22,57 @@ impl Memory
 
     pub fn reset(&mut self)
     {
-        self.write_byte_be(0x0000, 0xFF);
-        self.write_byte_be(0x0001, 0x07);
+        self.write_byte(0x0000, 0xFF);
+        self.write_byte(0x0001, 0x07);
     }
 
-    // Write to memory using little endian memory address
-    pub fn write_byte_le(&mut self, addr_le: u16, value: u8)
+    // Write to memory
+    pub fn write_byte(&mut self, addr: u16, value: u8)
     {
-        let addr_be = ((addr_le << 8) & 0xFF) | ((addr_le >> 8) & 0xFF);
-        self.bytes[addr_be as usize] = value;
-    }
-
-
-    // Read from memory using little endian memory address
-    pub fn read_byte_le(&mut self, addr_le: u16) -> u8
-    {
-        let addr_be = ((addr_le << 8) & 0xFF) | ((addr_le >> 8) & 0xFF);
-        self.bytes[addr_be as usize]
+        self.bytes[addr as usize] = value;
     }
     
-
-    // Write to memory using big endian memory address
-    pub fn write_byte_be(&mut self, addr_be: u16, value: u8)
+    // Read from memory
+    pub fn read_byte(&mut self, addr: u16) -> u8
     {
-        self.bytes[addr_be as usize] = value;
-    }
-    
-    // Read from memory using big endian memory address
-    pub fn read_byte_be(&mut self, addr_be: u16) -> u8
-    {
-        self.bytes[addr_be as usize]
+        self.bytes[addr as usize]
     }
 
     // Read a word from memory, convert it to little endian
-    pub fn read_word_lele(&mut self, addr_le: u16) -> u16
+    pub fn read_word_le(&mut self, addr: u16) -> u16
     {
-        let addr_be = ((addr_le << 8) & 0xFF) | ((addr_le >> 8) & 0xFF);
-        let value_be: u16 = ((self.bytes[addr_be as usize] as u16) << 8 & 0xFF00) |
-                            ((self.bytes[(addr_be+1) as usize] as u16) & 0x00FF);
+        let value_be: u16 = ((self.bytes[addr as usize] as u16) << 8 & 0xFF00) |
+                            ((self.bytes[(addr + 0x0001) as usize] as u16) & 0x00FF);
 
         let value_le: u16 = ((value_be << 8) & 0xFF00) | ((value_be >> 8) & 0x00FF);
         value_le
     }
-     
-    pub fn read_word_bele(&mut self, addr_be: u16) -> u16
-    {
-        let value_be: u16 = ((self.bytes[addr_be as usize] as u16) << 8 & 0xFF00) |
-                            ((self.bytes[(addr_be+1) as usize] as u16) & 0x00FF);
 
-        let value_le: u16 = ((value_be << 8) & 0xFF00) | ((value_be >> 8) & 0x00FF);
-        value_le            
-    }
-
-    pub fn read_word_bebe(&mut self, addr_be: u16) -> u16
+    // read a word from memory as big endian
+    pub fn read_word_be(&mut self, addr: u16) -> u16
     {
-        let value_be: u16 = ((self.bytes[addr_be as usize] as u16) << 8 & 0xFF00) |
-                            ((self.bytes[(addr_be+1) as usize] as u16) & 0x00FF);
+        let value_be: u16 = ((self.bytes[addr as usize] as u16) << 8 & 0xFF00) |
+                            ((self.bytes[(addr + 0x0001) as usize] as u16) & 0x00FF);
         value_be
     }
-    
-    pub fn read_word_lebe(&mut self, addr_le: u16) -> u16
-    {
-        let addr_be = ((addr_le << 8) & 0xFF) | ((addr_le >> 8) & 0xFF);
-        let value_be: u16 = ((self.bytes[addr_be as usize] as u16) << 8 & 0xFF00) |
-                            ((self.bytes[(addr_be+1) as usize] as u16) & 0x00FF);
-        value_be     
-    }
 
-    pub fn write_word_bele(&mut self, addr_be: u16, value_be: u16)
+    pub fn write_word_le(&mut self, addr: u16, value: u16)
     {
-        let value_le_hi: u8 = (((value_be << 8) & 0xFF00) >> 8 & 0xFF) as u8;
-        let value_le_lo: u8 = ((value_be >> 8) & 0x00FF) as u8;
+        let value_le_lo: u8 = (((value << 8) & 0xFF00) >> 8 & 0xFF) as u8;
+        let value_le_hi: u8 = ((value >> 8) & 0x00FF) as u8;
 
-        self.bytes[addr_be as usize] = value_le_hi;
-        self.bytes[(addr_be + 0x01) as usize] = value_le_lo;
-    }
-    
+        self.bytes[addr as usize] = value_le_lo;
+        self.bytes[(addr + 0x0001) as usize] = value_le_hi;
+    }    
+
+    pub fn write_word_be(&mut self, addr: u16, value: u16)
+    {
+        let value_le_lo: u8 = (((value << 8) & 0xFF00) >> 8 & 0xFF) as u8;
+        let value_le_hi: u8 = ((value >> 8) & 0x00FF) as u8;
+                                                              
+        self.bytes[addr as usize] = value_le_hi;
+        self.bytes[(addr + 0x0001) as usize] = value_le_lo;
+    }    
 }
 
 
@@ -154,7 +129,7 @@ impl CPU
         
         for (i,addr) in (startAddress..0xC000).enumerate()
         {
-            self.mem.write_byte_be(addr as u16, basic[i as usize]);
+            self.mem.write_byte(addr as u16, basic[i as usize]);
         }
 
         // load chargen
@@ -163,7 +138,7 @@ impl CPU
         
         for (i,addr) in (startAddress..0xE000).enumerate()
         {
-            self.mem.write_byte_be(addr as u16, chargen[i as usize]);
+            self.mem.write_byte(addr as u16, chargen[i as usize]);
         }
               
         // load kernal
@@ -172,11 +147,11 @@ impl CPU
         
         for (i,addr) in (startAddress..0x10000).enumerate()
         {
-            self.mem.write_byte_be(addr as u16, kernal[i as usize]);
+            self.mem.write_byte(addr as u16, kernal[i as usize]);
         }
 
         // reset program counter
-        self.PC = self.mem.read_word_bele(0xFFFC);     
+        self.PC = self.mem.read_word_le(0xFFFC);     
     }
 
     pub fn update(&mut self)
@@ -196,7 +171,7 @@ impl CPU
 
     fn fetch_op(&mut self) -> u8
     {
-        let op = self.mem.read_byte_be(self.PC);
+        let op = self.mem.read_byte(self.PC);
         self.PC += 1;
         op
     }
@@ -209,12 +184,12 @@ impl CPU
         if self.SP == 0xFF
             { panic!("Stack underflow"); }
         
-        self.mem.write_byte_be(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF, value);
+        self.mem.write_byte(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF, value);
     }
 
     fn pop_byte(&mut self) -> u8
     {
-        let value = self.mem.read_byte_be(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF);
+        let value = self.mem.read_byte(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF);
         self.PC += 0x01;
 
         if self.SP == 0x00
@@ -230,12 +205,12 @@ impl CPU
         if self.SP == 0xFF || self.SP == 0xFE
             { panic!("Stack underflow"); }
         
-        self.mem.write_word_bele(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF, value);
+        self.mem.write_word_le(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF, value);
     }
 
     fn pop_word(&mut self) -> u16
     {
-        let value = self.mem.read_word_bele(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF);
+        let value = self.mem.read_word_le(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF);
         self.PC += 0x02;
 
         if self.SP == 0x00 || self.SP == 0x01
@@ -253,7 +228,7 @@ impl CPU
     {
         for i in (0..0x10000)
         {
-            let val = self.mem.read_byte_be(i as u16);
+            let val = self.mem.read_byte(i as u16);
             if val != 0
                 { println!("Addr: ${:04X} -> 0x{:02X}", i, val); }
         }        
