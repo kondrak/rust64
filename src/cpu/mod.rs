@@ -87,7 +87,17 @@ impl Memory
         let value_be: u16 = ((self.bytes[addr_be as usize] as u16) << 8 & 0xFF00) |
                             ((self.bytes[(addr_be+1) as usize] as u16) & 0x00FF);
         value_be     
-    }    
+    }
+
+    pub fn write_word_bele(&mut self, addr_be: u16, value_be: u16)
+    {
+        let value_le_hi: u8 = (((value_be << 8) & 0xFF00) >> 8 & 0xFF) as u8;
+        let value_le_lo: u8 = ((value_be >> 8) & 0x00FF) as u8;
+
+        self.bytes[addr_be as usize] = value_le_hi;
+        self.bytes[(addr_be + 0x01) as usize] = value_le_lo;
+    }
+    
 }
 
 
@@ -109,7 +119,7 @@ enum StatusFlag
 pub struct CPU
 {
     PC: u16, // program counter
-    S: u8,   // stack pointer
+    SP: u8,  // stack pointer
     P: u8,   // processor status
     A: u8,   // accumulator
     X: u8,   // index register
@@ -124,7 +134,7 @@ impl CPU
         CPU
         {
             PC: 0,
-            S: 0,
+            SP: 0xFF,
             P: 0,
             A: 0,
             X: 0,
@@ -171,6 +181,8 @@ impl CPU
 
     pub fn update(&mut self)
     {
+        let op = self.fetch_op();
+        self.process_op(op);
         //self.process_op(15);
         //self.process_op(16);
         // process opcodes, to the cpu stuff
@@ -181,7 +193,56 @@ impl CPU
         //println!("{}", self.mem.bytes[i]);
         //}
     }     
- 
+
+    fn fetch_op(&mut self) -> u8
+    {
+        let op = self.mem.read_byte_be(self.PC);
+        self.PC += 1;
+        op
+    }
+
+    // stack memory: $0100 - $01FF (256 byes)
+    fn push_byte(&mut self, value: u8)
+    {
+        self.SP -= 0x01;
+
+        if self.SP == 0xFF
+            { panic!("Stack underflow"); }
+        
+        self.mem.write_byte_be(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF, value);
+    }
+
+    fn pop_byte(&mut self) -> u8
+    {
+        let value = self.mem.read_byte_be(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF);
+        self.PC += 0x01;
+
+        if self.SP == 0x00
+            { panic!("Stack overflow"); }
+        
+        value
+    }
+    
+    fn push_word(&mut self, value: u16)
+    {
+        self.SP -= 0x02;
+
+        if self.SP == 0xFF || self.SP == 0xFE
+            { panic!("Stack underflow"); }
+        
+        self.mem.write_word_bele(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF, value);
+    }
+
+    fn pop_word(&mut self) -> u16
+    {
+        let value = self.mem.read_word_bele(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF);
+        self.PC += 0x02;
+
+        if self.SP == 0x00 || self.SP == 0x01
+            { panic!("Stack overflow"); }
+        
+        value
+    }
 
     fn u8_to_enum(v: u8) -> opcodes::Opcodes
     {
@@ -194,7 +255,7 @@ impl CPU
         {
             let val = self.mem.read_byte_be(i as u16);
             if val != 0
-                { println!("Addr: {} {}", i, val); }
+                { println!("Addr: ${:04X} -> 0x{:02X}", i, val); }
         }        
     }
     
@@ -207,44 +268,44 @@ impl CPU
             Opcodes::BRK => println!("TODO: {}", opcode),
             Opcodes::NOP_zp   => (),
             Opcodes::NOP_abs  => (),
-            Opcodes::HLT1 => panic!("Received HLT1 instruction: 0x{0:X}", opcode),            
+            Opcodes::HLT1 => panic!("Received HLT1 instruction: 0x{:02X} at ${:02X}", opcode, self.PC),
             Opcodes::NOP_zpx  => (),
             Opcodes::NOP0     => (),
             Opcodes::NOP_abx  => (),
-            Opcodes::HLT2 => panic!("Received HLT2 instruction: 0x{0:X}", opcode),
-            Opcodes::HLT3 => panic!("Received HLT3 instruction: 0x{0:X}", opcode),         
+            Opcodes::HLT2 => panic!("Received HLT2 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
+            Opcodes::HLT3 => panic!("Received HLT3 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             Opcodes::NOP_zpx2 => (),
             Opcodes::NOP1     => (),
             Opcodes::NOP_abx2 => (),
-            Opcodes::HLT4 => panic!("Received HLT4 instruction: 0x{0:X}", opcode),            
+            Opcodes::HLT4 => panic!("Received HLT4 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             Opcodes::NOP2     => (),
-            Opcodes::HLT5 => panic!("Received HLT5 instruction: 0x{0:X}", opcode),            
+            Opcodes::HLT5 => panic!("Received HLT5 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             Opcodes::NOP_zpx3 => (),
             Opcodes::NOP3     => (),
             Opcodes::NOP_abx3 => (),
-            Opcodes::HLT6 => panic!("Received HLT6 instruction: 0x{0:X}", opcode),            
+            Opcodes::HLT6 => panic!("Received HLT6 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             Opcodes::NOP_zp2  => (),
-            Opcodes::HLT7 => panic!("Received HLT7 instruction: 0x{0:X}", opcode),            
+            Opcodes::HLT7 => panic!("Received HLT7 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             Opcodes::NOP_zpx4 => (),
             Opcodes::NOP4     => (),
             Opcodes::NOP_abx4 => (),
             Opcodes::NOP_imm  => (),
             Opcodes::NOP_imm2 => (),
             Opcodes::NOP_imm3 => (),
-            Opcodes::HLT8 => panic!("Received HLT8 instruction: 0x{0:X}", opcode),
-            Opcodes::HLT9 => panic!("Received HLT9 instruction: 0x{0:X}", opcode),            
+            Opcodes::HLT8 => panic!("Received HLT8 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
+            Opcodes::HLT9 => panic!("Received HLT9 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             Opcodes::NOP_imm4 => (),
-            Opcodes::HLT10 => panic!("Received HLT10 instruction: 0x{0:X}", opcode),            
+            Opcodes::HLT10 => panic!("Received HLT10 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             Opcodes::NOP_zpx5 => (),
             Opcodes::NOP5     => (),
             Opcodes::NOP_abx5 => (),
             Opcodes::NOP_imm5 => (),           
             Opcodes::NOP      => (),
-            Opcodes::HLT11 => panic!("Received HLT11 instruction: 0x{0:X}", opcode),            
+            Opcodes::HLT11 => panic!("Received HLT11 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             Opcodes::NOP_zpx6 => (),
             Opcodes::NOP6     => (),
             Opcodes::NOP_abx6 => (),
-            _ => println!("Unknown opcode: 0x{0:X}", opcode)
+            _ => println!("Unknown opcode: 0x{:02X} at ${:04X}", opcode, self.PC)
         }        
     }
 }
