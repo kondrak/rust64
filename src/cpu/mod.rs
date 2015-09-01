@@ -26,19 +26,19 @@ impl Memory
         self.write_byte(0x0001, 0x07);
     }
 
-    // Write to memory
+    // Write a byte to memory
     pub fn write_byte(&mut self, addr: u16, value: u8)
     {
         self.bytes[addr as usize] = value;
     }
     
-    // Read from memory
+    // Read a byte from memory
     pub fn read_byte(&mut self, addr: u16) -> u8
     {
         self.bytes[addr as usize]
     }
 
-    // Read a word from memory, convert it to little endian
+    // Read a word from memory (stored in little endian)
     pub fn read_word_le(&mut self, addr: u16) -> u16
     {
         let value_be: u16 = ((self.bytes[addr as usize] as u16) << 8 & 0xFF00) |
@@ -48,14 +48,15 @@ impl Memory
         value_le
     }
 
-    // read a word from memory as big endian
+    // Read a word from memory (stored in big endian: swap low<->high)
     pub fn read_word_be(&mut self, addr: u16) -> u16
     {
-        let value_be: u16 = ((self.bytes[addr as usize] as u16) << 8 & 0xFF00) |
+        let value_le: u16 = ((self.bytes[addr as usize] as u16) << 8 & 0xFF00) |
                             ((self.bytes[(addr + 0x0001) as usize] as u16) & 0x00FF);
-        value_be
+        value_le
     }
 
+    // Write word in little endian format (low/high)
     pub fn write_word_le(&mut self, addr: u16, value: u16)
     {
         let value_le_lo: u8 = (((value << 8) & 0xFF00) >> 8 & 0xFF) as u8;
@@ -65,6 +66,7 @@ impl Memory
         self.bytes[(addr + 0x0001) as usize] = value_le_hi;
     }    
 
+    // Write word in big endian format (high/low)
     pub fn write_word_be(&mut self, addr: u16, value: u16)
     {
         let value_le_lo: u8 = (((value << 8) & 0xFF00) >> 8 & 0xFF) as u8;
