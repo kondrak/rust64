@@ -87,7 +87,7 @@ impl CPU
 
     pub fn update(&mut self)
     {
-        let op = self.fetch_op();
+        let op = self.next_byte();
         self.process_op(op);
         //self.process_op(15);
         //self.process_op(16);
@@ -95,12 +95,20 @@ impl CPU
         //self.mem.bytes[0] = 1;
     }     
 
-    fn fetch_op(&mut self) -> u8
+    fn next_byte(&mut self) -> u8
     {
         let op = self.mem.read_byte(self.PC);
         self.PC += 1;
         op
     }
+
+    fn next_word(&mut self) -> u16
+    {
+        let word = self.mem.read_word_le(self.PC);
+        self.PC += 2;
+        word
+    }
+    
 
     // stack memory: $0100 - $01FF (256 byes)
     fn push_byte(&mut self, value: u8)
@@ -145,6 +153,194 @@ impl CPU
         value
     }
 
+    // operand fetching - different addressing modes
+    // implied addressing
+    fn get_operand_impl(&mut self)
+    {
+        // do nothing?
+    }
+
+    // accumulator addressing
+    fn get_operand_acc(&mut self) -> u8
+    {
+        self.A
+    }
+
+    // immediate addressing (operand stored at next byte)
+    fn get_operand_imm(&mut self) -> u8
+    {
+        self.next_byte()
+    }
+
+    // absolute addressing (addr of operand stored in next word)
+    fn get_operand_abs(&mut self) -> u8
+    {
+        let addr = self.next_word();
+        self.mem.read_byte(addr)
+    }
+
+    // indexed absolute addressing (with X)
+    fn get_operand_idx_absX(&mut self) -> u8
+    {
+        let nw = self.next_word();
+        let addr = self.mem.read_word_le(nw);
+        self.mem.read_byte(addr + self.X as u16)
+    }
+
+    // indexed absolute addressing (with Y)
+    fn get_operand_idx_absY(&mut self) -> u8
+    {
+        let nw = self.next_word();
+        let addr = self.mem.read_word_le(nw);
+        self.mem.read_byte(addr + self.Y as u16)
+    }    
+
+    // zeropage addressing
+    fn get_operand_zp(&mut self) -> u8
+    {
+        let nb = self.next_byte();
+        self.mem.read_byte(nb as u16)
+    }
+
+    // indexed zeropage addressing (with X)
+    fn get_operand_idx_zpX(&mut self) -> u8
+    {
+        let nb = self.next_byte();
+        let addr = self.mem.read_word_le(nb as u16);
+        self.mem.read_byte(addr + self.X as u16)
+    }
+
+    // indexed zeropage addressing (with Y)
+    fn get_operand_idx_zpY(&mut self) -> u8
+    {
+        let nb = self.next_byte();
+        let addr = self.mem.read_word_le(nb as u16);
+        self.mem.read_byte(addr + self.Y as u16)
+    }    
+
+    // relative addressing
+    fn get_operand_rel(&mut self) -> u8
+    {
+        let offset: i8 = self.next_byte() as i8;
+        self.mem.read_byte(self.PC + offset as u16)
+    }
+
+    // absolute-indirect addressing
+    fn get_operand_abs_ind(&mut self) -> u8
+    {
+        // same as abs?
+        panic!("get_operand_abs_ind() not implemented")
+    }
+
+    // indexed-indirect addressing
+    fn get_operand_idx_ind(&mut self) -> u8
+    {
+        let nb = self.next_byte();
+        let addr = self.mem.read_word_le(nb as u16);
+        self.mem.read_byte(addr + self.X as u16)
+    }
+
+    // indirect-indexed addressing
+    fn get_operand_ind_idx(&mut self) -> u8
+    {
+        let nb = self.next_byte();
+        let addr = self.mem.read_word_le(nb as u16);
+        let finalAddr = self.mem.read_word_le(addr) + self.Y as u16;
+        self.mem.read_byte(finalAddr)
+    }
+
+    // operand setting
+    fn set_operand_acc(&mut self, value: u8)
+    {
+        self.A = value;
+    }
+
+    // immediate addressing (operand stored at next byte)
+    fn set_operand_imm(&mut self, value: u8)
+    {
+        let addr = self.next_byte() as u16;
+        self.mem.write_byte(addr, value);
+    }
+
+    // absolute addressing (addr of operand stored in next word)
+    fn set_operand_abs(&mut self, value: u8)
+    {
+        let addr = self.next_word();
+        self.mem.write_byte(addr, value);
+    }
+
+    // indexed absolute addressing (with X)
+    fn set_operand_idx_absX(&mut self, value: u8)
+    {
+        let nw = self.next_word();
+        let addr = self.mem.read_word_le(nw);
+        self.mem.write_byte(addr + self.X as u16, value);
+    }
+
+    // indexed absolute addressing (with Y)
+    fn set_operand_idx_absY(&mut self, value: u8)
+    {
+        let nw = self.next_word();
+        let addr = self.mem.read_word_le(nw);
+        self.mem.write_byte(addr + self.Y as u16, value);
+    }    
+
+    // zeropage addressing
+    fn set_operand_zp(&mut self, value: u8)
+    {
+        let nb = self.next_byte() as u16;
+        self.mem.write_byte(nb, value);
+    }
+
+    // indexed zeropage addressing (with X)
+    fn set_operand_idx_zpX(&mut self, value: u8)
+    {
+        let nb = self.next_byte();
+        let addr = self.mem.read_word_le(nb as u16);
+        self.mem.write_byte(addr + self.X as u16, value);
+    }
+
+    // indexed zeropage addressing (with Y)
+    fn set_operand_idx_zpY(&mut self, value: u8)
+    {
+        let nb = self.next_byte();
+        let addr = self.mem.read_word_le(nb as u16);
+        self.mem.write_byte(addr + self.Y as u16, value);
+    }    
+
+    // relative addressing
+    fn set_operand_rel(&mut self, value: u8)
+    {
+        let offset: i8 = self.next_byte() as i8;
+        self.mem.write_byte(self.PC + offset as u16, value);
+    }
+
+    // absolute-indirect addressing
+    fn set_operand_abs_ind(&mut self, value: u8)
+    {
+        // same as abs?
+        panic!("get_operand_abs_ind() not implemented")
+    }
+
+    // indexed-indirect addressing
+    fn set_operand_idx_ind(&mut self, value: u8)
+    {
+        let nb = self.next_byte();
+        let addr = self.mem.read_word_le(nb as u16);
+        self.mem.write_byte(addr + self.X as u16, value);
+    }
+
+    // indirect-indexed addressing
+    fn set_operand_ind_idx(&mut self, value: u8)
+    {
+        let nb = self.next_byte();
+        let addr = self.mem.read_word_le(nb as u16);
+        let finalAddr = self.mem.read_word_le(addr) + self.Y as u16;
+        self.mem.write_byte(finalAddr, value);
+    }
+    
+    
+    
     fn u8_to_enum(v: u8) -> opcodes::Opcodes
     {
         unsafe { mem::transmute(v) }
