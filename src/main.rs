@@ -1,5 +1,6 @@
 mod cpu;
 mod utils;
+mod memory;
 extern crate sdl2;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
@@ -72,7 +73,7 @@ fn main()
             match event
             {
                 Event::KeyDown { keycode: Some(Keycode::A), .. } => {
-                    texture.update(None, &buff2, 768);
+                    let _ = texture.update(None, &buff2, 768);
                 },                
                 Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                         running = false;
