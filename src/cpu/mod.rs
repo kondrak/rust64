@@ -223,7 +223,8 @@ impl CPU
     fn get_operand_rel(&mut self) -> u8
     {
         let offset: i8 = self.next_byte() as i8;
-        self.mem.read_byte(self.PC + offset as u16)
+        let addr: i16 = self.PC as i16 + offset as i16;
+        self.mem.read_byte(addr as u16)
     }
 
     // absolute-indirect addressing
@@ -313,7 +314,8 @@ impl CPU
     fn set_operand_rel(&mut self, value: u8)
     {
         let offset: i8 = self.next_byte() as i8;
-        self.mem.write_byte(self.PC + offset as u16, value);
+        let addr: i16 = self.PC as i16 + offset as i16;
+        self.mem.write_byte(addr as u16, value);
     }
 
     // absolute-indirect addressing
