@@ -11,14 +11,14 @@ use std::mem;
 // status flags for P register
 enum StatusFlag
 {
-    N = 1 << 0, // negative flag
-    V = 1 << 1, // overflow flag
-    X = 1 << 2, // unused flag
-    B = 1 << 3, // break flag
-    D = 1 << 4, // decimal mode flag
-    I = 1 << 5, // interrupt disable flag
-    Z = 1 << 6, // zero flag
-    C = 1 << 7  // carry flag
+    Negative         = 1 << 0,
+    Overflow         = 1 << 1,
+    Unused           = 1 << 2,
+    Break            = 1 << 3,
+    DecimalMode      = 1 << 4,
+    InterruptDisable = 1 << 5,
+    Zero             = 1 << 6,
+    Carry            = 1 << 7 
 }
 
 
@@ -30,7 +30,7 @@ pub struct CPU
     A: u8,   // accumulator
     X: u8,   // index register
     Y: u8,   // index register
-    mem: memory::Memory
+    mem: memory::Memory // system memory (64k)
 }
 
 impl CPU
@@ -47,6 +47,30 @@ impl CPU
             Y: 0,
             mem: memory::Memory::new()
         }        
+    }
+
+    fn set_status_flag(&mut self, flag: StatusFlag, value: bool)
+    {
+        if value
+        {
+            self.P |= flag as u8;
+        }
+        else
+        {
+            self.P &= !(flag as u8);
+        }
+    }
+
+    fn get_status_flag(&mut self, flag: StatusFlag) -> bool
+    {
+        self.P & flag as u8 != 0x00
+    }
+
+    // these flags will be set in tandem quite often
+    fn set_zn_flags(&mut self, value: u8)
+    {
+        self.set_status_flag(StatusFlag::Zero, value == 0x00);
+        self.set_status_flag(StatusFlag::Negative, (value as i8) < 0);
     }
     
     pub fn reset(&mut self)

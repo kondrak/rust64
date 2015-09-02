@@ -10,7 +10,7 @@ impl Memory
     {
         Memory
         {
-            bytes: [0;65536]
+            bytes: [0;0x10000] // 64k memory
         }        
     }
 
