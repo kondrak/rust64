@@ -83,7 +83,8 @@ impl CPU
 
         // reset program counter
         self.PC = self.mem.read_word_le(0xFFFC);     
-    }
+        self.SP = 0xFF;
+	}
 
     pub fn update(&mut self)
     {
