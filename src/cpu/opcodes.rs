@@ -13,6 +13,26 @@
 
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
+
+use cpu;
+
+pub enum AddrMode
+{
+    Implied,
+    Accumulator,
+    Immediate,
+    Absolute,
+    IndexedAbsoluteX,
+    IndexedAbsoluteY,
+    Zeropage,
+    ZeropageIndexedX,
+    ZeropageIndexedY,
+    Relative,
+    AbsoluteIndirect,
+    IndexedIndirectX,
+    IndirectIndexedY
+}
+
 pub enum Opcodes
 {
     BRK     = 0x00,
@@ -273,4 +293,70 @@ pub enum Opcodes
     ISC_abx = 0xFF // forbidden opcode
 }
 
-    
+
+// fetch operand address 
+fn get_operand_addr(mode: AddrMode, cpu: &mut cpu::CPU) -> u16
+{
+    match mode
+    {
+        AddrMode::Implied           => panic!("Trying to fetch operand addr in implied addr mode."),
+        AddrMode::Accumulator       => panic!("Trying to fetch operand addr in accumulator addr mode."),
+        AddrMode::Immediate         => panic!("Trying to fetch operand addr in immediate addr mode."),
+        AddrMode::Absolute          => cpu.next_word(),
+        AddrMode::IndexedAbsoluteX  => {
+            let nw = cpu.next_word();
+            cpu.mem.read_word_le(nw) + cpu.X as u16 },
+        AddrMode::IndexedAbsoluteY  => {
+            let nw = cpu.next_word();
+            cpu.mem.read_word_le(nw) + cpu.Y as u16 },
+        AddrMode::Zeropage          => cpu.next_byte() as u16,
+        AddrMode::ZeropageIndexedX  => {
+            let nb = cpu.next_byte();
+            cpu.mem.read_word_le(nb as u16) + cpu.X as u16 },
+        AddrMode::ZeropageIndexedY  => {
+            let nb = cpu.next_byte();
+            cpu.mem.read_word_le(nb as u16) + cpu.Y as u16 },
+        AddrMode::Relative          => {
+            let offset: i8 = cpu.next_byte() as i8;
+            (cpu.PC as i16 + offset as i16) as u16 },
+        AddrMode::AbsoluteIndirect  => panic!("abs_ind not implemented"),
+        AddrMode::IndexedIndirectX  => {
+            let nb = cpu.next_byte();
+            cpu.mem.read_word_le(nb as u16) + cpu.X as u16 },
+        AddrMode::IndirectIndexedY  => {
+            let nb = cpu.next_byte();
+            let addr = cpu.mem.read_word_le(nb as u16);
+            cpu.mem.read_word_le(addr) + cpu.Y as u16 },                        
+    }    
+}
+
+// fetch operand value
+pub fn get_operand(mode: AddrMode, cpu: &mut cpu::CPU) -> u8
+{
+    match mode
+    {
+        AddrMode::Implied     => panic!("Trying to fetch operand in implied addr mode."),
+        AddrMode::Accumulator => cpu.A,
+        AddrMode::Immediate   => cpu.next_byte(),
+        _ => {
+            let opAddr = get_operand_addr(mode, cpu);
+            cpu.mem.read_byte(opAddr)
+        }
+    }    
+}
+
+// set operand value
+pub fn set_operand(mode: AddrMode, cpu: &mut cpu::CPU, value: u8)
+{
+    match mode
+    {
+        AddrMode::Implied     => panic!("Trying to set operand in implied addr mode."),        
+        AddrMode::Accumulator => cpu.A = value,
+        AddrMode::Immediate   => panic!("Trying to set operand in immediate addr mode."),
+        AddrMode::Relative    => panic!("Trying to set operand in relative addr mode."),
+        _ => {
+            let opAddr = get_operand_addr(mode, cpu);
+            cpu.mem.write_byte(opAddr, value)
+        }
+    }
+}
