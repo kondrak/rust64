@@ -21,6 +21,8 @@ enum StatusFlag
     Carry            = 1 << 7 
 }
 
+static RESET_VECTOR: u16 = 0xFFFC;
+static IRQ_VECTOR:   u16 = 0xFFFE;
 
 pub struct CPU
 {
@@ -106,9 +108,9 @@ impl CPU
         }
 
         // reset program counter
-        self.PC = self.mem.read_word_le(0xFFFC);     
+        self.PC = self.mem.read_word_le(RESET_VECTOR);
         self.SP = 0xFF;
-	}
+    }
 
     pub fn update(&mut self)
     {
@@ -194,24 +196,40 @@ impl CPU
     }
     
     
-    fn process_op(&self, opcode: u8)
+    fn process_op(&mut self, opcode: u8)
     {
         use cpu::opcodes::Opcodes;
+
+        let mut num_cycles = 0;
+        
         match CPU::u8_to_enum(opcode)
         {
-            //Opcodes::BRK     => println!("TODO: {}", opcode),
+            Opcodes::BRK     => {
+                self.set_status_flag(StatusFlag::Break, true);
+                let pc = self.PC + 0x0002;
+                let p  = self.P;
+                self.push_word(pc);
+                self.push_byte(p);
+                self.PC = self.mem.read_word_le(IRQ_VECTOR);
+                self.set_status_flag(StatusFlag::InterruptDisable, true);
+                num_cycles = 7;
+            },
             //Opcodes::ORA_izx => println!("TODO: {}", opcode),
-            //Opcodes::HLT0    => panic!("Received HLT0 instruction: 0x(:02X} at ${:02X}", opcode, self.PC),
+            Opcodes::HLT0    => panic!("Received HLT0 instruction: 0x{:02X} at ${:02X}", opcode, self.PC),
             //Opcodes::SLO_izx => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_zp  => (),
+            Opcodes::NOP_zp  => num_cycles = 2,
             //Opcodes::ORA_zp   => println!("TODO: {}", opcode),
             //Opcodes::ASL_zp   => println!("TODO: {}", opcode),
             //Opcodes::SLO_zp   => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::PHP      => println!("TODO: {}", opcode),
+            Opcodes::PHP      => {
+                let p = self.P;
+                self.push_byte(p);
+                num_cycles = 3;
+            },
             //Opcodes::ORA_imm  => println!("TODO: {}", opcode),
             //Opcodes::ASL      => println!("TODO: {}", opcode),
             //Opcodes::ANC_imm  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_abs  => (),
+            Opcodes::NOP_abs  => num_cycles = 2,
             //Opcodes::ORA_abs  => println!("TODO: {}", opcode),
             //Opcodes::ASL_abs  => println!("TODO: {}", opcode),
             //Opcodes::SLO_abs  => println!("TODO: (FORBIDDEN) {}", opcode),
@@ -219,15 +237,18 @@ impl CPU
             //Opcodes::ORA_izy  => println!("TODO: {}", opcode),
             Opcodes::HLT1     => panic!("Received HLT1 instruction: 0x{:02X} at ${:02X}", opcode, self.PC),
             //Opcodes::SLO_izy  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_zpx  => (),
+            Opcodes::NOP_zpx  => num_cycles = 2,
             //Opcodes::ORA_zpx  => println!("TODO: {}", opcode),
             //Opcodes::ASL_zpx  => println!("TODO: {}", opcode),
             //Opcodes::SLO_zpx  => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::CLC      => println!("TODO: {}", opcode),
+            Opcodes::CLC      => {
+                self.set_status_flag(StatusFlag::Carry, false);
+                num_cycles = 1;
+            },
             //Opcodes::ORA_aby  => println!("TODO: {}", opcode),
-            Opcodes::NOP0     => (),
+            Opcodes::NOP0     => num_cycles = 2,
             //Opcodes::SLO_aby  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_abx  => (),
+            Opcodes::NOP_abx  => num_cycles = 2,
             //Opcodes::ORA_abx  => println!("TODO: {}", opcode),
             //Opcodes::ASL_abx  => println!("TODO: {}", opcode),
             //Opcodes::SLO_abx  => println!("TODO: (FORBIDDEN) {}", opcode),
@@ -239,7 +260,13 @@ impl CPU
             //Opcodes::AND_zp   => println!("TODO: {}", opcode),
             //Opcodes::ROL_zp   => println!("TODO: {}", opcode),
             //Opcodes::RLA_zp   => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::PLP      => println!("TODO: {}", opcode),
+            Opcodes::PLP      => {
+                let p = self.pop_byte();
+                self.P = p;
+                // PLP may affect even the unused flag bit
+                self.P |= 0x20;
+                num_cycles = 4;
+            },
             //Opcodes::AND_imm  => println!("TODO: {}", opcode),
             //Opcodes::ROL      => println!("TODO: {}", opcode),
             //Opcodes::ANC_im2  => println!("TODO: (FORBIDDEN) {}", opcode),
@@ -251,27 +278,41 @@ impl CPU
             //Opcodes::AND_izy  => println!("TODO: {}", opcode),
             Opcodes::HLT3     => panic!("Received HLT3 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             //Opcodes::RLA_izy  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_zpx2 => (),
+            Opcodes::NOP_zpx2 => num_cycles = 2,
             //Opcodes::AND_zpx  => println!("TODO: {}", opcode),
             //Opcodes::ROL_zpx  => println!("TODO: {}", opcode),
             //Opcodes::RLA_zpx  => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::SEC      => println!("TODO: {}", opcode),
+            Opcodes::SEC      => {
+                self.set_status_flag(StatusFlag::Carry, true);
+                num_cycles = 2;
+            },
             //Opcodes::AND_aby  => println!("TODO: {}", opcode),
-            Opcodes::NOP1     => (),
+            Opcodes::NOP1     => num_cycles = 2,
             //Opcodes::RLA_aby  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_abx2 => (),
+            Opcodes::NOP_abx2 => num_cycles = 2,
             //Opcodes::AND_abx  => println!("TODO: {}", opcode),
             //Opcodes::ROL_abx  => println!("TODO: {}", opcode),
             //Opcodes::RLA_abx  => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::RTI      => println!("TODO: {}", opcode),
+            Opcodes::RTI      => {
+                let p = self.pop_byte();
+                let pc = self.pop_word();
+                self.P = p;
+                self.PC = pc;
+                self.P |= 0x20;
+                num_cycles = 6;
+            },
             //Opcodes::EOR_izx  => println!("TODO: {}", opcode),
             Opcodes::HLT4     => panic!("Received HLT4 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             //Opcodes::SRE_izx  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP2     => (),
+            Opcodes::NOP2     => num_cycles = 2,
             //Opcodes::EOR_zp   => println!("TODO: {}", opcode),
             //Opcodes::LSR_zp   => println!("TODO: {}", opcode),
             //Opcodes::SRE_zp   => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::PHA      => println!("TODO: {}", opcode),
+            Opcodes::PHA      => {
+                let a = self.A;
+                self.push_byte(a);
+                num_cycles = 3;
+            },
             //Opcodes::EOR_imm  => println!("TODO: {}", opcode),
             //Opcodes::LSR      => println!("TODO: {}", opcode),
             //Opcodes::ALR_imm  => println!("TODO: (FORBIDDEN) {}", opcode),
@@ -283,27 +324,39 @@ impl CPU
             //Opcodes::EOR_izy  => println!("TODO: {}", opcode),
             Opcodes::HLT5     => panic!("Received HLT5 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             //Opcodes::SRE_izy  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_zpx3 => (),
+            Opcodes::NOP_zpx3 => num_cycles = 2,
             //Opcodes::EOR_zpx  => println!("TODO: {}", opcode),
             //Opcodes::LSR_zpx  => println!("TODO: {}", opcode),
             //Opcodes::SRE_zpx  => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::CLI      => println!("TODO: {}", opcode),
+            Opcodes::CLI      => {
+                self.set_status_flag(StatusFlag::InterruptDisable, false);
+                num_cycles = 2;
+            },
             //Opcodes::EOR_aby  => println!("TODO: {}", opcode),
-            Opcodes::NOP3     => (),
+            Opcodes::NOP3     => num_cycles = 2,
             //Opcodes::SRE_aby  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_abx3 => (),
+            Opcodes::NOP_abx3 => num_cycles = 2,
             //Opcodes::EOR_abx  => println!("TODO: {}", opcode),
             //Opcodes::LSR_abx  => println!("TODO: {}", opcode),
             //Opcodes::SRE_abx  => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::RTS      => println!("TODO: {}", opcode),
+            Opcodes::RTS      => {
+                let pc = self.pop_word();
+                self.PC = pc + 0x0001;
+                num_cycles = 6;
+            },
             //Opcodes::ADC_izx  => println!("TODO: {}", opcode),
             Opcodes::HLT6     => panic!("Received HLT6 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             //Opcodes::RRA_izx  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_zp2  => (),
+            Opcodes::NOP_zp2  => num_cycles = 2,
             //Opcodes::ADC_zp   => println!("TODO: {}", opcode),
             //Opcodes::ROR_zp   => println!("TODO: {}", opcode),
             //Opcodes::RRA_zp   => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::PLA      => println!("TODO: {}", opcode),
+            Opcodes::PLA      => {
+                let a = self.pop_byte();
+                self.A = a;
+                self.set_zn_flags(a);
+                num_cycles = 4;
+            },
             //Opcodes::ADC_imm  => println!("TODO: {}", opcode),
             //Opcodes::ROR      => println!("TODO: {}", opcode),
             //Opcodes::ARR      => println!("TODO: (FORBIDDEN) {}", opcode),
@@ -315,29 +368,42 @@ impl CPU
             //Opcodes::ADC_izy  => println!("TODO: {}", opcode),
             Opcodes::HLT7     => panic!("Received HLT7 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             //Opcodes::RRA_izy  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_zpx4 => (),
+            Opcodes::NOP_zpx4 => num_cycles = 2,
             //Opcodes::ADC_zpx  => println!("TODO: {}", opcode),
             //Opcodes::ROR_zpx  => println!("TODO: {}", opcode),
             //Opcodes::RRA_zpx  => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::SEI      => println!("TODO: {}", opcode),
+            Opcodes::SEI      => {
+                self.set_status_flag(StatusFlag::InterruptDisable, true);
+                num_cycles = 2;
+            },
             //Opcodes::ADC_aby  => println!("TODO: {}", opcode),
-            Opcodes::NOP4     => (),
+            Opcodes::NOP4     => num_cycles = 2,
             //Opcodes::RRA_aby  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_abx4 => (),
+            Opcodes::NOP_abx4 => num_cycles = 2,
             //Opcodes::ADC_abx  => println!("TODO: {}", opcode),
             //Opcodes::ROR_abx  => println!("TODO: {}", opcode),
             //Opcodes::RRA_abx  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_imm  => (),
+            Opcodes::NOP_imm  => num_cycles = 2,
             //Opcodes::STA_izx  => println!("TODO: {}", opcode),
-            Opcodes::NOP_imm2 => (),
+            Opcodes::NOP_imm2 => num_cycles = 2,
             //Opcodes::SAX_izx  => println!("TODO: (FORBIDDEN) {}", opcode),
             //Opcodes::STY_zp   => println!("TODO: {}", opcode),
             //Opcodes::STA_zp   => println!("TODO: {}", opcode),
             //Opcodes::STX_zp   => println!("TODO: {}", opcode),
             //Opcodes::SAX_zp   => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::DEY      => println!("TODO: {}", opcode),
-            Opcodes::NOP_imm3 => (),
-            //Opcodes::TXA      => println!("TODO: {}", opcode),
+            Opcodes::DEY      => {
+                self.Y -= 1;
+                let y = self.Y;
+                self.set_zn_flags(y);
+                num_cycles = 2;
+            },
+            Opcodes::NOP_imm3 => num_cycles = 2,
+            Opcodes::TXA      => {
+                self.A = self.X;
+                let a = self.A;
+                self.set_zn_flags(a);
+                num_cycles = 2;
+            },
             //Opcodes::XAA_imm  => println!("TODO: (FORBIDDEN) {}", opcode),
             //Opcodes::STY_abs  => println!("TODO: {}", opcode),
             //Opcodes::STA_abs  => println!("TODO: {}", opcode),
@@ -351,9 +417,17 @@ impl CPU
             //Opcodes::STA_zpx  => println!("TODO: {}", opcode),
             //Opcodes::STX_zpy  => println!("TODO: {}", opcode),
             //Opcodes::SAX_zpy  => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::TYA      => println!("TODO: {}", opcode),
+            Opcodes::TYA      => {
+                self.A = self.Y;
+                let a = self.A;
+                self.set_zn_flags(a);
+                num_cycles = 2;
+            },
             //Opcodes::STA_aby  => println!("TODO: {}", opcode),
-            //Opcodes::TXS      => println!("TODO: {}", opcode),
+            Opcodes::TXS      => {
+                self.SP = self.X;
+                num_cycles = 2;
+            },
             //Opcodes::TAS_aby  => println!("TODO: (FORBIDDEN) {}", opcode),
             //Opcodes::SHY_abx  => println!("TODO: (FORBIDDEN) {}", opcode),
             //Opcodes::STA_abx  => println!("TODO: {}", opcode),
@@ -367,9 +441,19 @@ impl CPU
             //Opcodes::LDA_zp   => println!("TODO: {}", opcode),
             //Opcodes::LDX_zp   => println!("TODO: {}", opcode),
             //Opcodes::LAX_zp   => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::TAY      => println!("TODO: {}", opcode),
+            Opcodes::TAY      => {
+                self.Y = self.A;
+                let y = self.Y;
+                self.set_zn_flags(y);
+                num_cycles = 2;
+            },
             //Opcodes::LDA_imm  => println!("TODO: {}", opcode),
-            //Opcodes::TAX      => println!("TODO: {}", opcode),
+            Opcodes::TAX      => {
+                self.X = self.A;
+                let x = self.X;
+                self.set_zn_flags(x);
+                num_cycles = 2;
+            },
             //Opcodes::LAX_imm  => println!("TODO: (FORBIDDEN) {}", opcode),
             //Opcodes::LDY_abs  => println!("TODO: {}", opcode),
             //Opcodes::LDA_abs  => println!("TODO: {}", opcode),
@@ -383,9 +467,17 @@ impl CPU
             //Opcodes::LDA_zpx  => println!("TODO: {}", opcode),
             //Opcodes::LDX_zpy  => println!("TODO: {}", opcode),
             //Opcodes::LAX_zpy  => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::CLV      => println!("TODO: {}", opcode),
+            Opcodes::CLV      => {
+                self.set_status_flag(StatusFlag::Overflow, false);
+                num_cycles = 2;
+            },
             //Opcodes::LDA_aby  => println!("TODO: {}", opcode),
-            //Opcodes::TSX      => println!("TODO: {}", opcode),
+            Opcodes::TSX      => {
+                self.X = self.SP;
+                let x = self.X;
+                self.set_zn_flags(x);
+                num_cycles = 2;
+            },
             //Opcodes::LAS_aby  => println!("TODO: (FORBIDDEN) {}", opcode),
             //Opcodes::LDY_abx  => println!("TODO: {}", opcode),
             //Opcodes::LDA_abx  => println!("TODO: {}", opcode),
@@ -393,15 +485,25 @@ impl CPU
             //Opcodes::LAX_aby  => println!("TODO: (FORBIDDEN) {}", opcode),
             //Opcodes::CPY_imm  => println!("TODO: {}", opcode),
             //Opcodes::CMP_izx  => println!("TODO: {}", opcode),
-            Opcodes::NOP_imm4 => (),
+            Opcodes::NOP_imm4 => num_cycles = 2,
             //Opcodes::DCP_izx  => println!("TODO: (FORBIDDEN) {}", opcode),
             //Opcodes::CPY_zp   => println!("TODO: {}", opcode),
             //Opcodes::CMP_zp   => println!("TODO: {}", opcode),
             //Opcodes::DEC_zp   => println!("TODO: {}", opcode),
             //Opcodes::DCP_zp   => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::INY      => println!("TODO: {}", opcode),
+            Opcodes::INY      => {
+                self.Y += 1;
+                let y = self.Y;
+                self.set_zn_flags(y);
+                num_cycles = 2;
+            },
             //Opcodes::CMP_imm  => println!("TODO: {}", opcode),
-            //Opcodes::DEX      => println!("TODO: {}", opcode),
+            Opcodes::DEX      => {
+                self.X -= 1;
+                let x = self.X;
+                self.set_zn_flags(x);
+                num_cycles = 2;
+            },
             //Opcodes::AXS_imm  => println!("TODO: (FORBIDDEN) {}", opcode),
             //Opcodes::CPY_abs  => println!("TODO: {}", opcode),
             //Opcodes::CMP_abs  => println!("TODO: {}", opcode),
@@ -411,29 +513,37 @@ impl CPU
             //Opcodes::CMP_izy  => println!("TODO: {}", opcode),
             Opcodes::HLT10    => panic!("Received HLT10 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             //Opcodes::DCP_izy  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_zpx5 => (),
+            Opcodes::NOP_zpx5 => num_cycles = 2,
             //Opcodes::CMP_zpx  => println!("TODO: {}", opcode),
             //Opcodes::DEC_zpx  => println!("TODO: {}", opcode),
             //Opcodes::DCP_zpx  => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::CLD      => println!("TODO: {}", opcode),
+            Opcodes::CLD      => {
+                self.set_status_flag(StatusFlag::DecimalMode, false);
+                num_cycles = 2;
+            },
             //Opcodes::CMP_aby  => println!("TODO: {}", opcode),
-            Opcodes::NOP5     => (),
+            Opcodes::NOP5     => num_cycles = 2,
             //Opcodes::DCP_aby  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_abx5 => (),
+            Opcodes::NOP_abx5 => num_cycles = 2,
             //Opcodes::CMP_abx  => println!("TODO: {}", opcode),
             //Opcodes::DEC_abx  => println!("TODO: {}", opcode),
             //Opcodes::DCP_abx  => println!("TODO: (FORBIDDEN) {}", opcode),
             //Opcodes::CPX_imm  => println!("TODO: {}", opcode),
             //Opcodes::SBC_izx  => println!("TODO: {}", opcode),
-            Opcodes::NOP_imm5 => (),
+            Opcodes::NOP_imm5 => num_cycles = 2,
             //Opcodes::ISC_izx  => println!("TODO: (FORBIDDEN) {}", opcode),
             //Opcodes::CPX_zp   => println!("TODO: {}", opcode),
             //Opcodes::SBC_zp   => println!("TODO: {}", opcode),
             //Opcodes::INC_zp   => println!("TODO: {}", opcode),
             //Opcodes::ISC_zp   => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::INX      => println!("TODO: {}", opcode),
+            Opcodes::INX      => {
+                self.X += 1;
+                let x = self.X;
+                self.set_zn_flags(x);
+                num_cycles = 2;
+            },
             //Opcodes::SBC_imm  => println!("TODO: {}", opcode),
-            Opcodes::NOP      => (),
+            Opcodes::NOP      => num_cycles = 2,
             //Opcodes::SBC_imm2 => println!("TODO: (FORBIDDEN) {}", opcode),
             //Opcodes::CPX      => println!("TODO: {}", opcode),
             //Opcodes::SBC_abs  => println!("TODO: {}", opcode),
@@ -443,15 +553,18 @@ impl CPU
             //Opcodes::SBC_izy  => println!("TODO: {}", opcode),
             Opcodes::HLT11    => panic!("Received HLT11 instruction: 0x{:02X} at ${:04X}", opcode, self.PC),
             //Opcodes::ISC_izy  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_zpx6 => (),
+            Opcodes::NOP_zpx6 => num_cycles = 2,
             //Opcodes::SBC_zpx  => println!("TODO: {}", opcode),
             //Opcodes::INC_zpx  => println!("TODO: {}", opcode),
             //Opcodes::ISC_zpx  => println!("TODO: (FORBIDDEN) {}", opcode),
-            //Opcodes::SED      => println!("TODO: {}", opcode),
+            Opcodes::SED      => {
+                self.set_status_flag(StatusFlag::DecimalMode, true);
+                num_cycles = 2;
+            },
             //Opcodes::SBC_aby  => println!("TODO: {}", opcode),
-            Opcodes::NOP6     => (),
+            Opcodes::NOP6     => num_cycles = 2,
             //Opcodes::ISC_aby  => println!("TODO: (FORBIDDEN) {}", opcode),
-            Opcodes::NOP_abx6 => (),
+            Opcodes::NOP_abx6 => num_cycles = 2,
             //Opcodes::SBC_abx  => println!("TODO: {}", opcode),
             //Opcodes::INC_abx  => println!("TODO: {}", opcode),
             //Opcodes::ISC_abx  => println!("TODO: (FORBIDDEN) {}", opcode),
