@@ -14,6 +14,7 @@
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 use cpu;
+use std::fmt;
 
 pub enum AddrMode
 {
@@ -80,18 +81,171 @@ impl Op
 {
     pub fn run(&self, addr_mode: &AddrMode, cpu: &mut cpu::CPU)
     {
-       /*  match *self
+        match *self
         {
-            // Instruction::LDA => (),
-            _ => println!("Opcode {}", self)
-        } */        
+            Op::TAX => {
+                cpu.X = cpu.A;
+                let x = cpu.X;
+                cpu.set_zn_flags(x);
+            },
+            Op::TAY => {
+                cpu.Y = cpu.A;
+                let y = cpu.Y;
+                cpu.set_zn_flags(y);
+            },
+            Op::TXA => {
+                cpu.A = cpu.X;
+                let a = cpu.A;
+                cpu.set_zn_flags(a);
+            },
+            Op::TYA => {
+                cpu.A = cpu.Y;
+                let a = cpu.A;
+                cpu.set_zn_flags(a);
+            },
+            Op::TSX => {
+                cpu.X = cpu.SP;
+                let x = cpu.X;
+                cpu.set_zn_flags(x);
+            },
+            Op::TXS => {
+                cpu.SP = cpu.X;
+            },
+            Op::PHA => {
+                let a = cpu.A;
+                cpu.push_byte(a);
+            },
+            Op::PHP => {
+                let p = cpu.P;
+                cpu.push_byte(p);
+            },
+            Op::PLA => {
+                let a = cpu.pop_byte();
+                cpu.A = a;
+                cpu.set_zn_flags(a);
+            },
+            Op::PLP => {
+                let p = cpu.pop_byte();
+                cpu.P = p;
+                // PLP may affect even the unused flag bit
+                cpu.P |= 0x20;
+            },
+            Op::INX => {
+                cpu.X += 1;
+                let x = cpu.X;
+                cpu.set_zn_flags(x);
+            },
+            Op::INY => {
+                cpu.Y += 1;
+                let y = cpu.Y;
+                cpu.set_zn_flags(y);
+            },
+            Op::DEX => {
+                cpu.X -= 1;
+                let x = cpu.X;
+                cpu.set_zn_flags(x);
+            },
+            Op::DEY => {
+                cpu.Y -= 1;
+                let y = cpu.Y;
+                cpu.set_zn_flags(y);
+            },
+            Op::RTS => {
+                let pc = cpu.pop_word();
+                cpu.PC = pc + 0x0001;
+            },
+            Op::CLC => {
+                cpu.set_status_flag(cpu::StatusFlag::Carry, false);
+            },
+            Op::CLD => {
+                cpu.set_status_flag(cpu::StatusFlag::DecimalMode, false);
+            },
+            Op::CLI => {
+                cpu.set_status_flag(cpu::StatusFlag::InterruptDisable, false);
+            },
+            Op::CLV => {
+                cpu.set_status_flag(cpu::StatusFlag::Overflow, false);
+            },
+            Op::SEC => {
+                cpu.set_status_flag(cpu::StatusFlag::Carry, true);
+            },
+            Op::SED => {
+                cpu.set_status_flag(cpu::StatusFlag::DecimalMode, true);
+            },
+            Op::SEI => {
+                cpu.set_status_flag(cpu::StatusFlag::InterruptDisable, true);
+            },
+            Op::BRK => {
+                cpu.set_status_flag(cpu::StatusFlag::Break, true);
+                let pc = cpu.PC + 0x0002;
+                let p  = cpu.P;
+                cpu.push_word(pc);
+                cpu.push_byte(p);
+                cpu.PC = cpu.mem.read_word_le(cpu::IRQ_VECTOR);
+                cpu.set_status_flag(cpu::StatusFlag::InterruptDisable, true);
+            },
+            Op::NOP => (),
+            Op::RTI => {
+                let p = cpu.pop_byte();
+                let pc = cpu.pop_word();
+                cpu.P = p;
+                cpu.PC = pc;
+                cpu.P |= 0x20;
+            },
+            Op::HLT => panic!("Received HLT instruction at ${:04X}", cpu.PC),
+            _       => println!("Unknown op: {}{} at ${:04X}", self, addr_mode, cpu.PC)
+        }
     }
-    
 }
 
+// debug display for opcodes
+impl fmt::Display for Op
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let op_name = match *self {
+            Op::LDA => "LDA", Op::LDX => "LDX", Op::LDY => "LDY", Op::STA => "STA",
+            Op::STX => "STX", Op::STY => "STY", Op::TAX => "TAX", Op::TAY => "TAY",
+            Op::TXA => "TXA", Op::TYA => "TYA", Op::TSX => "TSX", Op::TXS => "TXS",
+            Op::PHA => "PHA", Op::PHP => "PHP", Op::PLA => "PLA", Op::PLP => "PLP",
+            Op::AND => "AND", Op::EOR => "EOR", Op::ORA => "ORA", Op::BIT => "BIT",
+            Op::ADC => "ADC", Op::SBC => "SBC", Op::CMP => "CMP", Op::CPX => "CPX",
+            Op::CPY => "CPY", Op::INC => "INC", Op::INX => "INX", Op::INY => "INY",
+            Op::DEC => "DEC", Op::DEX => "DEX", Op::DEY => "DEY", Op::ASL => "ASL",
+            Op::LSR => "LSR", Op::ROL => "ROL", Op::ROR => "ROR", Op::JMP => "JMP",
+            Op::JSR => "JSR", Op::RTS => "RTS", Op::BCC => "BCC", Op::BCS => "BCS",
+            Op::BEQ => "BEQ", Op::BMI => "BMI", Op::BNE => "BNE", Op::BPL => "BPL",
+            Op::BVC => "BVC", Op::BVS => "BVS", Op::CLC => "CLC", Op::CLD => "CLD",
+            Op::CLI => "CLI", Op::CLV => "CLV", Op::SEC => "SEC", Op::SED => "SED",
+            Op::SEI => "SEI", Op::BRK => "BRK", Op::NOP => "NOP", Op::RTI => "RTI",
+            Op::HLT => "HLT", Op::SLO => "SLO", Op::ANC => "ANC", Op::RLA => "RLA",
+            Op::SRE => "SRE", Op::RRA => "RRA", Op::ALR => "ALR", Op::SAX => "SAX",
+            Op::XAA => "XAA", Op::AHX => "AHX", Op::TAS => "TAS", Op::SHY => "SHY",
+            Op::SHX => "SHX", Op::ARR => "ARR", Op::LAX => "LAX", Op::LAS => "LAS",
+            Op::DCP => "DCP", Op::AXS => "AXS", Op::ISC => "ISC",
+        };        
+        write!(f, "{}", op_name)
+    }
+}
 
-pub fn get_instruction(opcode: u8, cpu: &mut cpu::CPU) -> Option<(Op, u8, AddrMode)>    
-{    
+// debug display for address modes (print as suffix)
+impl fmt::Display for AddrMode
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let addr_mode_name = match *self {
+            AddrMode::Implied   => "    ", AddrMode::Accumulator => "_acc",
+            AddrMode::Immediate => "_imm", AddrMode::Absolute    => "_abs",
+            AddrMode::Zeropage  => "_zp ", AddrMode::Relative    => "_rel",
+            AddrMode::IndexedAbsoluteX => "_abx", AddrMode::IndexedAbsoluteY => "_aby",
+            AddrMode::ZeropageIndexedX => "_zpx", AddrMode::ZeropageIndexedY => "_zpy",
+            AddrMode::AbsoluteIndirect => "_ind", AddrMode::IndexedIndirectX => "_izx",
+            AddrMode::IndirectIndexedY => "_izy"
+        };
+        write!(f, "{}", addr_mode_name)
+    }
+}
+
+pub fn get_instruction(opcode: u8, cpu: &mut cpu::CPU) -> Option<(Op, u8, AddrMode)>
+{
     Some(match opcode
          {
              /* ** documented instructions ** */
@@ -101,7 +255,7 @@ pub fn get_instruction(opcode: u8, cpu: &mut cpu::CPU) -> Option<(Op, u8, AddrMo
              /* ASL_zp  */ 0x06 => (Op::ASL, 5, AddrMode::Zeropage), 
              /* PHP     */ 0x08 => (Op::PHP, 3, AddrMode::Implied),
              /* ORA_imm */ 0x09 => (Op::ORA, 2, AddrMode::Immediate),
-             /* ASL     */ 0x0A => (Op::ASL, 2, AddrMode::Implied),
+             /* ASL     */ 0x0A => (Op::ASL, 2, AddrMode::Accumulator),
              /* ORA_abs */ 0x0D => (Op::ORA, 4, AddrMode::Absolute),
              /* ASL_abs */ 0x0E => (Op::ASL, 6, AddrMode::Absolute),
              /* BPL_rel */ 0x10 => (Op::BPL, 2, AddrMode::Relative), // add 1 cycle if page boundary is crossed
@@ -119,7 +273,7 @@ pub fn get_instruction(opcode: u8, cpu: &mut cpu::CPU) -> Option<(Op, u8, AddrMo
              /* ROL_zp  */ 0x26 => (Op::ROL, 5, AddrMode::Zeropage),
              /* PLP     */ 0x28 => (Op::PLP, 4, AddrMode::Implied),
              /* AND_imm */ 0x29 => (Op::AND, 2, AddrMode::Immediate),
-             /* ROL     */ 0x2A => (Op::ROL, 2, AddrMode::Implied),
+             /* ROL     */ 0x2A => (Op::ROL, 2, AddrMode::Accumulator),
              /* BIT_abs */ 0x2C => (Op::BIT, 4, AddrMode::Absolute),
              /* AND_abs */ 0x2D => (Op::AND, 4, AddrMode::Absolute),
              /* ROL_abs */ 0x2E => (Op::ROL, 6, AddrMode::Absolute),
@@ -137,7 +291,7 @@ pub fn get_instruction(opcode: u8, cpu: &mut cpu::CPU) -> Option<(Op, u8, AddrMo
              /* LSR_zp  */ 0x46 => (Op::LSR, 5, AddrMode::Zeropage),
              /* PHA     */ 0x48 => (Op::PHA, 3, AddrMode::Implied),
              /* EOR_imm */ 0x49 => (Op::EOR, 2, AddrMode::Immediate),
-             /* LSR     */ 0x4A => (Op::LSR, 2, AddrMode::Implied),
+             /* LSR     */ 0x4A => (Op::LSR, 2, AddrMode::Accumulator),
              /* JMP_abs */ 0x4C => (Op::JMP, 3, AddrMode::Absolute),
              /* EOR_abs */ 0x4D => (Op::EOR, 4, AddrMode::Absolute),
              /* LSR_abs */ 0x4E => (Op::LSR, 6, AddrMode::Absolute),
@@ -155,7 +309,7 @@ pub fn get_instruction(opcode: u8, cpu: &mut cpu::CPU) -> Option<(Op, u8, AddrMo
              /* ROR_zp  */ 0x66 => (Op::ROR, 5, AddrMode::Zeropage),
              /* PLA     */ 0x68 => (Op::PLA, 4, AddrMode::Implied),
              /* ADC_imm */ 0x69 => (Op::ADC, 2, AddrMode::Immediate),
-             /* ROR     */ 0x6A => (Op::ROR, 2, AddrMode::Implied),
+             /* ROR     */ 0x6A => (Op::ROR, 2, AddrMode::Accumulator),
              /* JMP_ind */ 0x6C => (Op::JMP, 5, AddrMode::AbsoluteIndirect),
              /* ADC_abs */ 0x6D => (Op::ADC, 4, AddrMode::Absolute),
              /* ROR_abs */ 0x6E => (Op::ROR, 6, AddrMode::Absolute),
