@@ -4,8 +4,6 @@
 mod opcodes;
 use utils;
 use memory;
-use std::mem;
-
 
 
 // status flags for P register
@@ -180,11 +178,6 @@ impl CPU
         value
     }
     
-    fn u8_to_enum(v: u8) -> opcodes::Opcodes
-    {
-        unsafe { mem::transmute(v) }
-    }
-
     fn mem_dump(&mut self)
     {
         for i in (0..0x10000)
@@ -196,10 +189,19 @@ impl CPU
     }
     
     
-    fn process_op(&mut self, opcode: u8)
+    fn process_op(&mut self, opcode: u8) -> u8
     {
-        use cpu::opcodes::Opcodes;
+        match opcodes::get_instruction(opcode, self)
+        {
+            Some((instruction, num_cycles, addr_mode)) => {
+                instruction.run(&addr_mode, self);
+                num_cycles
+            },
+            None => panic!("Unknown opcode: 0x{:02X} at ${:04X}", opcode, self.PC)
+        }
+        
 
+        /*
         let mut num_cycles = 0;
         
         match CPU::u8_to_enum(opcode)
@@ -570,5 +572,8 @@ impl CPU
             //Opcodes::ISC_abx  => println!("TODO: (FORBIDDEN) {}", opcode),
             _                 => println!("Unknown opcode: 0x{:02X} at ${:04X}", opcode, self.PC)
         }
+
+        num_cycles
+*/
     }
 }
