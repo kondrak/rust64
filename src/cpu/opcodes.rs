@@ -83,6 +83,33 @@ impl Op
     {
         match *self
         {
+            Op::LDA => {
+                let na = get_operand(addr_mode, cpu);
+                cpu.A = na;
+                cpu.set_zn_flags(na);
+            },
+            Op::LDX => {
+                let nx = get_operand(addr_mode, cpu);
+                cpu.X = nx;
+                cpu.set_zn_flags(nx);
+            },
+            Op::LDY => {
+                let ny = get_operand(addr_mode, cpu);
+                cpu.Y = ny;
+                cpu.set_zn_flags(ny);
+            },
+            Op::STA => {
+                let a = cpu.A;
+                set_operand(addr_mode, cpu, a);
+            },
+            Op::STX => {
+                let x = cpu.X;
+                set_operand(addr_mode, cpu, x);
+            },
+            Op::STY => {
+                let y = cpu.Y;
+                set_operand(addr_mode, cpu, y);
+            },
             Op::TAX => {
                 cpu.X = cpu.A;
                 let x = cpu.X;
@@ -130,6 +157,61 @@ impl Op
                 // PLP may affect even the unused flag bit
                 cpu.P |= 0x20;
             },
+            Op::AND => {
+                let v = get_operand(addr_mode, cpu);
+                let na = cpu.A & v;
+                cpu.A = na;
+                cpu.set_zn_flags(na);
+                
+            },
+            Op::EOR => {
+                let v = get_operand(addr_mode, cpu);
+                let na = cpu.A ^ v;
+                cpu.A = na;
+                cpu.set_zn_flags(na);
+            },
+            Op::ORA => {
+                let v = get_operand(addr_mode, cpu);
+                let na = cpu.A | v;
+                cpu.A = na;
+                cpu.set_zn_flags(na);
+            },
+            Op::BIT => {
+                let v = get_operand(addr_mode, cpu);
+                let a = cpu.A;
+                cpu.set_status_flag(cpu::StatusFlag::Negative, (v & 0x80) != 0);
+                cpu.set_status_flag(cpu::StatusFlag::Overflow, (v & 0x40) != 0);
+                cpu.set_status_flag(cpu::StatusFlag::Zero,     (v & a)    == 0);
+            },
+           /* Op::ADC => {
+                // TODO: support decimal mode
+            },
+            Op::SBC => {
+                // TODO: support decimal mode            
+            },*/
+            Op::CMP => {
+                let a: i16 = cpu.A as i16;
+	        let res = a - get_operand(addr_mode, cpu) as i16;
+		cpu.set_status_flag(cpu::StatusFlag::Carry, res >= 0);
+		cpu.set_zn_flags(res as u8);
+            },
+            Op::CPX => {
+                let x: i16 = cpu.X as i16;
+	        let res = x - get_operand(addr_mode, cpu) as i16;
+		cpu.set_status_flag(cpu::StatusFlag::Carry, res >= 0);
+		cpu.set_zn_flags(res as u8);
+            },
+            Op::CPY => {
+                let y: i16 = cpu.Y as i16;
+	        let res = y - get_operand(addr_mode, cpu) as i16;
+		cpu.set_status_flag(cpu::StatusFlag::Carry, res >= 0);
+		cpu.set_zn_flags(res as u8);
+            },
+            Op::INC => {
+                let v = get_operand(addr_mode, cpu) - 0x01;
+                set_operand(addr_mode, cpu, v);
+                cpu.set_zn_flags(v);
+            },
             Op::INX => {
                 cpu.X += 1;
                 let x = cpu.X;
@@ -149,6 +231,16 @@ impl Op
                 cpu.Y -= 1;
                 let y = cpu.Y;
                 cpu.set_zn_flags(y);
+            },
+            Op::JMP => {
+                let npc = get_operand_addr(addr_mode, cpu);
+                cpu.PC = npc;
+            },
+            Op::JSR => {
+                let pc = cpu.PC - 0x0001;
+                cpu.push_word(pc);
+                let npc = get_operand_addr(addr_mode, cpu);
+                cpu.PC = npc;
             },
             Op::RTS => {
                 let pc = cpu.pop_word();
@@ -512,9 +604,9 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
 }
 
 // fetch operand address 
-fn get_operand_addr(mode: AddrMode, cpu: &mut cpu::CPU) -> u16
+fn get_operand_addr(mode: &AddrMode, cpu: &mut cpu::CPU) -> u16
 {
-    match mode
+    match *mode
     {
         AddrMode::Implied           => panic!("Trying to fetch operand addr in implied addr mode."),
         AddrMode::Accumulator       => panic!("Trying to fetch operand addr in accumulator addr mode."),
@@ -548,9 +640,9 @@ fn get_operand_addr(mode: AddrMode, cpu: &mut cpu::CPU) -> u16
 }
 
 // fetch operand value
-pub fn get_operand(mode: AddrMode, cpu: &mut cpu::CPU) -> u8
+pub fn get_operand(mode: &AddrMode, cpu: &mut cpu::CPU) -> u8
 {
-    match mode
+    match *mode
     {
         AddrMode::Implied     => panic!("Trying to fetch operand in implied addr mode."),
         AddrMode::Accumulator => cpu.A,
@@ -563,9 +655,9 @@ pub fn get_operand(mode: AddrMode, cpu: &mut cpu::CPU) -> u8
 }
 
 // set operand value
-pub fn set_operand(mode: AddrMode, cpu: &mut cpu::CPU, value: u8)
+pub fn set_operand(mode: &AddrMode, cpu: &mut cpu::CPU, value: u8)
 {
-    match mode
+    match *mode
     {
         AddrMode::Implied     => panic!("Trying to set operand in implied addr mode."),        
         AddrMode::Accumulator => cpu.A = value,
