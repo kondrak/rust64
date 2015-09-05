@@ -190,7 +190,7 @@ impl CPU
 
     fn process_op(&mut self, opcode: u8) -> u8
     {
-        match opcodes::get_instruction(opcode, self)
+        match opcodes::get_instruction(opcode)
         {
             Some((instruction, num_cycles, addr_mode)) => {
                 instruction.run(&addr_mode, self);
