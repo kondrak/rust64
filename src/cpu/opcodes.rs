@@ -183,12 +183,36 @@ impl Op
                 cpu.set_status_flag(cpu::StatusFlag::Overflow, (v & 0x40) != 0);
                 cpu.set_status_flag(cpu::StatusFlag::Zero,     (v & a)    == 0);
             },
-           /* Op::ADC => {
+            Op::ADC => {
                 // TODO: support decimal mode
+                let v = get_operand(addr_mode, cpu);
+                let mut res: u16 = cpu.A as u16 + v as u16;
+                if cpu.get_status_flag(cpu::StatusFlag::Carry)
+                {
+                    res += 0x0001;
+                }
+                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) != 0);
+                let res = res as u8;
+                let is_overflow = (cpu.A ^ res) & 0x80 != 0 && (cpu.A ^ v) & 0x80 == 0x80;
+                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
+		cpu.A = res;
+		cpu.set_zn_flags(res);
             },
             Op::SBC => {
-                // TODO: support decimal mode            
-            },*/
+                // TODO: support decimal mode
+                let v = get_operand(addr_mode, cpu);
+                let mut res: u16 = cpu.A as u16 - v as u16;
+                if !cpu.get_status_flag(cpu::StatusFlag::Carry)
+                {
+                    res -= 0x0001;
+                }
+                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) == 0);
+                let res = res as u8;
+                let is_overflow = (cpu.A ^ res) & 0x80 != 0 && (cpu.A ^ v) & 0x80 == 0x80;
+                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
+		cpu.A = res;
+		cpu.set_zn_flags(res);
+            },
             Op::CMP => {
                 let a: i16 = cpu.A as i16;
 	        let res = a - get_operand(addr_mode, cpu) as i16;
@@ -232,6 +256,44 @@ impl Op
                 let y = cpu.Y;
                 cpu.set_zn_flags(y);
             },
+            Op::ASL => {
+                let v = get_operand(addr_mode, cpu);
+                cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x80) != 0);
+                let res = v << 1;
+                set_operand(addr_mode, cpu, res);
+                cpu.set_zn_flags(res);
+            },
+            Op::LSR => {
+                let v = get_operand(addr_mode, cpu);
+                cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x80) != 0);
+                let res = v >> 1;
+                set_operand(addr_mode, cpu, res);
+                cpu.set_zn_flags(res);
+            },
+            Op::ROL => {
+                let c = cpu.get_status_flag(cpu::StatusFlag::Carry);
+                let v = get_operand(addr_mode, cpu);
+                cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x80) != 0);
+                let mut res = v << 1;
+                if c
+                {
+                    res |= 0x01;
+                }                                
+                set_operand(addr_mode, cpu, res);
+                cpu.set_zn_flags(res);
+            },
+            Op::ROR => {
+                let c = cpu.get_status_flag(cpu::StatusFlag::Carry);
+                let v = get_operand(addr_mode, cpu);
+                cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x01) != 0);
+                let mut res = v >> 1;
+                if c
+                {
+                    res |= 0x80;
+                }                                
+                set_operand(addr_mode, cpu, res);
+                cpu.set_zn_flags(res);
+            },
             Op::JMP => {
                 let npc = get_operand_addr(addr_mode, cpu);
                 cpu.PC = npc;
@@ -245,6 +307,62 @@ impl Op
             Op::RTS => {
                 let pc = cpu.pop_word();
                 cpu.PC = pc + 0x0001;
+            },
+            Op::BCC => {
+                if !cpu.get_status_flag(cpu::StatusFlag::Carry)
+                {
+                    let npc = get_operand_addr(addr_mode, cpu);
+                    cpu.PC = npc;
+                }
+            },
+            Op::BCS => {
+                if cpu.get_status_flag(cpu::StatusFlag::Carry)
+                {
+                    let npc = get_operand_addr(addr_mode, cpu);
+                    cpu.PC = npc;
+                }
+            },
+            Op::BEQ => {
+                if cpu.get_status_flag(cpu::StatusFlag::Zero)
+                {
+                    let npc = get_operand_addr(addr_mode, cpu);
+                    cpu.PC = npc;
+                }
+            },
+            Op::BMI => {
+                if cpu.get_status_flag(cpu::StatusFlag::Negative)
+                {
+                    let npc = get_operand_addr(addr_mode, cpu);
+                    cpu.PC = npc;
+                }
+            },
+            Op::BNE => {
+                if !cpu.get_status_flag(cpu::StatusFlag::Zero)
+                {
+                    let npc = get_operand_addr(addr_mode, cpu);
+                    cpu.PC = npc;
+                }
+            },
+            Op::BPL => {
+                if !cpu.get_status_flag(cpu::StatusFlag::Negative)
+                {
+                    let npc = get_operand_addr(addr_mode, cpu);
+                    cpu.PC = npc;
+                }
+            },
+            Op::BVC => {
+                if !cpu.get_status_flag(cpu::StatusFlag::Overflow)
+                {
+                    let npc = get_operand_addr(addr_mode, cpu);
+                    cpu.PC = npc;
+                }
+            },
+            Op::BVS => {
+                if cpu.get_status_flag(cpu::StatusFlag::Overflow)
+                {
+                    let npc = get_operand_addr(addr_mode, cpu);
+                    cpu.PC = npc;
+                }
             },
             Op::CLC => {
                 cpu.set_status_flag(cpu::StatusFlag::Carry, false);
