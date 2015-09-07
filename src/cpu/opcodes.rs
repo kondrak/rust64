@@ -309,58 +309,58 @@ impl Op
                 cpu.PC = pc + 0x0001;
             },
             Op::BCC => {
+                let npc = get_operand_addr(addr_mode, cpu);
                 if !cpu.get_status_flag(cpu::StatusFlag::Carry)
                 {
-                    let npc = get_operand_addr(addr_mode, cpu);
                     cpu.PC = npc;
                 }
             },
             Op::BCS => {
+                let npc = get_operand_addr(addr_mode, cpu);
                 if cpu.get_status_flag(cpu::StatusFlag::Carry)
                 {
-                    let npc = get_operand_addr(addr_mode, cpu);
                     cpu.PC = npc;
                 }
             },
             Op::BEQ => {
+                let npc = get_operand_addr(addr_mode, cpu);
                 if cpu.get_status_flag(cpu::StatusFlag::Zero)
                 {
-                    let npc = get_operand_addr(addr_mode, cpu);
                     cpu.PC = npc;
                 }
             },
             Op::BMI => {
+                let npc = get_operand_addr(addr_mode, cpu);
                 if cpu.get_status_flag(cpu::StatusFlag::Negative)
                 {
-                    let npc = get_operand_addr(addr_mode, cpu);
                     cpu.PC = npc;
                 }
             },
             Op::BNE => {
+                let npc = get_operand_addr(addr_mode, cpu);
                 if !cpu.get_status_flag(cpu::StatusFlag::Zero)
                 {
-                    let npc = get_operand_addr(addr_mode, cpu);
                     cpu.PC = npc;
                 }
             },
             Op::BPL => {
+                let npc = get_operand_addr(addr_mode, cpu);
                 if !cpu.get_status_flag(cpu::StatusFlag::Negative)
                 {
-                    let npc = get_operand_addr(addr_mode, cpu);
                     cpu.PC = npc;
                 }
             },
             Op::BVC => {
+                let npc = get_operand_addr(addr_mode, cpu);
                 if !cpu.get_status_flag(cpu::StatusFlag::Overflow)
                 {
-                    let npc = get_operand_addr(addr_mode, cpu);
                     cpu.PC = npc;
                 }
             },
             Op::BVS => {
+                let npc = get_operand_addr(addr_mode, cpu);
                 if cpu.get_status_flag(cpu::StatusFlag::Overflow)
                 {
-                    let npc = get_operand_addr(addr_mode, cpu);
                     cpu.PC = npc;
                 }
             },
