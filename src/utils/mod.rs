@@ -33,8 +33,8 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
         Some((instruction, num_cycles, addr_mode)) => {
             // get the operand
             cpu.mem.read_byte((cpu.PC - 0x01) as u16);
-            let mut operand_hex = "".to_string();
-            let mut operand = "".to_string();
+            let mut operand_hex: String;
+            let mut operand: String;
             
             match addr_mode {
                 cpu::opcodes::AddrMode::Implied => {
@@ -79,15 +79,15 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
                 },
                 cpu::opcodes::AddrMode::Indirect => {
                     operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(cpu.PC), cpu.mem.read_byte(cpu.PC + 0x01));
-                    operand = format!("$({:04X})", cpu.mem.read_word_le(cpu.PC));
+                    operand = format!("(${:04X})", cpu.mem.read_word_le(cpu.PC));
                 },
                 cpu::opcodes::AddrMode::IndexedIndirectX => {
                     operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(cpu.PC), cpu.mem.read_byte(cpu.PC + 0x01));
-                    operand = format!("$({:02X},X)", cpu.mem.read_byte(cpu.PC));
+                    operand = format!("(${:02X},X)", cpu.mem.read_byte(cpu.PC));
                 },
                 cpu::opcodes::AddrMode::IndirectIndexedY => {
                     operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(cpu.PC), cpu.mem.read_byte(cpu.PC + 0x01));
-                    operand = format!("$({:02X}),Y", cpu.mem.read_byte(cpu.PC));
+                    operand = format!("(${:02X}),Y", cpu.mem.read_byte(cpu.PC));
                 },
                 //_ => operand_hex = panic!("Unknown addressing mode?")
             }
