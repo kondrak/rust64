@@ -15,6 +15,7 @@
 #![allow(non_camel_case_types)]
 use cpu;
 use std::fmt;
+use std::num::Wrapping;
 
 pub enum AddrMode
 {
@@ -237,22 +238,22 @@ impl Op
                 cpu.set_zn_flags(v);
             },
             Op::INX => {
-                cpu.X += 1;
+                cpu.X = (Wrapping(cpu.X) + Wrapping(0x01)).0;
                 let x = cpu.X;
                 cpu.set_zn_flags(x);
             },
             Op::INY => {
-                cpu.Y += 1;
+                cpu.Y = (Wrapping(cpu.Y) + Wrapping(0x01)).0;
                 let y = cpu.Y;
                 cpu.set_zn_flags(y);
             },
             Op::DEX => {
-                cpu.X -= 1;
+                cpu.X = (Wrapping(cpu.X) - Wrapping(0x01)).0;
                 let x = cpu.X;
                 cpu.set_zn_flags(x);
             },
             Op::DEY => {
-                cpu.Y -= 1;
+                cpu.Y = (Wrapping(cpu.Y) - Wrapping(0x01)).0;
                 let y = cpu.Y;
                 cpu.set_zn_flags(y);
             },
@@ -299,9 +300,9 @@ impl Op
                 cpu.PC = npc;
             },
             Op::JSR => {
+                let npc = get_operand_addr(addr_mode, cpu);
                 let pc = cpu.PC - 0x0001;
                 cpu.push_word(pc);
-                let npc = get_operand_addr(addr_mode, cpu);
                 cpu.PC = npc;
             },
             Op::RTS => {
@@ -738,9 +739,9 @@ fn get_operand_addr(mode: &AddrMode, cpu: &mut cpu::CPU) -> u16
             cpu.mem.read_word_le(nw) + cpu.Y as u16 },
         AddrMode::Zeropage          => cpu.next_byte() as u16,
         AddrMode::ZeropageIndexedX  => {
-            (cpu.next_byte() + cpu.X) as u16 },
+            (Wrapping(cpu.next_byte()) + Wrapping(cpu.X)).0 as u16 },
         AddrMode::ZeropageIndexedY  => {
-            (cpu.next_byte() + cpu.Y) as u16 },
+            (Wrapping(cpu.next_byte()) + Wrapping(cpu.Y)).0 as u16 },
         AddrMode::Relative          => {
             let offset: i8 = cpu.next_byte() as i8;
             (cpu.PC as i16 + offset as i16) as u16 },
@@ -749,7 +750,7 @@ fn get_operand_addr(mode: &AddrMode, cpu: &mut cpu::CPU) -> u16
             cpu.mem.read_word_le(nw) },
         AddrMode::IndexedIndirectX  => {
             let nb = cpu.next_byte();
-            cpu.mem.read_word_le((nb + cpu.X) as u16) },
+            cpu.mem.read_word_le((Wrapping(nb) + Wrapping(cpu.X)).0 as u16) },
         AddrMode::IndirectIndexedY  => {
             let nb = cpu.next_byte();
             let addr = cpu.mem.read_word_le(nb as u16);
@@ -777,7 +778,7 @@ pub fn set_operand(mode: &AddrMode, cpu: &mut cpu::CPU, value: u8)
 {
     match *mode
     {
-        AddrMode::Implied     => panic!("Trying to set operand in implied addr mode."),        
+        AddrMode::Implied     => panic!("Trying to set operand in implied addr mode."),
         AddrMode::Accumulator => cpu.A = value,
         AddrMode::Immediate   => panic!("Trying to set operand in immediate addr mode."),
         AddrMode::Relative    => panic!("Trying to set operand in relative addr mode."),

@@ -136,13 +136,10 @@ impl CPU
     
 
     // stack memory: $0100 - $01FF (256 byes)
+    // TODO: some extra message if stack over/underflow occurs? (right now handled by Rust)
     fn push_byte(&mut self, value: u8)
     {
         self.SP -= 0x01;
-
-        if self.SP == 0xFF
-            { panic!("Stack underflow"); }
-        
         self.mem.write_byte(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF, value);
     }
 
@@ -150,20 +147,12 @@ impl CPU
     {
         let value = self.mem.read_byte(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF);
         self.SP += 0x01;
-
-        if self.SP == 0x00
-            { panic!("Stack overflow"); }
-        
         value
     }
     
     fn push_word(&mut self, value: u16)
     {
         self.SP -= 0x02;
-
-        if self.SP == 0xFF || self.SP == 0xFE
-            { panic!("Stack underflow"); }
-        
         self.mem.write_word_le(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF, value);
     }
 
@@ -171,10 +160,6 @@ impl CPU
     {
         let value = self.mem.read_word_le(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF);
         self.PC += 0x02;
-
-        if self.SP == 0x00 || self.SP == 0x01
-            { panic!("Stack overflow"); }
-        
         value
     }
     
