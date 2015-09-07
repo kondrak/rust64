@@ -404,7 +404,7 @@ impl Op
                 cpu.P |= 0x20;
             },
             Op::HLT => panic!("Received HLT instruction at ${:04X}", cpu.PC),
-            _       => println!("Unknown op: {}{} at ${:04X}", self, addr_mode, cpu.PC)
+            _       => () //println!("Unknown op: {}{} at ${:04X}", self, addr_mode, cpu.PC)
         }
     }
 }
@@ -723,7 +723,7 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
 }
 
 // fetch operand address 
-fn get_operand_addr(mode: &AddrMode, cpu: &mut cpu::CPU) -> u16
+pub fn get_operand_addr(mode: &AddrMode, cpu: &mut cpu::CPU) -> u16
 {
     match *mode
     {

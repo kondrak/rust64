@@ -1,7 +1,7 @@
 // The CPU
 #![allow(dead_code)]
 #![allow(non_snake_case)]
-mod opcodes;
+pub mod opcodes;
 use utils;
 use memory;
 
@@ -24,13 +24,13 @@ static IRQ_VECTOR:   u16 = 0xFFFE;
 
 pub struct CPU
 {
-    PC: u16, // program counter
-    SP: u8,  // stack pointer
-    P: u8,   // processor status
-    A: u8,   // accumulator
-    X: u8,   // index register
-    Y: u8,   // index register
-    mem: memory::Memory // system memory (64k)
+    pub PC: u16, // program counter
+    pub SP: u8,  // stack pointer
+    pub P: u8,   // processor status
+    pub A: u8,   // accumulator
+    pub X: u8,   // index register
+    pub Y: u8,   // index register
+    pub mem: memory::Memory // system memory (64k)
 }
 
 impl CPU
@@ -175,6 +175,8 @@ impl CPU
 
     fn process_op(&mut self, opcode: u8) -> u8
     {
+        utils::debug_instruction(opcode, self);
+        
         match opcodes::get_instruction(opcode)
         {
             Some((instruction, num_cycles, addr_mode)) => {
