@@ -233,7 +233,7 @@ impl Op
 		cpu.set_zn_flags(res as u8);
             },
             Op::INC => {
-                let v = get_operand(addr_mode, cpu) - 0x01;
+                let v = get_operand(addr_mode, cpu) + 0x01;
                 set_operand(addr_mode, cpu, v);
                 cpu.set_zn_flags(v);
             },
@@ -246,6 +246,11 @@ impl Op
                 cpu.Y = (Wrapping(cpu.Y) + Wrapping(0x01)).0;
                 let y = cpu.Y;
                 cpu.set_zn_flags(y);
+            },
+            Op::DEC => {
+                let v = get_operand(addr_mode, cpu) - 0x01;
+                set_operand(addr_mode, cpu, v);
+                cpu.set_zn_flags(v);
             },
             Op::DEX => {
                 cpu.X = (Wrapping(cpu.X) - Wrapping(0x01)).0;

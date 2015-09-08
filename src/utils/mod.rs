@@ -75,7 +75,7 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
                 },
                 cpu::opcodes::AddrMode::Relative => {
                     operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.PC));
-                    operand = format!("${:04X}  ", (cpu.PC as i16 + cpu.mem.read_byte(cpu.PC) as i16) as u16);
+                    operand = format!("${:04X}  ", (cpu.PC as i16 + cpu.mem.read_byte(cpu.PC) as i16) as u16 + 0x01);
                 },
                 cpu::opcodes::AddrMode::Indirect => {
                     operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(cpu.PC), cpu.mem.read_byte(cpu.PC + 0x01));
