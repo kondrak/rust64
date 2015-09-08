@@ -438,23 +438,6 @@ impl fmt::Display for Op
     }
 }
 
-// debug display for address modes (print as suffix)
-impl fmt::Display for AddrMode
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let addr_mode_name = match *self {
-            AddrMode::Implied   => "    ", AddrMode::Accumulator => "_acc",
-            AddrMode::Immediate => "_imm", AddrMode::Absolute    => "_abs",
-            AddrMode::Zeropage  => "_zp ", AddrMode::Relative    => "_rel",
-            AddrMode::AbsoluteIndexedX => "_abx", AddrMode::AbsoluteIndexedY => "_aby",
-            AddrMode::ZeropageIndexedX => "_zpx", AddrMode::ZeropageIndexedY => "_zpy",
-            AddrMode::Indirect => "_ind", AddrMode::IndexedIndirectX => "_izx",
-            AddrMode::IndirectIndexedY => "_izy"
-        };
-        write!(f, "{}", addr_mode_name)
-    }
-}
-
 pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
 {
     Some(match opcode

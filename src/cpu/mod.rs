@@ -159,7 +159,7 @@ impl CPU
     fn pop_word(&mut self) -> u16
     {
         let value = self.mem.read_word_le(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF);
-        self.PC += 0x02;
+        self.SP += 0x02;
         value
     }
     
