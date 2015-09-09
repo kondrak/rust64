@@ -140,25 +140,25 @@ impl CPU
     fn push_byte(&mut self, value: u8)
     {
         self.SP -= 0x01;
-        self.mem.write_byte(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF, value);
+        self.mem.write_byte(0x0100 + (self.SP + 0x01) as u16, value);
     }
 
     fn pop_byte(&mut self) -> u8
     {
-        let value = self.mem.read_byte(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF);
+        let value = self.mem.read_byte(0x0100 + (self.SP + 0x01) as u16);
         self.SP += 0x01;
         value
     }
-    
+
     fn push_word(&mut self, value: u16)
     {
         self.SP -= 0x02;
-        self.mem.write_word_le(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF, value);
+        self.mem.write_word_le(0x0100 + (self.SP + 0x01) as u16, value);
     }
 
     fn pop_word(&mut self) -> u16
     {
-        let value = self.mem.read_word_le(0x0100 + ((self.SP + 0x01) as u16) & 0x00FF);
+        let value = self.mem.read_word_le(0x0100 + (self.SP + 0x01) as u16);
         self.SP += 0x02;
         value
     }
@@ -175,12 +175,14 @@ impl CPU
 
     fn process_op(&mut self, opcode: u8) -> u8
     {
-        utils::debug_instruction(opcode, self);
-        
-        match opcodes::get_instruction(opcode)
+        //utils::debug_instruction(opcode, self);
+        let oldpc = self.PC;
+        match opcodes::get_instruction(opcode, self)
         {
             Some((instruction, num_cycles, addr_mode)) => {
                 instruction.run(&addr_mode, self);
+                utils::debug_instruction(opcode, Some((instruction, num_cycles, addr_mode)), self, oldpc);
+                //println!("Stack pop: {:04X}", self.mem.read_word_le(0x0100 + (0xFD + 0x01) as u16));
                 num_cycles
             },
             None => panic!("No instruction - this should never happen! (0x{:02X} at ${:04X})", opcode, self.PC)
