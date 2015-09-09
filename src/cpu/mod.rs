@@ -180,8 +180,8 @@ impl CPU
         match opcodes::get_instruction(opcode, self)
         {
             Some((instruction, num_cycles, addr_mode)) => {
+                utils::debug_instruction(opcode, Some((&instruction, num_cycles, &addr_mode)), self, oldpc);
                 instruction.run(&addr_mode, self);
-                utils::debug_instruction(opcode, Some((instruction, num_cycles, addr_mode)), self, oldpc);
                 //println!("Stack pop: {:04X}", self.mem.read_word_le(0x0100 + (0xFD + 0x01) as u16));
                 num_cycles
             },

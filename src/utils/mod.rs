@@ -26,7 +26,7 @@ pub fn open_file(filename: &str) -> Vec<u8>
     file_data
 }
 
-pub fn debug_instruction(opcode: u8, instruction: Option<(cpu::opcodes::Op, u8, cpu::opcodes::AddrMode)>, cpu: &mut cpu::CPU, oldpc: u16)
+pub fn debug_instruction(opcode: u8, instruction: Option<(&cpu::opcodes::Op, u8, &cpu::opcodes::AddrMode)>, cpu: &mut cpu::CPU, oldpc: u16)
 {
     match instruction
     {
@@ -34,7 +34,7 @@ pub fn debug_instruction(opcode: u8, instruction: Option<(cpu::opcodes::Op, u8, 
             let mut operand_hex: String;
             let mut operand: String;
             
-            match addr_mode {
+            match *addr_mode {
                 cpu::opcodes::AddrMode::Implied => {
                     operand_hex = format!("       ");
                     operand = format!("       ");
@@ -73,7 +73,8 @@ pub fn debug_instruction(opcode: u8, instruction: Option<(cpu::opcodes::Op, u8, 
                 },
                 cpu::opcodes::AddrMode::Relative(..) => {
                     operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(oldpc));
-                    operand = format!("${:04X}  ", (oldpc as i16 + cpu.mem.read_byte(oldpc) as i16) as u16 + 0x01);
+                    let b: i8 = cpu.mem.read_byte(oldpc) as i8;
+                    operand = format!("${:04X}  ", ((oldpc + 1) as i16 + b as i16) as u16);
                 },
                 cpu::opcodes::AddrMode::Indirect(..) => {
                     operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(oldpc), cpu.mem.read_byte(oldpc + 0x01));
@@ -90,7 +91,7 @@ pub fn debug_instruction(opcode: u8, instruction: Option<(cpu::opcodes::Op, u8, 
                 //_ => operand_hex = panic!("Unknown addressing mode?")
             }
 
-            println!("${:04X}: {:02X}{} {} {}    -> A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} CZIDB-VN: [{:08b}] ({} cycles)", oldpc - 1, opcode, operand_hex, instruction, operand, cpu.A, cpu.X, cpu.Y, cpu.SP, cpu.P, num_cycles);
+            println!("${:04X}: {:02X}{} {} {}    <- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} CZIDB-VN: [{:08b}] ({} cycles)", oldpc - 1, opcode, operand_hex, instruction, operand, cpu.A, cpu.X, cpu.Y, cpu.SP, cpu.P, num_cycles);
         },
         None => ()
     }
