@@ -78,33 +78,6 @@ impl CPU
         // set the registers to initial state on power up
         self.mem.reset();
 
-        // load basic
-        let mut startAddress: u32 = 0xA000;
-        let basic = utils::open_file("rom/basic.rom");
-        
-        for (i,addr) in (startAddress..0xC000).enumerate()
-        {
-            self.mem.write_byte(addr as u16, basic[i as usize]);
-        }
-
-        // load chargen
-        startAddress = 0xD000;
-        let chargen = utils::open_file("rom/chargen.rom");
-        
-        for (i,addr) in (startAddress..0xE000).enumerate()
-        {
-            self.mem.write_byte(addr as u16, chargen[i as usize]);
-        }
-              
-        // load kernal
-        startAddress = 0xE000;
-        let kernal = utils::open_file("rom/kernal.rom");
-        
-        for (i,addr) in (startAddress..0x10000).enumerate()
-        {
-            self.mem.write_byte(addr as u16, kernal[i as usize]);
-        }
-
         // reset program counter
         self.PC = self.mem.read_word_le(RESET_VECTOR);
         self.SP = 0xFF;
