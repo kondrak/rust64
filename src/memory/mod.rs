@@ -7,7 +7,10 @@ pub struct Memory
     // bank switching flags
     basic_on: bool,
     chargen_on: bool,
+    io_on: bool,
     kernal_on: bool,
+    cart_lo_on: bool, // cart flag - unused for now
+    cart_hi_on: bool  // cart flag - unused for now
 }
 
 impl Memory
@@ -18,9 +21,12 @@ impl Memory
         {
             ram: [0;0x10000],   // 64k
             rom: [0;0x10000],   // store ROM data in 64k array so it's easier to address it with bank switching
-            basic_on: true,
-            chargen_on: true,
-            kernal_on: true
+            basic_on: false,
+            chargen_on: false,
+            io_on: false,
+            kernal_on: false,
+            cart_lo_on: false, // unused for now
+            cart_hi_on: false, // unused for now
         };
 
         // load basic
@@ -70,16 +76,87 @@ impl Memory
     {
         self.write_byte(0x0000, 0xFF);
         self.write_byte(0x0001, 0x07); // enable kernal, chargen and basic access
-
-        self.update_bank_flags();
     }
 
     fn update_bank_flags(&mut self)
     {
-        let latch = self.ram[0x0001];
-        self.basic_on   = (latch & 0x0B) != 0 || (latch & 0x0F) != 0;
-        self.chargen_on = (latch & 0x09) != 0 || (latch & 0x0A) != 0 || (latch & 0x0B) != 0 || (latch == 0x02) || (latch == 0x03);
-        self.kernal_on  = (latch & 0x0F) != 0 || (latch & 0x0E) != 0 || (latch & 0x0B) != 0 || (latch &0x0A) != 0 || (latch == 0x02) || (latch == 0x03) || (latch == 0x07) || (latch == 0x06);
+        // latch state is determined by 5 least significant bits from this location
+        let latch = self.ram[0x0001] & 0x1F;
+
+        // default to RAM only
+        self.basic_on = false;
+        self.chargen_on = false;
+        self.io_on = false;
+        self.kernal_on = false;
+        self.cart_lo_on = false;
+        self.cart_hi_on = false;
+        
+        match latch
+        {
+            0x02 => {
+                self.chargen_on = true;
+                self.kernal_on = true;
+                self.cart_hi_on = true;
+            },
+            0x03 => {
+                self.chargen_on = true;
+                self.kernal_on = true;
+                self.cart_lo_on = true;
+                self.cart_hi_on = true;
+            }
+            0x05 | 0x0D | 0x1D => {
+                self.io_on = true;
+            }
+            0x06 => {
+                self.cart_hi_on = true;
+                self.io_on = true;
+            },
+            0x07 => {
+                self.cart_lo_on = true;
+                self.cart_hi_on = true;
+                self.io_on = true;
+                self.kernal_on = true;
+            },
+            0x0B => {
+                self.cart_lo_on = true;
+                self.basic_on = true;
+                self.chargen_on = true;
+                self.kernal_on = true;
+            },
+            0x0F => {
+                self.cart_lo_on = true;
+                self.basic_on = true;
+                self.io_on = true;
+                self.kernal_on = true;
+            },
+            0x10...0x17 => {
+                self.cart_lo_on = true;
+                self.io_on = true;
+                self.cart_hi_on = true;
+            },
+            0x19 | 0x09 => {
+                self.chargen_on = true;
+            },
+            0x1A | 0x0A => {
+                self.chargen_on = true;
+                self.kernal_on = true;
+            },
+            0x1B => {
+                self.basic_on = true;
+                self.chargen_on = true;
+                self.kernal_on = true;
+            },
+            0xE | 0x1E => {
+                self.io_on = true;
+                self.kernal_on = true;
+            },
+            0x1F => {
+                self.basic_on = true;
+                self.io_on = true;
+                self.kernal_on = true;
+            },
+            _ => ()
+        }
     }
     
     // Write a byte to memory
