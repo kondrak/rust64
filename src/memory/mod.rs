@@ -58,15 +58,16 @@ impl Memory
         
         memory
     }
-
-    pub fn get_bank(&mut self, addr: u16) -> &mut [u8]
+    
+    // returns memory bank for current address + latch setting and an indicator whether it's read-only to detect ROM writes
+    pub fn get_bank(&mut self, addr: u16) -> (&mut [u8], bool)
     {
         match addr
         {
-            0x0000...0x9FFF => &mut self.ram[0..0x10000],
-            0xA000...0xCFFF => if self.basic_on   { &mut self.rom[0..0x10000] } else { &mut self.ram[0..0x10000] },
-            0xD000...0xDFFF => if self.chargen_on { &mut self.rom[0..0x10000] } else { &mut self.ram[0..0x10000] },
-            0xE000...0xFFFF => if self.kernal_on  { &mut self.rom[0..0x10000] } else { &mut self.ram[0..0x10000] },
+            0x0000...0x9FFF => (&mut self.ram[0..0x10000], false),
+            0xA000...0xCFFF => if self.basic_on   { (&mut self.rom[0..0x10000], true) } else { (&mut self.ram[0..0x10000], false) },
+            0xD000...0xDFFF => if self.chargen_on { (&mut self.rom[0..0x10000], true) } else { (&mut self.ram[0..0x10000], false) },
+            0xE000...0xFFFF => if self.kernal_on  { (&mut self.rom[0..0x10000], true) } else { (&mut self.ram[0..0x10000], false) },
             _ => panic!("Address out of memory range")
         }
     }
@@ -164,7 +165,8 @@ impl Memory
     {
         // parentheses to avoid borrowing issues with changing the flags
         {
-            let bank = self.get_bank(addr);
+            let (bank, read_only) = self.get_bank(addr);
+            if read_only { panic!("Tried to write to read-only memory at: {}", addr); }
             bank[addr as usize] = value;
         }
 
@@ -177,15 +179,15 @@ impl Memory
     pub fn read_byte(&mut self, addr: u16) -> u8
     {
         let bank = self.get_bank(addr);
-        bank[addr as usize]
+        bank.0[addr as usize]
     }
 
     // Read a word from memory (stored in little endian)
     pub fn read_word_le(&mut self, addr: u16) -> u16
     {
         let bank = self.get_bank(addr);   
-        let value_be: u16 = ((bank[addr as usize] as u16) << 8 & 0xFF00) |
-                            ((bank[(addr + 0x0001) as usize] as u16) & 0x00FF);
+        let value_be: u16 = ((bank.0[addr as usize] as u16) << 8 & 0xFF00) |
+                            ((bank.0[(addr + 0x0001) as usize] as u16) & 0x00FF);
 
         let value_le: u16 = ((value_be << 8) & 0xFF00) | ((value_be >> 8) & 0x00FF);
         value_le
@@ -195,8 +197,8 @@ impl Memory
     pub fn read_word_be(&mut self, addr: u16) -> u16
     {
         let bank = self.get_bank(addr);
-        let value_le: u16 = ((bank[addr as usize] as u16) << 8 & 0xFF00) |
-                            ((bank[(addr + 0x0001) as usize] as u16) & 0x00FF);
+        let value_le: u16 = ((bank.0[addr as usize] as u16) << 8 & 0xFF00) |
+                            ((bank.0[(addr + 0x0001) as usize] as u16) & 0x00FF);
         value_le
     }
 
