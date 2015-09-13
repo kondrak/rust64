@@ -203,23 +203,21 @@ impl Memory
     // Write word in little endian format (low/high)
     pub fn write_word_le(&mut self, addr: u16, value: u16)
     {
-        let bank = self.get_bank(addr);
         let value_le_lo: u8 = (((value << 8) & 0xFF00) >> 8 & 0xFF) as u8;
         let value_le_hi: u8 = ((value >> 8) & 0x00FF) as u8;
 
-        bank[addr as usize] = value_le_lo;
-        bank[(addr + 0x0001) as usize] = value_le_hi;
+        self.write_byte(addr, value_le_lo);
+        self.write_byte(addr + 0x0001, value_le_hi);
     }
 
     // Write word in big endian format (high/low)
     pub fn write_word_be(&mut self, addr: u16, value: u16)
     {
-        let bank = self.get_bank(addr);
         let value_le_lo: u8 = (((value << 8) & 0xFF00) >> 8 & 0xFF) as u8;
         let value_le_hi: u8 = ((value >> 8) & 0x00FF) as u8;
 
-        bank[addr as usize] = value_le_hi;
-        bank[(addr + 0x0001) as usize] = value_le_lo;
+        self.write_byte(addr, value_le_hi);
+        self.write_byte(addr + 0x0001, value_le_lo);
     }    
 }
 
