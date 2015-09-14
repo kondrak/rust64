@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+pub mod font;
+
 pub enum PaletteRGB
 {
     BLACK      = 0x000000,

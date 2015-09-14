@@ -2,9 +2,10 @@
 #![allow(dead_code)]
 #![allow(non_snake_case)]
 pub mod opcodes;
+extern crate sdl2;
 use utils;
 use memory;
-
+use video;
 
 // status flags for P register
 enum StatusFlag
@@ -30,12 +31,13 @@ pub struct CPU
     pub A: u8,   // accumulator
     pub X: u8,   // index register
     pub Y: u8,   // index register
-    pub mem: memory::Memory // system memory (64k)
+    pub mem: memory::Memory, // system memory (64k)
+    pub font: video::font::SysFont,
 }
 
 impl CPU
 {
-    pub fn new() -> CPU
+    pub fn new(renderer: &sdl2::render::Renderer) -> CPU
     {
         CPU
         {
@@ -45,7 +47,8 @@ impl CPU
             A: 0,
             X: 0,
             Y: 0,
-            mem: memory::Memory::new()
+            mem: memory::Memory::new(),
+            font: video::font::SysFont::new(renderer)
         }        
     }
 
@@ -91,7 +94,12 @@ impl CPU
         //self.process_op(16);
         // process opcodes, to the cpu stuff
         //self.mem.bytes[0] = 1;
-    }     
+    }
+
+    pub fn render(&self, renderer: &mut sdl2::render::Renderer)
+    {
+        self.font.draw(renderer, 0, 0, "a");
+    }
 
     fn next_byte(&mut self) -> u8
     {

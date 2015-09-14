@@ -31,7 +31,7 @@ impl Memory
 
         // load basic
         let mut start_addr: u32 = 0xA000;
-        let basic = utils::open_file("rom/basic.rom");
+        let basic = utils::open_file("rom/basic.rom", 0);
         
         for (i,addr) in (start_addr..0xC000).enumerate()
         {
@@ -40,7 +40,7 @@ impl Memory
 
         // load chargen
         start_addr = 0xD000;
-        let chargen = utils::open_file("rom/chargen.rom");
+        let chargen = utils::open_file("rom/chargen.rom", 0);
         
         for (i,addr) in (start_addr..0xE000).enumerate()
         {
@@ -49,7 +49,7 @@ impl Memory
               
         // load kernal
         start_addr = 0xE000;
-        let kernal = utils::open_file("rom/kernal.rom");
+        let kernal = utils::open_file("rom/kernal.rom", 0);
         
         for (i,addr) in (start_addr..0x10000).enumerate()
         {
@@ -166,8 +166,15 @@ impl Memory
         // parentheses to avoid borrowing issues with changing the flags
         {
             let (bank, read_only) = self.get_bank(addr);
-            if read_only { panic!("Tried to write to read-only memory at: {}", addr); }
-            bank[addr as usize] = value;
+            if read_only
+            {
+                println!("Tried to write to read-only memory at: {}", addr);
+                return;
+            }
+            else
+            {
+                bank[addr as usize] = value;
+            }
         }
 
         // update the bank switching flags here, since they can only change on memory write
