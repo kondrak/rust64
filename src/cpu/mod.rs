@@ -96,9 +96,20 @@ impl CPU
         //self.mem.bytes[0] = 1;
     }
 
-    pub fn render(&self, renderer: &mut sdl2::render::Renderer)
+    pub fn render(&mut self, renderer: &mut sdl2::render::Renderer)
     {
-        self.font.draw(renderer, 0, 0, "a");
+        // dump screen memory
+        let mut start = 0x0400;
+
+        for y in 0..25
+        {
+            for x in 0..40
+            {
+                let d = self.mem.read_byte(start);
+                self.font.draw_char(renderer, x, y, d);
+                start += 1;
+            }
+        }
     }
 
     fn next_byte(&mut self) -> u8

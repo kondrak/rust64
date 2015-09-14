@@ -3,8 +3,6 @@ mod utils;
 mod memory;
 mod video;
 extern crate sdl2;
-use sdl2::pixels::PixelFormatEnum;
-use sdl2::rect::Rect;
 use sdl2::keyboard::Keycode;
 
 

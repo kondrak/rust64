@@ -26,8 +26,14 @@ impl SysFont
         font
     }
     
-    pub fn draw(&self, renderer: &mut sdl2::render::Renderer, x: u32, y: u32, text: &str )
+    pub fn draw_char(&self, renderer: &mut sdl2::render::Renderer, x: i32, y: i32, charcode: u8 )
     {
-        renderer.copy_ex(&self.texture, None, Some(Rect::new_unwrap(0, 0, 256, 64)), 0.0, None, (false, true));
+        let char_w: u32 = 8;
+        let char_h: u32 = 8;
+        let tex_h: i32 = 64;
+        let char_x = (charcode % 32) as i32;
+        let char_y = (charcode / 32) as i32;
+
+        renderer.copy_ex(&self.texture, Some(Rect::new_unwrap(char_x * char_w as i32, tex_h - char_h as i32 - char_y * char_h as i32, char_w, char_h)), Some(Rect::new_unwrap(x * char_w as i32, y * char_h as i32, char_w, char_h)), 0.0, None, (false, true));
     }
 }
