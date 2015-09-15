@@ -227,6 +227,13 @@ impl Memory
 
         self.write_byte(addr, value_le_hi);
         self.write_byte(addr + 0x0001, value_le_lo);
-    }    
+    }
+
+    // Debug: overwrite a byte in ROM
+    pub fn debug_write_rom(&mut self, addr: u16, value: u8)
+    {
+        self.rom[addr as usize] = value;
+    }
+
 }
 

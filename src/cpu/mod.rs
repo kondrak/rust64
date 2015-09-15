@@ -20,6 +20,7 @@ enum StatusFlag
     Carry            = 1 << 7 
 }
 
+static NMI_VECTOR:   u16 = 0xFFFA;
 static RESET_VECTOR: u16 = 0xFFFC;
 static IRQ_VECTOR:   u16 = 0xFFFE;
 
@@ -83,6 +84,13 @@ impl CPU
         // set the registers to initial state on power up
         self.mem.reset();
 
+        // init subroutine with memory test
+        //self.mem.debug_write_rom(0xFCF5, 0xEA);
+        //self.mem.debug_write_rom(0xFCF6, 0xEA);
+        //self.mem.debug_write_rom(0xFCF7, 0xEA);
+
+        // the memory test (very slow right now)
+        self.mem.debug_write_rom(0xFD86, 0xD0);
         // reset program counter
         self.PC = self.mem.read_word_le(RESET_VECTOR);
         self.SP = 0xFF;
@@ -92,10 +100,8 @@ impl CPU
     {
         let op = self.next_byte();
         self.process_op(op);
-        //self.process_op(15);
-        //self.process_op(16);
-        // process opcodes, to the cpu stuff
-        //self.mem.bytes[0] = 1;
+        self.process_nmi();
+        self.process_irq();
     }
 
     pub fn render(&mut self, renderer: &mut sdl2::render::Renderer)
@@ -157,6 +163,20 @@ impl CPU
         value
     }
 
+    fn process_nmi(&mut self)
+    {
+        // TODO: non-maskable irq
+    }
+    
+    fn process_irq(&mut self)
+    {
+        if !self.get_status_flag(StatusFlag::InterruptDisable)
+        {
+            // TODO
+            println!("IRQ processing");
+        }
+    }
+    
     fn process_op(&mut self, opcode: u8) -> u8
     {
         //utils::debug_instruction(opcode, self);
