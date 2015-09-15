@@ -168,7 +168,7 @@ impl Memory
             let (bank, read_only) = self.get_bank(addr);
             if read_only
             {
-                println!("Tried to write to read-only memory at: {}", addr);
+                println!("Tried to write 0x{:02X} to read-only memory at: ${:04X}", value, addr);
                 return;
             }
             else

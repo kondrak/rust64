@@ -28,6 +28,23 @@ pub fn open_file(filename: &str, offset: u64) -> Vec<u8>
     file_data
 }
 
+// instruction debugging
+pub struct OpDebugger
+{
+    pub jump_queue: Vec<u8>
+}
+
+impl OpDebugger
+{
+    pub fn new() -> OpDebugger
+    {
+        OpDebugger
+        {
+            jump_queue: Vec::<u8>::new()
+        }
+    }
+}
+
 pub fn debug_instruction(opcode: u8, instruction: Option<(&cpu::opcodes::Op, u8, &cpu::opcodes::AddrMode)>, cpu: &mut cpu::CPU, oldpc: u16)
 {
     match instruction
@@ -35,7 +52,15 @@ pub fn debug_instruction(opcode: u8, instruction: Option<(&cpu::opcodes::Op, u8,
         Some((instruction, num_cycles, addr_mode)) => {
             let mut operand_hex: String;
             let mut operand: String;
-            
+
+            // RTS? pop from queue to continue logging
+            match *instruction
+            {
+                cpu::opcodes::Op::RTS => { let _ = cpu.op_debugger.jump_queue.pop(); return; },
+                cpu::opcodes::Op::JSR => if !cpu.op_debugger.jump_queue.is_empty() { cpu.op_debugger.jump_queue.push(opcode); return; },
+                _ => if !cpu.op_debugger.jump_queue.is_empty() { return; }
+            }
+
             match *addr_mode {
                 cpu::opcodes::AddrMode::Implied => {
                     operand_hex = format!("       ");
@@ -90,10 +115,16 @@ pub fn debug_instruction(opcode: u8, instruction: Option<(&cpu::opcodes::Op, u8,
                     operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(oldpc));
                     operand = format!("(${:02X}),Y", cpu.mem.read_byte(oldpc));
                 },
-                //_ => operand_hex = panic!("Unknown addressing mode?")
             }
 
-            println!("${:04X}: {:02X}{} {} {}    <- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} CZIDB-VN: [{:08b}] ({} cycles)", oldpc - 1, opcode, operand_hex, instruction, operand, cpu.A, cpu.X, cpu.Y, cpu.SP, cpu.P, num_cycles);
+            println!("${:04X}: {:02X}{} {} {}    <- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} CZIDB-VN: [{:08b}] ({} cycles)", oldpc - 1, opcode, operand_hex, instruction, operand, cpu.A, cpu.X, cpu.Y, cpu.SP, cpu.mem.read_byte(0x0000), cpu.mem.read_byte(0x0001), cpu.P, num_cycles);
+
+            // JSR? push on queue to supress logging
+            match *instruction
+            {
+                cpu::opcodes::Op::JSR => cpu.op_debugger.jump_queue.push(opcode),
+                _ => ()
+            }
         },
         None => ()
     }

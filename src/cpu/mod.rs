@@ -33,6 +33,7 @@ pub struct CPU
     pub Y: u8,   // index register
     pub mem: memory::Memory, // system memory (64k)
     pub font: video::font::SysFont,
+    pub op_debugger: utils::OpDebugger
 }
 
 impl CPU
@@ -48,8 +49,9 @@ impl CPU
             X: 0,
             Y: 0,
             mem: memory::Memory::new(),
-            font: video::font::SysFont::new(renderer)
-        }        
+            font: video::font::SysFont::new(renderer),
+            op_debugger: utils::OpDebugger::new()
+        }
     }
 
     fn set_status_flag(&mut self, flag: StatusFlag, value: bool)
@@ -153,16 +155,6 @@ impl CPU
         let value = self.mem.read_word_le(0x0100 + (self.SP + 0x01) as u16);
         self.SP += 0x02;
         value
-    }
-    
-    fn mem_dump(&mut self)
-    {
-        for i in (0..0x10000)
-        {
-            let val = self.mem.read_byte(i as u16);
-            if val != 0
-                { println!("Addr: ${:04X} -> 0x{:02X}", i, val); }
-        }        
     }
 
     fn process_op(&mut self, opcode: u8) -> u8
