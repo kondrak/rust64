@@ -76,100 +76,29 @@ impl Memory
     pub fn reset(&mut self)
     {
         self.write_byte(0x0000, 0xFF);
-        self.write_byte(0x0001, 0x07); // enable kernal, chargen and basic access
+        self.write_byte(0x0001, 0x07); // enable kernal, chargen and basic ROMs
     }
 
     fn update_bank_flags(&mut self)
     {
-        // latch state is determined by 5 least significant bits from this location
-        let latch = self.ram[0x0001] & 0x1F;
+        // latch state is determined by 3 least significant bits from this location
+        let latch = self.ram[0x0001] & 0x07;
 
-        // default to RAM only
-        self.basic_on = false;
-        self.chargen_on = false;
-        self.io_on = false;
-        self.kernal_on = false;
-        self.cart_lo_on = false;
-        self.cart_hi_on = false;
-        
-        match latch
-        {
-            0x02 => {
-                self.chargen_on = true;
-                self.kernal_on = true;
-                self.cart_hi_on = true;
-            },
-            0x03 => {
-                self.chargen_on = true;
-                self.kernal_on = true;
-                self.cart_lo_on = true;
-                self.cart_hi_on = true;
-            }
-            0x05 | 0x0D | 0x1D => {
-                self.io_on = true;
-            }
-            0x06 => {
-                self.cart_hi_on = true;
-                self.io_on = true;
-            },
-            0x07 => {
-                self.cart_lo_on = true;
-                self.cart_hi_on = true;
-                self.io_on = true;
-                self.kernal_on = true;
-            },
-            0x0B => {
-                self.cart_lo_on = true;
-                self.basic_on = true;
-                self.chargen_on = true;
-                self.kernal_on = true;
-            },
-            0x0F => {
-                self.cart_lo_on = true;
-                self.basic_on = true;
-                self.io_on = true;
-                self.kernal_on = true;
-            },
-            0x10...0x17 => {
-                self.cart_lo_on = true;
-                self.io_on = true;
-                self.cart_hi_on = true;
-            },
-            0x19 | 0x09 => {
-                self.chargen_on = true;
-            },
-            0x1A | 0x0A => {
-                self.chargen_on = true;
-                self.kernal_on = true;
-            },
-            0x1B => {
-                self.basic_on = true;
-                self.chargen_on = true;
-                self.kernal_on = true;
-            },
-            0xE | 0x1E => {
-                self.io_on = true;
-                self.kernal_on = true;
-            },
-            0x1F => {
-                self.basic_on = true;
-                self.io_on = true;
-                self.kernal_on = true;
-            },
-            _ => ()
-        }
+        self.chargen_on = ((latch & 0x04) == 0) && ((latch & 0x03) != 0); // %0xx except %000
+        self.io_on      = ((latch & 0x04) != 0) && ((latch & 0x03) != 0); // %1xx except %100
+        self.basic_on   = (latch & 0x03) == 0x03;
+        self.kernal_on  = self.basic_on || ((latch & 0x03) == 0x02);
     }
     
     // Write a byte to memory
-    pub fn write_byte(&mut self, addr: u16, value: u8)
+    pub fn write_byte(&mut self, addr: u16, value: u8) -> bool
     {
         // parentheses to avoid borrowing issues with changing the flags
         {
             let (bank, read_only) = self.get_bank(addr);
             if read_only
             {
-                println!("Tried to write 0x{:02X} to read-only memory at: ${:04X}", value, addr);
-                return;
+                return false;
             }
             else
             {
@@ -180,6 +109,8 @@ impl Memory
         // update the bank switching flags here, since they can only change on memory write
         // latch byte changed - update bank switching flags
         if addr == 0x0001 { self.update_bank_flags(); }
+        
+        return true;
     }
     
     // Read a byte from memory
@@ -210,23 +141,27 @@ impl Memory
     }
 
     // Write word in little endian format (low/high)
-    pub fn write_word_le(&mut self, addr: u16, value: u16)
+    pub fn write_word_le(&mut self, addr: u16, value: u16) -> bool
     {
         let value_le_lo: u8 = (((value << 8) & 0xFF00) >> 8 & 0xFF) as u8;
         let value_le_hi: u8 = ((value >> 8) & 0x00FF) as u8;
 
-        self.write_byte(addr, value_le_lo);
-        self.write_byte(addr + 0x0001, value_le_hi);
+        let hi = self.write_byte(addr, value_le_lo);
+        let lo = self.write_byte(addr + 0x0001, value_le_hi);
+
+        return hi && lo;
     }
 
     // Write word in big endian format (high/low)
-    pub fn write_word_be(&mut self, addr: u16, value: u16)
+    pub fn write_word_be(&mut self, addr: u16, value: u16) -> bool
     {
         let value_le_lo: u8 = (((value << 8) & 0xFF00) >> 8 & 0xFF) as u8;
         let value_le_hi: u8 = ((value >> 8) & 0x00FF) as u8;
 
-        self.write_byte(addr, value_le_hi);
-        self.write_byte(addr + 0x0001, value_le_lo);
+        let hi = self.write_byte(addr, value_le_hi);
+        let lo = self.write_byte(addr + 0x0001, value_le_lo);
+
+        return hi && lo;
     }
 
     // Debug: overwrite a byte in ROM

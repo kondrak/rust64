@@ -80,10 +80,14 @@ impl AddrMode
             AddrMode::Relative(..)    => panic!("Can't set operand value"),
             _ => {
                 let addr = self.get_address(cpu);
-                cpu.mem.write_byte(addr, value)
+                let byte_written = cpu.mem.write_byte(addr, value);
+                if !byte_written
+                {
+                    println!("${:04X}: ROM write (0x{:02X} -> ${:04X})   A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} CZIDB-VN: [{:08b}]", cpu.prev_PC - 1, value, addr, cpu.A, cpu.X, cpu.Y, cpu.SP, cpu.mem.read_byte(0x0000), cpu.mem.read_byte(0x0001), cpu.P);
+                }
             }
         }
-    }    
+    }
 }
 
 pub enum Op {

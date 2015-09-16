@@ -45,7 +45,7 @@ impl OpDebugger
     }
 }
 
-pub fn debug_instruction(opcode: u8, instruction: Option<(&cpu::opcodes::Op, u8, &cpu::opcodes::AddrMode)>, cpu: &mut cpu::CPU, oldpc: u16)
+pub fn debug_instruction(opcode: u8, instruction: Option<(&cpu::opcodes::Op, u8, &cpu::opcodes::AddrMode)>, cpu: &mut cpu::CPU)
 {
     match instruction
     {
@@ -71,53 +71,53 @@ pub fn debug_instruction(opcode: u8, instruction: Option<(&cpu::opcodes::Op, u8,
                     operand = format!("A      ");
                 },
                 cpu::opcodes::AddrMode::Immediate(..) => {
-                    operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(oldpc));
-                    operand = format!("#${:02X}   ", cpu.mem.read_byte(oldpc)); 
+                    operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
+                    operand = format!("#${:02X}   ", cpu.mem.read_byte(cpu.prev_PC)); 
                 },
                 cpu::opcodes::AddrMode::Absolute(..) => {
-                    operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(oldpc), cpu.mem.read_byte(oldpc + 0x01));
-                    operand = format!("${:04X}  ", cpu.mem.read_word_le(oldpc));
+                    operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(cpu.prev_PC), cpu.mem.read_byte(cpu.prev_PC + 0x01));
+                    operand = format!("${:04X}  ", cpu.mem.read_word_le(cpu.prev_PC));
                 },
                 cpu::opcodes::AddrMode::AbsoluteIndexedX(..) => {
-                    operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(oldpc), cpu.mem.read_byte(oldpc + 0x01));
-                    operand = format!("${:04X},X", cpu.mem.read_word_le(oldpc));
+                    operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(cpu.prev_PC), cpu.mem.read_byte(cpu.prev_PC + 0x01));
+                    operand = format!("${:04X},X", cpu.mem.read_word_le(cpu.prev_PC));
                 },
                 cpu::opcodes::AddrMode::AbsoluteIndexedY(..) => {
-                    operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(oldpc), cpu.mem.read_byte(oldpc + 0x01));
-                    operand = format!("${:04X},Y", cpu.mem.read_word_le(oldpc));
+                    operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(cpu.prev_PC), cpu.mem.read_byte(cpu.prev_PC + 0x01));
+                    operand = format!("${:04X},Y", cpu.mem.read_word_le(cpu.prev_PC));
                 },
                 cpu::opcodes::AddrMode::Zeropage(..) => {
-                    operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(oldpc));
-                    operand = format!("${:02X}    ", cpu.mem.read_byte(oldpc));
+                    operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
+                    operand = format!("${:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
                 }, 
                 cpu::opcodes::AddrMode::ZeropageIndexedX(..) => {
-                    operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(oldpc));
-                    operand = format!("${:02X},X", cpu.mem.read_byte(oldpc));
+                    operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
+                    operand = format!("${:02X},X", cpu.mem.read_byte(cpu.prev_PC));
                 },
                 cpu::opcodes::AddrMode::ZeropageIndexedY(..) => {
-                    operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(oldpc));
-                    operand = format!("${:02X},Y", cpu.mem.read_byte(oldpc));
+                    operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
+                    operand = format!("${:02X},Y", cpu.mem.read_byte(cpu.prev_PC));
                 },
                 cpu::opcodes::AddrMode::Relative(..) => {
-                    operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(oldpc));
-                    let b: i8 = cpu.mem.read_byte(oldpc) as i8;
-                    operand = format!("${:04X}  ", ((oldpc + 1) as i16 + b as i16) as u16);
+                    operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
+                    let b: i8 = cpu.mem.read_byte(cpu.prev_PC) as i8;
+                    operand = format!("${:04X}  ", ((cpu.prev_PC + 1) as i16 + b as i16) as u16);
                 },
                 cpu::opcodes::AddrMode::Indirect(..) => {
-                    operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(oldpc), cpu.mem.read_byte(oldpc + 0x01));
-                    operand = format!("(${:04X})", cpu.mem.read_word_le(oldpc));
+                    operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(cpu.prev_PC), cpu.mem.read_byte(cpu.prev_PC + 0x01));
+                    operand = format!("(${:04X})", cpu.mem.read_word_le(cpu.prev_PC));
                 },
                 cpu::opcodes::AddrMode::IndexedIndirectX(..) => {
-                    operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(oldpc));
-                    operand = format!("(${:02X},X)", cpu.mem.read_byte(oldpc));
+                    operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
+                    operand = format!("(${:02X},X)", cpu.mem.read_byte(cpu.prev_PC));
                 },
                 cpu::opcodes::AddrMode::IndirectIndexedY(..) => {
-                    operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(oldpc));
-                    operand = format!("(${:02X}),Y", cpu.mem.read_byte(oldpc));
+                    operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
+                    operand = format!("(${:02X}),Y", cpu.mem.read_byte(cpu.prev_PC));
                 },
             }
 
-            println!("${:04X}: {:02X}{} {} {}    <- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} CZIDB-VN: [{:08b}] ({} cycles)", oldpc - 1, opcode, operand_hex, instruction, operand, cpu.A, cpu.X, cpu.Y, cpu.SP, cpu.mem.read_byte(0x0000), cpu.mem.read_byte(0x0001), cpu.P, num_cycles);
+            println!("${:04X}: {:02X}{} {} {}    <- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} CZIDB-VN: [{:08b}] ({} cycles)", cpu.prev_PC - 1, opcode, operand_hex, instruction, operand, cpu.A, cpu.X, cpu.Y, cpu.SP, cpu.mem.read_byte(0x0000), cpu.mem.read_byte(0x0001), cpu.P, num_cycles);
 
             // JSR? push on queue to supress logging
             match *instruction

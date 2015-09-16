@@ -33,6 +33,7 @@ pub struct CPU
     pub X: u8,   // index register
     pub Y: u8,   // index register
     pub mem: memory::Memory, // system memory (64k)
+    pub prev_PC: u16, // previous program counter - for debugging
     pub font: video::font::SysFont,
     pub op_debugger: utils::OpDebugger
 }
@@ -50,6 +51,7 @@ impl CPU
             X: 0,
             Y: 0,
             mem: memory::Memory::new(),
+            prev_PC: 0,
             font: video::font::SysFont::new(renderer),
             op_debugger: utils::OpDebugger::new()
         }
@@ -180,13 +182,12 @@ impl CPU
     fn process_op(&mut self, opcode: u8) -> u8
     {
         //utils::debug_instruction(opcode, self);
-        let oldpc = self.PC;
+        self.prev_PC = self.PC;
         match opcodes::get_instruction(opcode, self)
         {
             Some((instruction, num_cycles, addr_mode)) => {
-                utils::debug_instruction(opcode, Some((&instruction, num_cycles, &addr_mode)), self, oldpc);
+                utils::debug_instruction(opcode, Some((&instruction, num_cycles, &addr_mode)), self);
                 instruction.run(&addr_mode, self);
-                //println!("Stack pop: {:04X}", self.mem.read_word_le(0x0100 + (0xFD + 0x01) as u16));
                 num_cycles
             },
             None => panic!("No instruction - this should never happen! (0x{:02X} at ${:04X})", opcode, self.PC)
