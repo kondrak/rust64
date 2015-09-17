@@ -250,7 +250,7 @@ impl Op
                 }
                 cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) != 0);
                 let res = res as u8;
-                let is_overflow = (cpu.A ^ res) & 0x80 != 0 && (cpu.A ^ v) & 0x80 == 0x80;
+                let is_overflow = (cpu.A ^ v) & 0x80 == 0 && (cpu.A ^ res) & 0x80 == 0x80;
                 cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
 		cpu.A = res;
 		cpu.set_zn_flags(res);
