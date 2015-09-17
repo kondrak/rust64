@@ -4,7 +4,7 @@ mod memory;
 mod video;
 extern crate sdl2;
 use sdl2::keyboard::Keycode;
-
+use std::num::Wrapping;
 
 const SCREEN_WIDTH: u32 = 320;
 const SCREEN_HEIGHT: u32 = 200;
@@ -16,21 +16,20 @@ fn main()
     let video_subsystem = sdl_context.video().unwrap();
 
     let window = video_subsystem.window("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT)
-        .resizable()
-        .opengl()
         .build()
         .unwrap();
     
     let mut running = true;
-    let mut renderer = window.renderer().build().unwrap();
+    let mut renderer = window.renderer().accelerated().present_vsync().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     let mut cpu = cpu::CPU::new(&renderer);
     cpu.reset();
-    
+
+    let mut render_cnt: u16 = 0;
+
     while running
     {
-        renderer.clear();
         //renderer.copy(&texture, None, Some(Rect::new_unwrap(0, 0, 256, 64)));
         //renderer.copy_ex(&texture, None, Some(Rect::new_unwrap(450, 100, 256, 256)), 30.0, None, (false, false));
         //renderer.present();
@@ -55,7 +54,10 @@ fn main()
         }
 
         cpu.update();
-        cpu.render(&mut renderer);
-        renderer.present();
+        //cpu.render(&mut renderer);
+        render_cnt = (Wrapping(render_cnt) + Wrapping(1)).0;
+        
+        if render_cnt == 0
+        { renderer.clear(); cpu.render(&mut renderer); renderer.present(); }
     }
 }
