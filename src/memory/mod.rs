@@ -90,19 +90,19 @@ impl Memory
         self.kernal_on  = self.basic_on || ((latch & 0x03) == 0x02);
     }
     
-    // Write a byte to memory
+    // Write a byte to memory - returns whether RAM was written (true) or RAM under ROM (false)
     pub fn write_byte(&mut self, addr: u16, value: u8) -> bool
     {
         // parentheses to avoid borrowing issues with changing the flags
         {
-            let (bank, read_only) = self.get_bank(addr);
+            self.ram[addr as usize] = value;
+            
+            let (_, read_only) = self.get_bank(addr);
+            
+            // RAM under ROM written? Return false to let us know about it
             if read_only
             {
                 return false;
-            }
-            else
-            {
-                bank[addr as usize] = value;
             }
         }
 

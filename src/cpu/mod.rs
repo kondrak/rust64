@@ -86,13 +86,6 @@ impl CPU
         // set the registers to initial state on power up
         self.mem.reset();
 
-        // init subroutine with memory test
-        //self.mem.debug_write_rom(0xFCF5, 0xEA);
-        //self.mem.debug_write_rom(0xFCF6, 0xEA);
-        //self.mem.debug_write_rom(0xFCF7, 0xEA);
-
-        // the memory test (very slow right now)
-        self.mem.debug_write_rom(0xFD86, 0xD0);
         // reset program counter
         self.PC = self.mem.read_word_le(RESET_VECTOR);
         self.SP = 0xFF;
@@ -174,8 +167,7 @@ impl CPU
     {
         if !self.get_status_flag(StatusFlag::InterruptDisable)
         {
-            // TODO
-            println!("IRQ processing");
+            // TODO irq
         }
     }
     
