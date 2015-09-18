@@ -242,8 +242,9 @@ impl Op
             },
             Op::ADC => {
                 // TODO: support decimal mode
+                // TODO: should operation wrap automatically here?
                 let v = operand.get_value(cpu);
-                let mut res: u16 = cpu.A as u16 + v as u16;
+                let mut res: u16 = (Wrapping(cpu.A as u16) + Wrapping(v as u16)).0;
                 if cpu.get_status_flag(cpu::StatusFlag::Carry)
                 {
                     res += 0x0001;
@@ -257,8 +258,9 @@ impl Op
             },
             Op::SBC => {
                 // TODO: support decimal mode
+                // TODO: should operation wrap automatically here?
                 let v = operand.get_value(cpu);
-                let mut res: u16 = cpu.A as u16 - v as u16;
+                let mut res: u16 = (Wrapping(cpu.A as u16) - Wrapping(v as u16)).0;
                 if !cpu.get_status_flag(cpu::StatusFlag::Carry)
                 {
                     res -= 0x0001;
@@ -324,7 +326,7 @@ impl Op
             },
             Op::LSR => {
                 let v = operand.get_value(cpu);
-                cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x80) != 0);
+                cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x01) != 0);
                 let res = v >> 1;
                 operand.set_value(cpu, res);
                 cpu.set_zn_flags(res);
