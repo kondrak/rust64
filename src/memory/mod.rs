@@ -77,19 +77,43 @@ impl MemBank
             MemType::RAM => self.data[(addr - self.offset) as usize] = val,
             MemType::IO => {
                 // TODO: IO access has specific behavior depending on address
-                self.data[(addr - self.offset) as usize] = val;
+                match addr
+                {
+                    0xD016          => self.data[(addr - self.offset) as usize] = 0xC0 | val,
+                    0xD019...0xD01A => self.data[(addr - self.offset) as usize] = 0x70 | val,
+                    0xD01E...0xD01F => (),                             // cannot be written - panic/fail on try?
+                    0xD020...0xD02E => self.data[(addr - self.offset) as usize] = 0xF0 | val,
+                    0xD02F...0xD03F => (),                             // write ignored
+                    0xD040...0xD3FF => self.write(addr % 0x0040, val), // same as 0xD000-0xD03F
+                    _ => self.data[(addr - self.offset) as usize] = val
+                }                
+                
             },
             _ => panic!("Can't write to ROM!")
         }
     }
 
-    fn read(&self, addr: u16) -> u8
+    fn read(&mut self, addr: u16) -> u8
     {
         match self.bank_type
         {
             MemType::IO => {
                 // TODO: IO access has specific behavior depending on address
-                self.data[(addr - self.offset) as usize]
+                match addr
+                {
+                    0xD012          => 0,   // TODO: update this correctly, set to 0 so we see *any* output now
+                    0xD016          => 0xC0 | self.data[(addr - self.offset) as usize],
+                    0xD019...0xD01A => 0x70 | self.data[(addr - self.offset) as usize],
+                    0xD01E...0xD01F => {                                  // cannot be written, cleared on read
+                        let value = self.data[(addr - self.offset) as usize];
+                        self.data[(addr - self.offset) as usize] = 0;
+                        value
+                    },
+                    0xD020...0xD02E => 0xF0 | self.data[(addr - self.offset) as usize],
+                    0xD02F...0xD03F => 0xFF,                              // always returns 0xFF
+                    0xD040...0xD3FF => self.read(addr % 0x0040),          // same as 0xD000-0xD03F
+                    _ => self.data[(addr - self.offset) as usize]
+                }
             },
             _ => self.data[(addr - self.offset) as usize]
         }
