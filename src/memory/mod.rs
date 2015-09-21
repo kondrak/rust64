@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use utils;
-use std::ops::Index;
+//use std::ops::{Index, Deref, DerefMut};
 
 enum MemType
 {
@@ -14,9 +14,9 @@ enum MemType
 // specific memory bank - RAM, ROM, IO
 struct MemBank
 {
-    bank_type: MemType,
-    read_only: bool,
-    offset: u16,
+    bank_type: MemType, // what am I?
+    read_only: bool,    // RAM or ROM?
+    offset: u16,        // offset from start of address space
     data: Vec<u8>,
 }
 
@@ -96,7 +96,7 @@ impl MemBank
     }    
 }
 
-impl Index<u16> for MemBank
+/*impl Index<u16> for MemBank
 {
     type Output = u8;
 
@@ -105,6 +105,25 @@ impl Index<u16> for MemBank
         &self.data[_index as usize]
     }
 }
+
+impl Deref for MemBank
+{
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Vec<u8>
+    {
+        &self.data
+    }
+}
+
+impl DerefMut for MemBank
+{
+    fn deref_mut(&mut self) -> &mut Vec<u8>
+    {
+        &mut self.data
+    }
+}*/
+
 
 
 // collective memory storage with all the banks and bank switching support
@@ -172,7 +191,7 @@ impl Memory
     fn update_bank_flags(&mut self)
     {
         // latch state is determined by 3 least significant bits from this location
-        let latch = self.ram[0x0001] & 0x07;
+        let latch = self.ram.read(0x0001) & 0x07;
 
         self.chargen_on = ((latch & 0x04) == 0) && ((latch & 0x03) != 0); // %0xx except %000
         self.io_on      = ((latch & 0x04) != 0) && ((latch & 0x03) != 0); // %1xx except %100
