@@ -1,10 +1,10 @@
-mod cpu;
-mod utils;
-mod memory;
-mod video;
 extern crate sdl2;
 use sdl2::keyboard::Keycode;
 use std::num::Wrapping;
+
+mod c64;
+mod utils;
+mod video;
 
 const SCREEN_WIDTH: u32 = 320;
 const SCREEN_HEIGHT: u32 = 200;
@@ -23,7 +23,7 @@ fn main()
     let mut renderer = window.renderer().accelerated().present_vsync().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
-    let mut cpu = cpu::CPU::new(&renderer);
+    let mut cpu = c64::cpu::CPU::new(&renderer);
     cpu.reset();
 
     let mut render_cnt: u16 = 0;

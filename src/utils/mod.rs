@@ -4,7 +4,8 @@ use std::fs::File;
 use std::io::SeekFrom;
 use std::path::Path;
 
-use cpu;
+use c64::cpu;
+use c64::opcodes;
 
 pub fn open_file(filename: &str, offset: u64) -> Vec<u8>
 {
@@ -45,7 +46,7 @@ impl OpDebugger
     }
 }
 
-pub fn debug_instruction(opcode: u8, instruction: Option<(&cpu::opcodes::Op, u8, &cpu::opcodes::AddrMode)>, cpu: &mut cpu::CPU)
+pub fn debug_instruction(opcode: u8, instruction: Option<(&opcodes::Op, u8, &opcodes::AddrMode)>, cpu: &mut cpu::CPU)
 {
     match instruction
     {
@@ -56,62 +57,62 @@ pub fn debug_instruction(opcode: u8, instruction: Option<(&cpu::opcodes::Op, u8,
             // RTS? pop from queue to continue logging
             match *instruction
             {
-                cpu::opcodes::Op::RTS => { let _ = cpu.op_debugger.jump_queue.pop(); return; },
-                cpu::opcodes::Op::JSR => if !cpu.op_debugger.jump_queue.is_empty() { cpu.op_debugger.jump_queue.push(opcode); return; },
+                opcodes::Op::RTS => { let _ = cpu.op_debugger.jump_queue.pop(); return; },
+                opcodes::Op::JSR => if !cpu.op_debugger.jump_queue.is_empty() { cpu.op_debugger.jump_queue.push(opcode); return; },
                 _ => if !cpu.op_debugger.jump_queue.is_empty() { return; }
             }
 
             match *addr_mode {
-                cpu::opcodes::AddrMode::Implied => {
+                opcodes::AddrMode::Implied => {
                     operand_hex = format!("       ");
                     operand = format!("       ");
                 },
-                cpu::opcodes::AddrMode::Accumulator => {
+                opcodes::AddrMode::Accumulator => {
                     operand_hex = format!("       ");
                     operand = format!("A      ");
                 },
-                cpu::opcodes::AddrMode::Immediate(..) => {
+                opcodes::AddrMode::Immediate(..) => {
                     operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
                     operand = format!("#${:02X}   ", cpu.mem.read_byte(cpu.prev_PC)); 
                 },
-                cpu::opcodes::AddrMode::Absolute(..) => {
+                opcodes::AddrMode::Absolute(..) => {
                     operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(cpu.prev_PC), cpu.mem.read_byte(cpu.prev_PC + 0x01));
                     operand = format!("${:04X}  ", cpu.mem.read_word_le(cpu.prev_PC));
                 },
-                cpu::opcodes::AddrMode::AbsoluteIndexedX(..) => {
+                opcodes::AddrMode::AbsoluteIndexedX(..) => {
                     operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(cpu.prev_PC), cpu.mem.read_byte(cpu.prev_PC + 0x01));
                     operand = format!("${:04X},X", cpu.mem.read_word_le(cpu.prev_PC));
                 },
-                cpu::opcodes::AddrMode::AbsoluteIndexedY(..) => {
+                opcodes::AddrMode::AbsoluteIndexedY(..) => {
                     operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(cpu.prev_PC), cpu.mem.read_byte(cpu.prev_PC + 0x01));
                     operand = format!("${:04X},Y", cpu.mem.read_word_le(cpu.prev_PC));
                 },
-                cpu::opcodes::AddrMode::Zeropage(..) => {
+                opcodes::AddrMode::Zeropage(..) => {
                     operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
                     operand = format!("${:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
                 }, 
-                cpu::opcodes::AddrMode::ZeropageIndexedX(..) => {
+                opcodes::AddrMode::ZeropageIndexedX(..) => {
                     operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
                     operand = format!("${:02X},X", cpu.mem.read_byte(cpu.prev_PC));
                 },
-                cpu::opcodes::AddrMode::ZeropageIndexedY(..) => {
+                opcodes::AddrMode::ZeropageIndexedY(..) => {
                     operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
                     operand = format!("${:02X},Y", cpu.mem.read_byte(cpu.prev_PC));
                 },
-                cpu::opcodes::AddrMode::Relative(..) => {
+                opcodes::AddrMode::Relative(..) => {
                     operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
                     let b: i8 = cpu.mem.read_byte(cpu.prev_PC) as i8;
                     operand = format!("${:04X}  ", ((cpu.prev_PC + 1) as i16 + b as i16) as u16);
                 },
-                cpu::opcodes::AddrMode::Indirect(..) => {
+                opcodes::AddrMode::Indirect(..) => {
                     operand_hex = format!(" {:02X} {:02X} ", cpu.mem.read_byte(cpu.prev_PC), cpu.mem.read_byte(cpu.prev_PC + 0x01));
                     operand = format!("(${:04X})", cpu.mem.read_word_le(cpu.prev_PC));
                 },
-                cpu::opcodes::AddrMode::IndexedIndirectX(..) => {
+                opcodes::AddrMode::IndexedIndirectX(..) => {
                     operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
                     operand = format!("(${:02X},X)", cpu.mem.read_byte(cpu.prev_PC));
                 },
-                cpu::opcodes::AddrMode::IndirectIndexedY(..) => {
+                opcodes::AddrMode::IndirectIndexedY(..) => {
                     operand_hex = format!(" {:02X}    ", cpu.mem.read_byte(cpu.prev_PC));
                     operand = format!("(${:02X}),Y", cpu.mem.read_byte(cpu.prev_PC));
                 },
@@ -122,7 +123,7 @@ pub fn debug_instruction(opcode: u8, instruction: Option<(&cpu::opcodes::Op, u8,
             // JSR? push on queue to supress logging
             match *instruction
             {
-                cpu::opcodes::Op::JSR => cpu.op_debugger.jump_queue.push(opcode),
+                opcodes::Op::JSR => cpu.op_debugger.jump_queue.push(opcode),
                 _ => ()
             }
         },
