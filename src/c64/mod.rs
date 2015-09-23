@@ -1,15 +1,14 @@
 extern crate sdl2;
 pub mod cpu;
 pub mod opcodes;
-pub mod memory;
-
-use video;
+mod memory;
+mod vic;
 
 pub struct C64
 {
     memory: memory::MemShared,
     cpu: cpu::CPU,
-    font: video::font::SysFont,
+    vic: vic::VIC,
 }
 
 impl C64
@@ -22,7 +21,7 @@ impl C64
         {
             memory: memory.clone(),                     // shared system memory (RAM, ROM, IO registers)
             cpu: cpu::CPU::new(memory.clone()),
-            font: video::font::SysFont::new(renderer),
+            vic: vic::VIC::new(memory.clone(), renderer),
         }
     }
 
@@ -39,19 +38,8 @@ impl C64
     }
 
 
-    pub fn render(&mut self, renderer: &mut sdl2::render::Renderer)
+    pub fn render(&self, renderer: &mut sdl2::render::Renderer)
     {
-        // dump screen memory
-        let mut start = 0x0400;
-
-        for y in 0..25
-        {
-            for x in 0..40
-            {
-                let d = self.memory.borrow_mut().read_byte(start);
-                self.font.draw_char(renderer, x, y, d);
-                start += 1;
-            }
-        }
+        self.vic.render(renderer);
     }
 }
