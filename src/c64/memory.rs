@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 use utils;
 //use std::ops::{Index, Deref, DerefMut};
+use std::cell::RefCell;
+use std::rc::Rc;
+
+pub type MemShared = Rc<RefCell<Memory>>;
 
 enum MemType
 {
@@ -170,9 +174,9 @@ pub struct Memory
 
 impl Memory
 {
-    pub fn new() -> Memory
+    pub fn new_shared() -> MemShared
     {
-        Memory
+        Rc::new(RefCell::new(Memory
         {
             ram:     MemBank::new(MemType::RAM),     // 64k
             basic:   MemBank::new(MemType::BASIC),   // 8k
@@ -185,7 +189,7 @@ impl Memory
             kernal_on:  false,
             cart_lo_on: false, // unused for now
             cart_hi_on: false, // unused for now
-        }
+        }))
     }
     
     // returns memory bank for current latch setting and address

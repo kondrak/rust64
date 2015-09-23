@@ -50,22 +50,22 @@ impl AddrMode
             AddrMode::ZeropageIndexedX(next_byte) => (Wrapping(next_byte) + Wrapping(cpu.X)).0 as u16,
             AddrMode::ZeropageIndexedY(next_byte) => (Wrapping(next_byte) + Wrapping(cpu.Y)).0 as u16,
             AddrMode::Relative(next_byte)         => (cpu.PC as i16 + next_byte as i16) as u16,
-            AddrMode::Indirect(next_word)         => cpu.mem.read_word_le(next_word),
-            AddrMode::IndexedIndirectX(next_byte) => cpu.mem.read_word_le((Wrapping(next_byte) + Wrapping(cpu.X)).0 as u16),
-            AddrMode::IndirectIndexedY(next_byte) => cpu.mem.read_word_le(next_byte as u16) + cpu.Y as u16
+            AddrMode::Indirect(next_word)         => cpu.read_word_le(next_word),
+            AddrMode::IndexedIndirectX(next_byte) => cpu.read_word_le((Wrapping(next_byte) + Wrapping(cpu.X)).0 as u16),
+            AddrMode::IndirectIndexedY(next_byte) => cpu.read_word_le(next_byte as u16) + cpu.Y as u16
         }
     }
     
     pub fn get_value(&self, cpu: &mut cpu::CPU) -> u8
     {
-        match *self
+       match *self
         {
             AddrMode::Implied                     => panic!("Can't get operand value"),
             AddrMode::Accumulator                 => cpu.A,
             AddrMode::Immediate(next_byte)        => next_byte,
             _ => {
                 let addr = self.get_address(cpu);
-                cpu.mem.read_byte(addr)
+                cpu.read_byte(addr)
             }
         }
     }
@@ -80,10 +80,10 @@ impl AddrMode
             AddrMode::Relative(..)    => panic!("Can't set operand value"),
             _ => {
                 let addr = self.get_address(cpu);
-                let byte_written = cpu.mem.write_byte(addr, value);
+                let byte_written = cpu.write_byte(addr, value);
                 if !byte_written
                 {
-                    println!("${:04X}: ROM write (0x{:02X} -> ${:04X})   A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} CZIDB-VN: [{:08b}]", cpu.prev_PC - 1, value, addr, cpu.A, cpu.X, cpu.Y, cpu.SP, cpu.mem.read_byte(0x0000), cpu.mem.read_byte(0x0001), cpu.P);
+                    println!("${:04X}: ROM write (0x{:02X} -> ${:04X})   A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} CZIDB-VN: [{:08b}]", cpu.prev_PC - 1, value, addr, cpu.A, cpu.X, cpu.Y, cpu.SP, cpu.read_byte(0x0000), cpu.read_byte(0x0001), cpu.P);
                 }
             }
         }
@@ -453,7 +453,7 @@ impl Op
                 let p  = cpu.P;
                 cpu.push_word(pc);
                 cpu.push_byte(p);
-                cpu.PC = cpu.mem.read_word_le(cpu::IRQ_VECTOR);
+                cpu.PC = cpu.read_word_le(cpu::IRQ_VECTOR);
                 cpu.set_status_flag(cpu::StatusFlag::InterruptDisable, true);
             },
             Op::NOP => (),
@@ -467,7 +467,7 @@ impl Op
             Op::HLT => panic!("Received HLT instruction at ${:04X}", cpu.PC),
             _       => () //println!("Unknown op: {}{} at ${:04X}", self, addr_mode, cpu.PC)
         }
-    }
+    } 
 }
 
 // debug display for opcodes

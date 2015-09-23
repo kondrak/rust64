@@ -5,7 +5,6 @@ extern crate sdl2;
 use c64::opcodes;
 use c64::memory;
 use utils;
-use video;
 
 // status flags for P register
 pub enum StatusFlag
@@ -32,15 +31,14 @@ pub struct CPU
     pub A: u8,   // accumulator
     pub X: u8,   // index register
     pub Y: u8,   // index register
-    pub mem: memory::Memory, // system memory (64k)
+    pub mem_ref: memory::MemShared, // reference to shared system memory
     pub prev_PC: u16, // previous program counter - for debugging
-    pub font: video::font::SysFont,
     pub op_debugger: utils::OpDebugger
 }
 
 impl CPU
 {
-    pub fn new(renderer: &sdl2::render::Renderer) -> CPU
+    pub fn new(memory_ref: memory::MemShared) -> CPU
     {
         CPU
         {
@@ -50,23 +48,16 @@ impl CPU
             A: 0,
             X: 0,
             Y: 0,
-            mem: memory::Memory::new(),
+            mem_ref: memory_ref,
             prev_PC: 0,
-            font: video::font::SysFont::new(renderer),
             op_debugger: utils::OpDebugger::new()
         }
     }
-
+    
     pub fn set_status_flag(&mut self, flag: StatusFlag, value: bool)
     {
-        if value
-        {
-            self.P |= flag as u8;
-        }
-        else
-        {
-            self.P &= !(flag as u8);
-        }
+        if value { self.P |=   flag as u8;  }
+        else     { self.P &= !(flag as u8); }
     }
 
     pub fn get_status_flag(&mut self, flag: StatusFlag) -> bool
@@ -83,11 +74,9 @@ impl CPU
     
     pub fn reset(&mut self)
     {
-        // set the registers to initial state on power up
-        self.mem.reset();
-
         // reset program counter
-        self.PC = self.mem.read_word_le(RESET_VECTOR);
+        let pc = self.read_word_le(RESET_VECTOR);
+        self.PC = pc;
         self.SP = 0xFF;
     }
 
@@ -99,32 +88,16 @@ impl CPU
         self.process_irq();
     }
 
-    pub fn render(&mut self, renderer: &mut sdl2::render::Renderer)
-    {
-        // dump screen memory
-        let mut start = 0x0400;
-
-        for y in 0..25
-        {
-            for x in 0..40
-            {
-                let d = self.mem.read_byte(start);
-                self.font.draw_char(renderer, x, y, d);
-                start += 1;
-            }
-        }
-    }
-
     pub fn next_byte(&mut self) -> u8
     {
-        let op = self.mem.read_byte(self.PC);
+        let op = self.read_byte(self.PC);
         self.PC += 1;
         op
     }
 
     pub fn next_word(&mut self) -> u16
     {
-        let word = self.mem.read_word_le(self.PC);
+        let word = self.read_word_le(self.PC);
         self.PC += 2;
         word
     }
@@ -135,12 +108,12 @@ impl CPU
     pub fn push_byte(&mut self, value: u8)
     {
         self.SP -= 0x01;
-        self.mem.write_byte(0x0100 + (self.SP + 0x01) as u16, value);
+        self.write_byte(0x0100 + (self.SP + 0x01) as u16, value);
     }
 
     pub fn pop_byte(&mut self) -> u8
     {
-        let value = self.mem.read_byte(0x0100 + (self.SP + 0x01) as u16);
+        let value = self.read_byte(0x0100 + (self.SP + 0x01) as u16);
         self.SP += 0x01;
         value
     }
@@ -148,16 +121,41 @@ impl CPU
     pub fn push_word(&mut self, value: u16)
     {
         self.SP -= 0x02;
-        self.mem.write_word_le(0x0100 + (self.SP + 0x01) as u16, value);
+        self.write_word_le(0x0100 + (self.SP + 0x01) as u16, value);
     }
 
     pub fn pop_word(&mut self) -> u16
     {
-        let value = self.mem.read_word_le(0x0100 + (self.SP + 0x01) as u16);
+        let value = self.read_word_le(0x0100 + (self.SP + 0x01) as u16);
         self.SP += 0x02;
         value
     }
 
+   pub fn write_byte(&self, addr: u16, value: u8) -> bool
+    {
+        self.mem_ref.borrow_mut().write_byte(addr, value)
+    }
+    
+    pub fn read_byte(&self, addr: u16) -> u8
+    {
+        self.mem_ref.borrow_mut().read_byte(addr)
+    }
+
+    pub fn read_word_le(&self, addr: u16) -> u16
+    {
+        self.mem_ref.borrow_mut().read_word_le(addr)
+    }
+
+    pub fn read_word_be(&self, addr: u16) -> u16
+    {
+        self.mem_ref.borrow_mut().read_word_be(addr)
+    }
+
+    pub fn write_word_le(&self, addr: u16, value: u16) -> bool
+    {
+        self.mem_ref.borrow_mut().write_word_le(addr, value)
+    }
+    
     fn process_nmi(&mut self)
     {
         // TODO: non-maskable irq

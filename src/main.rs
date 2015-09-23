@@ -23,8 +23,8 @@ fn main()
     let mut renderer = window.renderer().accelerated().present_vsync().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
-    let mut cpu = c64::cpu::CPU::new(&renderer);
-    cpu.reset();
+    let mut c64 = c64::C64::new(&renderer);
+    c64.reset();
 
     let mut render_cnt: u16 = 0;
 
@@ -53,11 +53,11 @@ fn main()
             }
         }
 
-        cpu.update();
-        //cpu.render(&mut renderer);
+        c64.update();
+
         render_cnt = (Wrapping(render_cnt) + Wrapping(1)).0;
-        
+
         if render_cnt == 0
-        { renderer.clear(); cpu.render(&mut renderer); renderer.present(); }
+        { renderer.clear(); c64.render(&mut renderer); renderer.present(); }
     }
 }
