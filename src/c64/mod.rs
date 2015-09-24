@@ -1,12 +1,14 @@
 extern crate sdl2;
 pub mod cpu;
 pub mod opcodes;
+mod clock;
 mod memory;
 mod vic;
 
 pub struct C64
 {
     memory: memory::MemShared,
+    clock: clock::Clock,
     cpu: cpu::CPU,
     vic: vic::VIC,
 }
@@ -20,6 +22,7 @@ impl C64
         C64
         {
             memory: memory.clone(),                     // shared system memory (RAM, ROM, IO registers)
+            clock: clock::Clock::new(),
             cpu: cpu::CPU::new(memory.clone()),
             vic: vic::VIC::new(memory.clone(), renderer),
         }
@@ -34,6 +37,7 @@ impl C64
     
     pub fn update(&mut self)
     {
+        if self.clock.tick() { println!("Clock tick"); }
         self.cpu.update();
     }
 
