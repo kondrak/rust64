@@ -9,8 +9,13 @@ Yup.
 
 Currently depends on rust-sdl2 bindings, follow the readme here to compile: https://github.com/AngryLawyer/rust-sdl2
 
-Updates:
+Status:
+CPU: done
+memory: done
+VIC: in progress (currently renders screen memory using debug font)
+CIA: todo
+IO: todo
+load prg: todo
+drives: todo
 
-2/9/2015
-Expect a lot of changes to be happening in the entire code structure as I implement more components and remaster everything with new Rust features I run into. The emulator is not in a usable state at the moment and you will have a tough time trying to compile it with default settings. This will all change as the emulator reaches more mature stage. Stay tuned for more updates in this spot.
-
+This is an on-off WIP project, so update frequency may vary.
