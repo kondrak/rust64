@@ -12,7 +12,7 @@ Currently depends on rust-sdl2 bindings, follow the readme here to compile: http
 Status:
 
 - <code>CPU</code>      - done
-- <code>memory</code>   - todo
+- <code>memory</code>   - done
 - <code>VIC-II</code>   - done
 - <code>CIA</code>      - in progress (currently renders screen memory using debug font)
 - <code>IO</code>       - todo
