@@ -13,8 +13,8 @@ Status:
 
 - <code>CPU</code>      - done
 - <code>memory</code>   - done
-- <code>VIC-II</code>   - done
-- <code>CIA</code>      - in progress (currently renders screen memory using debug font)
+- <code>VIC-II</code>   - in progress (currently renders screen memory using debug font)
+- <code>CIA</code>      - todo
 - <code>IO</code>       - todo
 - <code>load prg</code> - todo
 - <code>drives</code>   - todo
