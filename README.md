@@ -11,19 +11,13 @@ Currently depends on rust-sdl2 bindings, follow the readme here to compile: http
 
 Status:
 
-CPU: done
-
-memory: done
-
-VIC: in progress (currently renders screen memory using debug font)
-
-CIA: todo
-
-IO: todo
-
-load prg: todo
-
-drives: todo
+- <code>CPU</code>      - done
+- <code>memory</code>   - todo
+- <code>VIC-II</code>   - done
+- <code>CIA</code>      - in progress (currently renders screen memory using debug font)
+- <code>IO</code>       - todo
+- <code>load prg</code> - todo
+- <code>drives</code>   - todo
 
 
 This is an on-off WIP project, so update frequency may vary.
