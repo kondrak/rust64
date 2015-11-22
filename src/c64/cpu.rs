@@ -4,6 +4,7 @@
 extern crate sdl2;
 use c64::opcodes;
 use c64::memory;
+use c64::vic;
 use utils;
 
 // status flags for P register
@@ -32,13 +33,14 @@ pub struct CPU
     pub X: u8,   // index register
     pub Y: u8,   // index register
     pub mem_ref: memory::MemShared, // reference to shared system memory
+    pub vic_ref: vic::VICShared,
     pub prev_PC: u16, // previous program counter - for debugging
     pub op_debugger: utils::OpDebugger
 }
 
 impl CPU
 {
-    pub fn new(memory_ref: memory::MemShared) -> CPU
+    pub fn new(memory_ref: memory::MemShared, vic_ref: vic::VICShared) -> CPU
     {
         CPU
         {
@@ -49,6 +51,7 @@ impl CPU
             X: 0,
             Y: 0,
             mem_ref: memory_ref,
+            vic_ref: vic_ref,
             prev_PC: 0,
             op_debugger: utils::OpDebugger::new()
         }
@@ -131,14 +134,24 @@ impl CPU
         value
     }
 
-   pub fn write_byte(&self, addr: u16, value: u8) -> bool
+    pub fn write_byte(&self, addr: u16, value: u8) -> bool
     {
-        self.mem_ref.borrow_mut().write_byte(addr, value)
+        match addr
+        {
+            // VIC-II address space
+            0xD000...0xD400 => self.vic_ref.borrow_mut().write_register(addr, value),
+            _ => self.mem_ref.borrow_mut().write_byte(addr, value)
+        }
     }
     
     pub fn read_byte(&self, addr: u16) -> u8
     {
-        self.mem_ref.borrow_mut().read_byte(addr)
+        match addr
+        {
+            // VIC-II address space
+            0xD000...0xD400 => self.vic_ref.borrow_mut().read_register(addr),
+            _ => self.mem_ref.borrow_mut().read_byte(addr)
+        }
     }
 
     pub fn read_word_le(&self, addr: u16) -> u16
@@ -167,6 +180,21 @@ impl CPU
         {
             // TODO irq
         }
+    }
+
+    fn trigger_vic_irq(&mut self)
+    {
+        // TODO:
+    }
+
+    fn trigger_nmi(&mut self)
+    {
+        // TODO
+    }
+
+    fn trigger_cia_irq(&mut self)
+    {
+        // TODO
     }
     
     fn process_op(&mut self, opcode: u8) -> u8

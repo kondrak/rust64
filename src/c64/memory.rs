@@ -84,11 +84,12 @@ impl MemBank
                 match addr
                 {
                     0xD016          => self.data[(addr - self.offset) as usize] = 0xC0 | val,
-                    0xD019...0xD01A => self.data[(addr - self.offset) as usize] = 0x70 | val,
+                    0xD019          => self.data[(addr - self.offset) as usize] = 0x70 | val,
+                    0xD01A          => self.data[(addr - self.offset) as usize] = 0xF0 | val,
                     0xD01E...0xD01F => (),                             // cannot be written - panic/fail on try?
                     0xD020...0xD02E => self.data[(addr - self.offset) as usize] = 0xF0 | val,
                     0xD02F...0xD03F => (),                             // write ignored
-                    0xD040...0xD3FF => self.write(addr % 0x0040, val), // same as 0xD000-0xD03F
+                    0xD040...0xD3FF => self.write(0xD000 + (addr % 0x0040), val), // same as 0xD000-0xD03F
                     _ => self.data[(addr - self.offset) as usize] = val
                 }                
                 
@@ -105,9 +106,10 @@ impl MemBank
                 // TODO: IO access has specific behavior depending on address
                 match addr
                 {
-                    0xD012          => 0,   // TODO: update this correctly, set to 0 so we see *any* output now
                     0xD016          => 0xC0 | self.data[(addr - self.offset) as usize],
-                    0xD019...0xD01A => 0x70 | self.data[(addr - self.offset) as usize],
+                    0xD018          => 0x01 | self.data[(addr - self.offset) as usize],
+                    0xD019          => 0x70 | self.data[(addr - self.offset) as usize],
+                    0xD01A          => 0xF0 | self.data[(addr - self.offset) as usize],
                     0xD01E...0xD01F => {                                  // cannot be written, cleared on read
                         let value = self.data[(addr - self.offset) as usize];
                         self.data[(addr - self.offset) as usize] = 0;
@@ -115,7 +117,7 @@ impl MemBank
                     },
                     0xD020...0xD02E => 0xF0 | self.data[(addr - self.offset) as usize],
                     0xD02F...0xD03F => 0xFF,                              // always returns 0xFF
-                    0xD040...0xD3FF => self.read(addr % 0x0040),          // same as 0xD000-0xD03F
+                    0xD040...0xD3FF => self.read(0xD000 + (addr % 0x0040)),          // same as 0xD000-0xD03F
                     _ => self.data[(addr - self.offset) as usize]
                 }
             },
