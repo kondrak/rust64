@@ -5,7 +5,13 @@ extern crate sdl2;
 use c64::opcodes;
 use c64::memory;
 use c64::vic;
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use utils;
+
+pub type CPUShared = Rc<RefCell<CPU>>;
+
 
 // status flags for P register
 pub enum StatusFlag
@@ -32,17 +38,17 @@ pub struct CPU
     pub A: u8,   // accumulator
     pub X: u8,   // index register
     pub Y: u8,   // index register
-    pub mem_ref: memory::MemShared, // reference to shared system memory
-    pub vic_ref: vic::VICShared,
+    pub mem_ref: Option<memory::MemShared>, // reference to shared system memory
+    pub vic_ref: Option<vic::VICShared>,
     pub prev_PC: u16, // previous program counter - for debugging
     pub op_debugger: utils::OpDebugger
 }
 
 impl CPU
 {
-    pub fn new(memory_ref: memory::MemShared, vic_ref: vic::VICShared) -> CPU
+    pub fn new_shared() -> CPUShared
     {
-        CPU
+        Rc::new(RefCell::new(CPU
         {
             PC: 0,
             SP: 0xFF,
@@ -50,12 +56,19 @@ impl CPU
             A: 0,
             X: 0,
             Y: 0,
-            mem_ref: memory_ref,
-            vic_ref: vic_ref,
+            mem_ref: None,
+            vic_ref: None
+                ,
             prev_PC: 0,
             op_debugger: utils::OpDebugger::new()
-        }
+        }))
     }
+
+    pub fn set_references(&mut self, memref: memory::MemShared, vicref: vic::VICShared)
+    {
+        self.mem_ref = Some(memref);
+        self.vic_ref = Some(vicref);
+    }    
     
     pub fn set_status_flag(&mut self, flag: StatusFlag, value: bool)
     {
@@ -111,7 +124,8 @@ impl CPU
     pub fn push_byte(&mut self, value: u8)
     {
         self.SP -= 0x01;
-        self.write_byte(0x0100 + (self.SP + 0x01) as u16, value);
+        let newSP = (self.SP + 0x01) as u16;
+        self.write_byte(0x0100 + newSP, value);
     }
 
     pub fn pop_byte(&mut self) -> u8
@@ -134,13 +148,13 @@ impl CPU
         value
     }
 
-    pub fn write_byte(&self, addr: u16, value: u8) -> bool
+    pub fn write_byte(&mut self, addr: u16, value: u8) -> bool
     {
         match addr
         {
             // VIC-II address space
-            0xD000...0xD400 => self.vic_ref.borrow_mut().write_register(addr, value),
-            _ => self.mem_ref.borrow_mut().write_byte(addr, value)
+            0xD000...0xD400 => as_mut!(self.vic_ref).write_register(addr, value),
+            _ => as_mut!(self.mem_ref).write_byte(addr, value)
         }
     }
     
@@ -149,24 +163,24 @@ impl CPU
         match addr
         {
             // VIC-II address space
-            0xD000...0xD400 => self.vic_ref.borrow_mut().read_register(addr),
-            _ => self.mem_ref.borrow_mut().read_byte(addr)
+            0xD000...0xD400 => as_ref!(self.vic_ref).read_register(addr),
+            _ => as_ref!(self.mem_ref).read_byte(addr)
         }
     }
 
     pub fn read_word_le(&self, addr: u16) -> u16
     {
-        self.mem_ref.borrow_mut().read_word_le(addr)
+        as_ref!(self.mem_ref).read_word_le(addr)
     }
 
     pub fn read_word_be(&self, addr: u16) -> u16
     {
-        self.mem_ref.borrow_mut().read_word_be(addr)
+        as_ref!(self.mem_ref).read_word_be(addr)
     }
 
     pub fn write_word_le(&self, addr: u16, value: u16) -> bool
     {
-        self.mem_ref.borrow_mut().write_word_le(addr, value)
+        as_ref!(self.mem_ref).write_word_le(addr, value)
     }
     
     fn process_nmi(&mut self)
@@ -182,17 +196,22 @@ impl CPU
         }
     }
 
-    fn trigger_vic_irq(&mut self)
+    pub fn trigger_vic_irq(&mut self)
     {
         // TODO:
     }
 
-    fn trigger_nmi(&mut self)
+    pub fn clear_vic_irq(&mut self)
     {
         // TODO
     }
 
-    fn trigger_cia_irq(&mut self)
+    pub fn trigger_nmi(&mut self)
+    {
+        // TODO
+    }
+
+    pub fn trigger_cia_irq(&mut self)
     {
         // TODO
     }

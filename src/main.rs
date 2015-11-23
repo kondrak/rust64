@@ -1,9 +1,11 @@
 extern crate sdl2;
 use sdl2::keyboard::Keycode;
-use std::num::Wrapping;
+//use std::num::Wrapping;
+
+#[macro_use]
+mod utils;
 
 mod c64;
-mod utils;
 mod video;
 
 const SCREEN_WIDTH: u32 = 320;
@@ -55,9 +57,9 @@ fn main()
 
         c64.update();
 
-        render_cnt = (Wrapping(render_cnt) + Wrapping(1)).0;
+        /*render_cnt = (Wrapping(render_cnt) + Wrapping(1)).0;
 
         if render_cnt == 0
-        { renderer.clear(); c64.render(&mut renderer); renderer.present(); }
+        { renderer.clear(); c64.render(&mut renderer); renderer.present(); } */
     }
 }

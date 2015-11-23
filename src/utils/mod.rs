@@ -7,6 +7,15 @@ use std::path::Path;
 use c64::cpu;
 use c64::opcodes;
 
+// helper macros to easily extract references from Option<RefCell<...>>
+macro_rules! as_ref {
+    ($x:expr) => ($x.as_ref().unwrap().borrow_mut())
+}
+
+macro_rules! as_mut {
+    ($x:expr) => ($x.as_mut().unwrap().borrow_mut())
+}
+
 pub fn open_file(filename: &str, offset: u64) -> Vec<u8>
 {
     let path = Path::new(&filename);

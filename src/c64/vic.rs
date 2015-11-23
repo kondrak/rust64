@@ -2,9 +2,11 @@
 #![allow(dead_code)]
 extern crate sdl2;
 use c64::memory;
+use c64::cpu;
 use std::cell::RefCell;
 use std::rc::Rc;
-use video;
+
+//use video;
 
 pub type VICShared = Rc<RefCell<VIC>>;
 
@@ -22,8 +24,9 @@ static ROW24_YSTOP:  u16 = 0xF7;
 
 pub struct VIC
 {
-    mem_ref: memory::MemShared,
-    font: video::font::SysFont,
+    mem_ref: Option<memory::MemShared>,
+    cpu_ref: Option<cpu::CPUShared>,
+    //font: video::font::SysFont,
 
     last_byte: u8,       // last byte read by VIC
     raster_x: u16,       // raster x position
@@ -53,13 +56,15 @@ pub struct VIC
 }
 
 impl VIC
-{
-    pub fn new_shared(memory_ref: memory::MemShared, renderer: &sdl2::render::Renderer) -> VICShared
+{    
+    //pub fn new_shared(renderer: &sdl2::render::Renderer) -> VICShared
+    pub fn new_shared() -> VICShared
     {
         Rc::new(RefCell::new(VIC
         {
-            mem_ref: memory_ref,
-            font: video::font::SysFont::new(renderer),
+            mem_ref: None,
+            cpu_ref: None,
+            //font: video::font::SysFont::new(renderer),
             last_byte: 0,
             raster_x: 0,
             raster_cnt: NUM_RASTERLINES - 1,
@@ -85,18 +90,24 @@ impl VIC
         }))
     }
 
+    pub fn set_references(&mut self, memref: memory::MemShared, cpuref: cpu::CPUShared)
+    {
+        self.mem_ref = Some(memref);
+        self.cpu_ref = Some(cpuref);
+    }
+    
     pub fn read_register(&self, addr: u16) -> u8
     {
         match addr
         {
             0xD011 => {
-                let curr_val = self.mem_ref.borrow_mut().read_byte(addr);
+                let curr_val = as_ref!(self.mem_ref).read_byte(addr);
                 // bit 7 in $d011 is bit 8 of $d012
                 (curr_val & 0x7F) | ((self.raster_cnt & 0x100) >> 1) as u8
             },
             0xD012          => self.raster_cnt as u8,
             0xD040...0xD3FF => self.read_register(0xD000 + (addr % 0x0040)),
-            _               => self.mem_ref.borrow_mut().read_byte(addr)
+            _               => as_ref!(self.mem_ref).read_byte(addr)
         }
     }
 
@@ -110,11 +121,11 @@ impl VIC
                 {
                     let idx = ((addr % 0x000F) >> 1) as usize;
                     self.mx[idx] = (self.mx[idx] & 0xFF00) | value as u16;
-                    self.mem_ref.borrow_mut().write_byte(addr, self.mx[idx] as u8)
+                    as_mut!(self.mem_ref).write_byte(addr, self.mx[idx] as u8)
                 }
                 else
                 {
-                    self.mem_ref.borrow_mut().write_byte(addr, value)
+                    as_mut!(self.mem_ref).write_byte(addr, value)
                 }
             },
             0xD010 =>
@@ -135,7 +146,7 @@ impl VIC
                     j <<= 1;
                 }
                 
-                self.mem_ref.borrow_mut().write_byte(addr, value)
+                as_mut!(self.mem_ref).write_byte(addr, value)
             },
             0xD011 =>
             {
@@ -171,7 +182,7 @@ impl VIC
                 let ctrl2 = self.read_register(0xD016);
                 self.display_mode = (((value & 0x60) | (ctrl2 & 0x10)) >> 4) as u16;
                 
-                self.mem_ref.borrow_mut().write_byte(addr, value)
+                as_mut!(self.mem_ref).write_byte(addr, value)
             },
             0xD012 =>
             {
@@ -185,7 +196,7 @@ impl VIC
                 self.raster_irq = new_raster_irq;
 
                 // TODO: is this correct?
-                 self.mem_ref.borrow_mut().write_byte(addr, value)
+                 as_mut!(self.mem_ref).write_byte(addr, value)
             },
             0xD016 =>
             {
@@ -193,12 +204,12 @@ impl VIC
                 self.x_scroll = (value & 7) as u16;
                 self.display_mode = (((ctrl1 & 0x60) | (value & 0x10)) >> 4) as u16;
                 
-                self.mem_ref.borrow_mut().write_byte(addr, value)
+                as_mut!(self.mem_ref).write_byte(addr, value)
             },
             0xD017 =>
             {
                 self.sprite_y_exp |= !value; // TODO: check "!"
-                self.mem_ref.borrow_mut().write_byte(addr, value)
+                as_mut!(self.mem_ref).write_byte(addr, value)
             },
             0xD018 =>
             {
@@ -206,7 +217,7 @@ impl VIC
                 self.char_base   = ((value & 0x0E) as u16) << 10;
                 self.bitmap_base = ((value & 0x08) as u16) << 10;
                 
-                self.mem_ref.borrow_mut().write_byte(addr, value)
+                as_mut!(self.mem_ref).write_byte(addr, value)
             },
             0xD019 =>
             {
@@ -221,10 +232,13 @@ impl VIC
                 else
                 {
                     // TODO: clear vic irq
+                    // normally we'd dereference the cpu directly but in Rust
+                    // it's not possible due to RefCell already being borrowed (call by CPU)
+                    //as_mut!(self.cpu_ref).clear_vic_irq();
                 }
 
                 // TODO: is this correct?
-                self.mem_ref.borrow_mut().write_byte(addr, new_irq_flag)
+                as_mut!(self.mem_ref).write_byte(addr, new_irq_flag)
             },
             0xD01A =>
             {
@@ -233,8 +247,9 @@ impl VIC
 
                 if (irq_flag & new_irq_mask) > 0
                 {
-                   irq_flag |= 0x80
-                    // TODO: trigger vic irq
+                   irq_flag |= 0x80;
+                        // TODO: trigger vic irq
+                        
                 }
                 else
                 {
@@ -244,14 +259,14 @@ impl VIC
                 
                 
                 // TODO: is this correct?
-                self.mem_ref.borrow_mut().write_byte(addr, new_irq_mask)                
+                as_mut!(self.mem_ref).write_byte(addr, new_irq_mask)                
             },
             0xD040...0xD3FF => self.write_register(0xD000 + (addr % 0x0040), value),
-            _ => self.mem_ref.borrow_mut().write_byte(addr, value)
+            _ => as_mut!(self.mem_ref).write_byte(addr, value)
         }
     }
     
-    pub fn update(&self) -> bool
+    pub fn update(&mut self) -> bool
     {
         // TODO main VIC loop
         true
@@ -288,7 +303,7 @@ impl VIC
     }
 
     // debug
-    pub fn render(&self, renderer: &mut sdl2::render::Renderer)
+    /*pub fn render(&self, renderer: &mut sdl2::render::Renderer)
     {
         // dump screen memory
         let mut start = 0x0400;
@@ -297,10 +312,10 @@ impl VIC
         {
             for x in 0..40
             {
-                let d = self.mem_ref.borrow_mut().read_byte(start);
+                let d = as_ref!(self.mem_ref).read_byte(start);
                 self.font.draw_char(renderer, x, y, d);
                 start += 1;
             }
         }
-    }
+    }*/
 }
