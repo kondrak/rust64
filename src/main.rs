@@ -25,10 +25,10 @@ fn main()
     let mut renderer = window.renderer().accelerated().present_vsync().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
-    let mut c64 = c64::C64::new(&renderer);
+    let mut c64 = c64::C64::new();
     c64.reset();
 
-    let mut render_cnt: u16 = 0;
+    //let mut render_cnt: u16 = 0;
 
     while running
     {

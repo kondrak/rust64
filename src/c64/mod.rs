@@ -17,13 +17,13 @@ pub struct C64
 
 impl C64
 {
-    pub fn new(renderer: &sdl2::render::Renderer) -> C64
+    pub fn new() -> C64
     {
         let memory = memory::Memory::new_shared();
         let vic    = vic::VIC::new_shared();
         let cpu    = cpu::CPU::new_shared();
 
-        let mut c64 = C64
+        let c64 = C64
         {
             memory: memory.clone(),                     // shared system memory (RAM, ROM, IO registers)
             //clock: clock::Clock::new(),

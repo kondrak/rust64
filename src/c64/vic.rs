@@ -22,6 +22,14 @@ static ROW25_YSTOP:  u16 = 0xFB;
 static ROW24_YSTART: u16 = 0x37;
 static ROW24_YSTOP:  u16 = 0xF7;
 
+// action to perform on VIC register write
+pub enum VICWriteAction
+{
+    None,
+    TriggerVICIrq,
+    ClearVICIrq,
+}
+
 pub struct VIC
 {
     mem_ref: Option<memory::MemShared>,
@@ -111,7 +119,7 @@ impl VIC
         }
     }
 
-    pub fn write_register(&mut self, addr: u16, value: u8) -> bool
+    pub fn write_register(&mut self, addr: u16, value: u8, on_vic_write: &mut VICWriteAction) -> bool
     {
         match addr
         {
@@ -231,10 +239,9 @@ impl VIC
                 }
                 else
                 {
-                    // TODO: clear vic irq
                     // normally we'd dereference the cpu directly but in Rust
                     // it's not possible due to RefCell already being borrowed (call by CPU)
-                    //as_mut!(self.cpu_ref).clear_vic_irq();
+                    *on_vic_write = VICWriteAction::TriggerVICIrq;
                 }
 
                 // TODO: is this correct?
@@ -248,20 +255,20 @@ impl VIC
                 if (irq_flag & new_irq_mask) > 0
                 {
                    irq_flag |= 0x80;
-                        // TODO: trigger vic irq
-                        
+                    *on_vic_write = VICWriteAction::TriggerVICIrq;
                 }
                 else
                 {
                     irq_flag &= 0x7F;
-                    // TODO: clear vic irq
+                    *on_vic_write = VICWriteAction::ClearVICIrq;
                 }
                 
-                
                 // TODO: is this correct?
-                as_mut!(self.mem_ref).write_byte(addr, new_irq_mask)                
+                let write_ok = as_mut!(self.mem_ref).write_byte(addr, new_irq_mask);
+                write_ok & as_mut!(self.mem_ref).write_byte(0xD019, irq_flag)
+                
             },
-            0xD040...0xD3FF => self.write_register(0xD000 + (addr % 0x0040), value),
+            0xD040...0xD3FF => self.write_register(0xD000 + (addr % 0x0040), value, on_vic_write),
             _ => as_mut!(self.mem_ref).write_byte(addr, value)
         }
     }

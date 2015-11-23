@@ -150,12 +150,24 @@ impl CPU
 
     pub fn write_byte(&mut self, addr: u16, value: u8) -> bool
     {
+        let mut on_vic_write: vic::VICWriteAction = vic::VICWriteAction::None;
+        let mut mem_write_ok: bool;
         match addr
         {
             // VIC-II address space
-            0xD000...0xD400 => as_mut!(self.vic_ref).write_register(addr, value),
-            _ => as_mut!(self.mem_ref).write_byte(addr, value)
+            0xD000...0xD400 => mem_write_ok = as_mut!(self.vic_ref).write_register(addr, value, &mut on_vic_write),
+            _ => mem_write_ok = as_mut!(self.mem_ref).write_byte(addr, value),
         }
+
+        // on VIC register write perform necessary action on the CPU
+        match on_vic_write
+        {
+            vic::VICWriteAction::TriggerVICIrq => self.trigger_vic_irq(),
+            vic::VICWriteAction::ClearVICIrq   => self.clear_vic_irq(),
+            _ => (),
+        }
+
+        mem_write_ok
     }
     
     pub fn read_byte(&self, addr: u16) -> u8
