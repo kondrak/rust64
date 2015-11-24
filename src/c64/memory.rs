@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 pub type MemShared = Rc<RefCell<Memory>>;
 
-enum MemType
+pub enum MemType
 {
     RAM,
     BASIC,
@@ -74,7 +74,7 @@ impl MemBank
         mem_bank
     }
 
-    fn write(&mut self, addr: u16, val: u8)
+    pub fn write(&mut self, addr: u16, val: u8)
     {
         match self.bank_type
         {
@@ -98,7 +98,7 @@ impl MemBank
         }
     }
 
-    fn read(&mut self, addr: u16) -> u8
+    pub fn read(&mut self, addr: u16) -> u8
     {
         match self.bank_type
         {
@@ -210,8 +210,30 @@ impl Memory
             _ => panic!("Address out of memory range")
         }
     }
-    
 
+    // returns specific modifiable memory bank
+    pub fn get_ram_bank(&mut self, bank_type: MemType) -> (&mut MemBank)
+    {
+        match bank_type
+        {
+            MemType::RAM => &mut self.ram,
+            MemType::IO  => &mut self.io,
+            _            => panic!("Unrecognized RAM bank"),
+        }
+    }
+
+    // returns specific non-modifiable memory bank
+    pub fn get_rom_bank(&mut self, bank_type: MemType) -> (&mut MemBank)
+    {
+        match bank_type
+        {
+            MemType::BASIC   => &mut self.basic,
+            MemType::CHARGEN => &mut self.chargen,
+            MemType::KERNAL  => &mut self.kernal,
+            _                => panic!("Unrecognized ROM Abank"),
+        }
+    }    
+    
     pub fn reset(&mut self)
     {
         self.write_byte(0x0000, 0xFF);
@@ -227,6 +249,8 @@ impl Memory
         self.io_on      = ((latch & 0x04) != 0) && ((latch & 0x03) != 0); // %1xx except %100
         self.basic_on   = (latch & 0x03) == 0x03;
         self.kernal_on  = self.basic_on || ((latch & 0x03) == 0x02);
+
+        if self.io_on == false { panic!("oops"); }
     }
     
     // Write a byte to memory - returns whether RAM was written (true) or RAM under ROM (false)

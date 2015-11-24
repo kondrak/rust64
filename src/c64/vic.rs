@@ -52,6 +52,7 @@ pub struct VIC
     curr_cycle: u16,     // current cycle
     display_mode: u16,   // current display mode
     bad_lines_on: bool,
+    lp_triggered: bool,  // lightpen irq triggered
     is_bad_line: bool,
     ml_idx: u16,         // matrix/color line index
     mx: Vec<u16>,       // special register: x position of sprites
@@ -88,6 +89,7 @@ impl VIC
             curr_cycle: 1,
             display_mode: 0,
             bad_lines_on: false,
+            lp_triggered: false,
             is_bad_line: false,
             ml_idx: 0,
             mx: vec![0; 8],
@@ -294,35 +296,71 @@ impl VIC
         // TODO
     }
     
-    pub fn trigger_lp_irq(&self)
+    pub fn trigger_lp_irq(&mut self)
     {
-        // TODO: trigger lightpen irq
-    }
-
-    pub fn on_va_change(&self, new_va: u16)
-    {
-        // TODO cia eveny
-    }
-
-    pub fn raster_irq(&self)
-    {
-        // TODO
-    }
-
-    // debug
-    /*pub fn render(&self, renderer: &mut sdl2::render::Renderer)
-    {
-        // dump screen memory
-        let mut start = 0x0400;
-
-        for y in 0..25
+        // lightpen triggers only once per frame
+        if !self.lp_triggered
         {
-            for x in 0..40
+            self.lp_triggered = true;
+            let mut irq_flag = self.read_register(0xD019);
+            let irq_mask = self.read_register(0xD01A);
+            
+            let lpx = self.raster_x >> 1;
+            let lpy = self.raster_cnt;
+            irq_flag |= 0x08;
+
+            if (irq_mask & 0x08) != 0
             {
-                let d = as_ref!(self.mem_ref).read_byte(start);
-                self.font.draw_char(renderer, x, y, d);
-                start += 1;
+                irq_flag |= 0x80;
+                as_mut!(self.cpu_ref).trigger_vic_irq();
             }
+
+            let mut vicwrite: VICWriteAction = VICWriteAction::None;
+
+            // TODO: is ok?
+            self.write_register(0xD013, lpx as u8, &mut vicwrite);
+            self.write_register(0xD014, lpy as u8, &mut vicwrite);
+            self.write_register(0xD019, irq_flag,  &mut vicwrite);
         }
-    }*/
+    }
+
+    pub fn on_va_change(&mut self, new_va: u16)
+    {
+        self.cia_vabase = new_va << 14;
+        let vbase = self.read_register(0xD018);
+        let mut vicwrite: VICWriteAction = VICWriteAction::None;
+        self.write_register(0xD018, vbase, &mut vicwrite);
+    }
+
+    pub fn raster_irq(&mut self)
+    {
+       /* let mut irq_flag = self.read_register(0xD019);
+        let irq_mask     = self.read_register(0xD01A);
+
+        if (irq_mask & 0x01) != 0
+        {
+            irq_flag |= 0x80;
+            as_mut!(self.cpu_ref).trigger_vic_irq();
+        }
+        
+        let mut vicwrite: VICWriteAction = VICWriteAction::None;
+        // TODO: is ok?
+        self.write_register(0xD019, irq_flag, &mut vicwrite); */
+    }
+
+    pub fn read_byte(&mut self, addr: u16) -> u8
+    {
+        let va = addr | self.cia_vabase;
+
+        if (va & 0x7000) == 0x1000
+        {
+            self.last_byte = as_mut!(self.mem_ref).get_rom_bank(memory::MemType::CHARGEN).read(va & 0x0FFF);
+        }
+        else
+        {
+            self.last_byte = as_mut!(self.mem_ref).get_ram_bank(memory::MemType::RAM).read(va);
+        }
+
+        self.last_byte
+    }
 }

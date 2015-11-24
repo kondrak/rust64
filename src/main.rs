@@ -11,7 +11,7 @@ mod video;
 
 fn main()
 {
-    let sdl_context = sdl2::init().unwrap();
+    //let sdl_context = sdl2::init().unwrap();
     /*let video_subsystem = sdl_context.video().unwrap();
 
     let window = video_subsystem.window("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -22,7 +22,7 @@ fn main()
      */
     
     let mut running = true;
-    let mut event_pump = sdl_context.event_pump().unwrap();
+    //let mut event_pump = sdl_context.event_pump().unwrap();
 
     let mut c64 = c64::C64::new();
     c64.reset();
