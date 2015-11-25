@@ -22,8 +22,8 @@ static ROW25_YSTOP:  u16 = 0xFB;
 static ROW24_YSTART: u16 = 0x37;
 static ROW24_YSTOP:  u16 = 0xF7;
 
-// action to perform on VIC register write
-pub enum VICWriteAction
+// action to perform on specific VIC events (write, raster irq...)
+pub enum VICCallbackAction
 {
     None,
     TriggerVICIrq,
@@ -36,6 +36,8 @@ pub struct VIC
     cpu_ref: Option<cpu::CPUShared>,
     //font: video::font::SysFont,
 
+    irq_flag: u8,
+    irq_mask: u8,
     last_byte: u8,       // last byte read by VIC
     raster_x: u16,       // raster x position
     raster_cnt: u16,     // raster line counter (current raster line)
@@ -74,6 +76,8 @@ impl VIC
             mem_ref: None,
             cpu_ref: None,
             //font: video::font::SysFont::new(renderer),
+            irq_flag: 0,
+            irq_mask: 0,
             last_byte: 0,
             raster_x: 0,
             raster_cnt: NUM_RASTERLINES - 1,
@@ -116,12 +120,14 @@ impl VIC
                 (curr_val & 0x7F) | ((self.raster_cnt & 0x100) >> 1) as u8
             },
             0xD012          => self.raster_cnt as u8,
+            0xD019          => self.irq_flag | 0x70,
+            0xD01A          => self.irq_mask | 0xF0,
             0xD040...0xD3FF => self.read_register(0xD000 + (addr % 0x0040)),
             _               => as_ref!(self.mem_ref).read_byte(addr)
         }
     }
 
-    pub fn write_register(&mut self, addr: u16, value: u8, on_vic_write: &mut VICWriteAction) -> bool
+    pub fn write_register(&mut self, addr: u16, value: u8, on_vic_write: &mut VICCallbackAction) -> bool
     {
         match addr
         {
@@ -165,7 +171,7 @@ impl VIC
                 let new_raster_irq = (self.raster_irq & 0xFF) | ((0x80 & value as u16) << 1);
                 if self.raster_irq != new_raster_irq && self.raster_cnt == new_raster_irq
                 {
-                    self.raster_irq();
+                    *on_vic_write = self.raster_irq();
                 }
 
                 self.raster_irq = new_raster_irq;
@@ -200,7 +206,7 @@ impl VIC
 
                 if (self.raster_irq != new_raster_irq) && (self.raster_cnt == new_raster_irq)
                 {
-                    self.raster_irq();
+                    *on_vic_write = self.raster_irq();
                 }
 
                 self.raster_irq = new_raster_irq;
@@ -231,44 +237,35 @@ impl VIC
             },
             0xD019 =>
             {
-                let curr_irq_flag = self.read_register(addr);
-                let irq_mask = self.read_register(0xD01A);
-                let mut new_irq_flag = curr_irq_flag & (!value & 0x0F);
-
-                if (new_irq_flag & irq_mask) != 0
+                self.irq_flag = self.irq_flag & (!value & 0x0F);
+                
+                if (self.irq_flag & self.irq_mask) != 0
                 {
-                    new_irq_flag |= 0x80;
+                    self.irq_flag |= 0x80;
                 }
                 else
                 {
                     // normally we'd dereference the cpu directly but in Rust
                     // it's not possible due to RefCell already being borrowed (call by CPU)
-                    *on_vic_write = VICWriteAction::TriggerVICIrq;
+                    *on_vic_write = VICCallbackAction::TriggerVICIrq;
                 }
-
-                // TODO: is this correct?
-                as_mut!(self.mem_ref).write_byte(addr, new_irq_flag)
+                true
             },
             0xD01A =>
             {
-                let new_irq_mask = value & 0x0F;
-                let mut irq_flag = self.read_register(0xD019);
+                self.irq_mask = value & 0x0F;
 
-                if (irq_flag & new_irq_mask) > 0
+                if (self.irq_flag & self.irq_mask) != 0
                 {
-                   irq_flag |= 0x80;
-                    *on_vic_write = VICWriteAction::TriggerVICIrq;
+                    self.irq_flag |= 0x80;
+                    *on_vic_write = VICCallbackAction::TriggerVICIrq;
                 }
                 else
                 {
-                    irq_flag &= 0x7F;
-                    *on_vic_write = VICWriteAction::ClearVICIrq;
+                    self.irq_flag &= 0x7F;
+                    *on_vic_write = VICCallbackAction::ClearVICIrq;
                 }
-                
-                // TODO: is this correct?
-                let write_ok = as_mut!(self.mem_ref).write_byte(addr, new_irq_mask);
-                write_ok & as_mut!(self.mem_ref).write_byte(0xD019, irq_flag)
-                
+                true
             },
             0xD040...0xD3FF => self.write_register(0xD000 + (addr % 0x0040), value, on_vic_write),
             _ => as_mut!(self.mem_ref).write_byte(addr, value)
@@ -302,25 +299,20 @@ impl VIC
         if !self.lp_triggered
         {
             self.lp_triggered = true;
-            let mut irq_flag = self.read_register(0xD019);
-            let irq_mask = self.read_register(0xD01A);
             
             let lpx = self.raster_x >> 1;
             let lpy = self.raster_cnt;
-            irq_flag |= 0x08;
-
-            if (irq_mask & 0x08) != 0
+            
+            self.irq_flag |= 0x08;
+            if (self.irq_mask & 0x08) != 0
             {
-                irq_flag |= 0x80;
+                self.irq_flag |= 0x80;
                 as_mut!(self.cpu_ref).trigger_vic_irq();
             }
 
-            let mut vicwrite: VICWriteAction = VICWriteAction::None;
-
-            // TODO: is ok?
+            let mut vicwrite: VICCallbackAction = VICCallbackAction::None;
             self.write_register(0xD013, lpx as u8, &mut vicwrite);
             self.write_register(0xD014, lpy as u8, &mut vicwrite);
-            self.write_register(0xD019, irq_flag,  &mut vicwrite);
         }
     }
 
@@ -328,24 +320,26 @@ impl VIC
     {
         self.cia_vabase = new_va << 14;
         let vbase = self.read_register(0xD018);
-        let mut vicwrite: VICWriteAction = VICWriteAction::None;
+        let mut vicwrite: VICCallbackAction = VICCallbackAction::None;
         self.write_register(0xD018, vbase, &mut vicwrite);
     }
 
-    pub fn raster_irq(&mut self)
+    pub fn raster_irq(&mut self) -> VICCallbackAction
     {
-       /* let mut irq_flag = self.read_register(0xD019);
-        let irq_mask     = self.read_register(0xD01A);
-
-        if (irq_mask & 0x01) != 0
+        self.irq_flag |= 0x01;
+ 
+        if (self.irq_mask & 0x01) != 0
         {
-            irq_flag |= 0x80;
-            as_mut!(self.cpu_ref).trigger_vic_irq();
+            self.irq_flag |= 0x80;
+
+            // TODO: when the time is right check if this works correctly (irq should be triggered here)
+            //as_mut!(self.cpu_ref).trigger_vic_irq();
+            VICCallbackAction::TriggerVICIrq
         }
-        
-        let mut vicwrite: VICWriteAction = VICWriteAction::None;
-        // TODO: is ok?
-        self.write_register(0xD019, irq_flag, &mut vicwrite); */
+        else
+        {
+            VICCallbackAction::None
+        }
     }
 
     pub fn read_byte(&mut self, addr: u16) -> u8

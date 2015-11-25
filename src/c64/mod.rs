@@ -6,8 +6,8 @@ pub mod opcodes;
 mod memory;
 mod vic;
 
-pub const SCREEN_WIDTH:  usize = 320;
-pub const SCREEN_HEIGHT: usize = 200;
+pub const SCREEN_WIDTH:  usize = 360; // extend 20 pixels left and right for the borders
+pub const SCREEN_HEIGHT: usize = 272; // extend 36 pixels top and down for the borders
 
 
 pub struct C64
