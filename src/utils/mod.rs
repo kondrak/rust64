@@ -38,6 +38,20 @@ pub fn open_file(filename: &str, offset: u64) -> Vec<u8>
     file_data
 }
 
+// set 8 consecutive buffer elements to single value for faster update of
+// a single 8-pixel screen chunk
+pub fn memset8(buffer: &mut [u32], start: usize, value: u8)
+{
+    buffer[start]   = value as u32;
+    buffer[start+1] = buffer[start];
+    buffer[start+2] = buffer[start];
+    buffer[start+3] = buffer[start];
+    buffer[start+4] = buffer[start];
+    buffer[start+5] = buffer[start];
+    buffer[start+6] = buffer[start];
+    buffer[start+7] = buffer[start];
+}
+
 // instruction debugging
 pub struct OpDebugger
 {
