@@ -40,6 +40,7 @@ pub struct CPU
     pub Y: u8,   // index register
     pub mem_ref: Option<memory::MemShared>, // reference to shared system memory
     pub vic_ref: Option<vic::VICShared>,
+    pub ba_low: bool,  // is BA low?
     pub prev_PC: u16, // previous program counter - for debugging
     pub op_debugger: utils::OpDebugger
 }
@@ -57,8 +58,8 @@ impl CPU
             X: 0,
             Y: 0,
             mem_ref: None,
-            vic_ref: None
-                ,
+            vic_ref: None,
+            ba_low: false,
             prev_PC: 0,
             op_debugger: utils::OpDebugger::new()
         }))

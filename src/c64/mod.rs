@@ -18,8 +18,6 @@ pub struct C64
     vic: vic::VICShared,
 
     cycle_count: u32,
-
-    pub window_buffer: [u32; SCREEN_WIDTH * SCREEN_HEIGHT],
 }
 
 impl C64
@@ -37,7 +35,6 @@ impl C64
             cpu: cpu.clone(),
             vic: vic.clone(),
             cycle_count: 0,
-            window_buffer: [0; SCREEN_WIDTH * SCREEN_HEIGHT],
         };
 
         // cyclic dependencies are not possible in Rust (yet?), so we have
@@ -77,23 +74,7 @@ impl C64
     // debug
     pub fn render(&mut self) -> bool
     {
-        //self.vic.borrow_mut().render(renderer);
-
-        // dump screen memory
-        let mut start = 0x0400;
-
-        for y in 0..25
-        {
-            for x in 0..40
-            {
-                let d = self.memory.borrow_mut().read_byte(start);
-                //self.font.draw_char(renderer, x, y, d);
-                //let muti = self.window_buffer[0];
-                self.window_buffer[x + y * SCREEN_WIDTH] = if d != 32 { 0x00FFFFFF } else { 0x000088FF };
-                start += 1;
-            }
-        }
-        
-        minifb::update(&self.window_buffer)
+        self.vic.borrow_mut().render();
+        minifb::update(&self.vic.borrow_mut().window_buffer)
     }
 }
