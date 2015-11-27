@@ -59,7 +59,7 @@ impl C64
     pub fn update(&mut self)
     {
         //if self.clock.tick() { println!("Clock tick"); }
-        self.vic.borrow_mut().update();
+        self.vic.borrow_mut().update(self.cycle_count);
         // update sid here when it's done
         self.cpu.borrow_mut().update();
 

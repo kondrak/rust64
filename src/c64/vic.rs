@@ -53,6 +53,9 @@ pub struct VIC
     color_line: [u8; 40],  // color line buffer, read in bad lines
     
     last_byte: u8,       // last byte read by VIC
+    screen_chunk_offset: usize, // current offset from screen start
+    line_start_offset: usize,   // offset to the next line start on screen
+    fg_mask_offset: usize,      // offset in fg mask for sprite-gfx collisions and prios
     raster_x: u16,       // raster x position
     raster_cnt: u16,     // raster line counter (current raster line)
     raster_irq: u16,     // raster interrupt line
@@ -70,15 +73,22 @@ pub struct VIC
     bad_lines_on: bool,
     lp_triggered: bool,  // lightpen irq triggered
     display_state: bool, // true: display state; false: idle state
+    border_on: bool,     // upper/lower border on
+    frame_skipped: bool, // frame is being skipped
     is_bad_line: bool,
     draw_this_line: bool,
     ml_idx: usize,         // matrix/color line index
+    skip_cnt: u16,      // frame skipping counter
     mx: Vec<u16>,       // special register: x position of sprites
 
+    trigger_vblank: bool,
+    border_color_sample: [u8; c64::SCREEN_WIDTH/8],
     matrix_base: u16,
     char_base: u16,
     bitmap_base: u16,
+    refresh_cnt: u8,    // refresh counter
     sprite_y_exp: u8,   // sprite y expansion flipflops
+    sprite_dma_on: u8, // sprite ON flags
     gfx_data: u8,
     char_data: u8,
     color_data: u8,
@@ -107,6 +117,9 @@ impl VIC
             matrix_line: [0; 40],
             color_line: [0; 40],
             last_byte: 0,
+            screen_chunk_offset: 0,
+            line_start_offset: 0,
+            fg_mask_offset: 0,
             raster_x: 0,
             raster_cnt: NUM_RASTERLINES - 1,
             row_cnt: 7,
@@ -123,14 +136,21 @@ impl VIC
             bad_lines_on: false,
             lp_triggered: false,
             display_state: false,
+            border_on: false,
+            frame_skipped: false,
             is_bad_line: false,
             draw_this_line: false,
             ml_idx: 0,
+            skip_cnt: 0,
             mx: vec![0; 8],
+            trigger_vblank: false,
+            border_color_sample: [0; c64::SCREEN_WIDTH / 8],
             matrix_base: 0,
             char_base: 0,
             bitmap_base: 0,
+            refresh_cnt: 0,
             sprite_y_exp: 0,
+            sprite_dma_on: 0,
             gfx_data: 0,
             char_data: 0,
             color_data: 0,
@@ -332,12 +352,6 @@ impl VIC
         }
     }
     
-    pub fn update(&mut self) -> bool
-    {
-        // TODO main VIC loop
-        true
-    }
-
     pub fn trigger_lp_irq(&mut self)
     {
         // lightpen triggers only once per frame
@@ -506,7 +520,7 @@ impl VIC
             _ => dst_color = self.fetch_c64_color(0),
         }
 
-        //utils::memset8(&mut self.screen, dst_color);
+        utils::memset8(&mut self.window_buffer, self.screen_chunk_offset, dst_color);
     }
     
     pub fn draw_graphics(&self)
@@ -518,5 +532,100 @@ impl VIC
     {
         // TODO
     }
-        
+
+
+    /* ***helper functions *** */
+
+    fn set_ba_low(&mut self, c64_cycle_cnt: u32)
+    {
+        if as_mut!(self.cpu_ref).ba_low == false
+        {
+            self.first_ba_cycle = c64_cycle_cnt;
+            as_mut!(self.cpu_ref).ba_low = true;
+        }   
+    }
+
+    fn display_if_bad_line(&mut self)
+    {
+        if self.is_bad_line == true
+        {
+            self.display_state = true;
+        }
+    }
+
+    fn fetch_if_bad_line(&mut self, c64_cycle_cnt: u32)
+    {
+        if self.is_bad_line == false
+        {
+            self.display_state = true;
+            self.set_ba_low(c64_cycle_cnt);
+        }
+    }
+
+    fn rc_if_bad_line(&mut self, c64_cycle_cnt: u32)
+    {
+        if self.is_bad_line == true
+        {
+            self.display_state = true;
+            self.row_cnt = 0;
+            self.set_ba_low(c64_cycle_cnt);
+        }
+    }
+
+    fn idle_access(&mut self)
+    {
+        self.read_byte(0x3FFF);
+    }
+
+    fn refresh_access(&mut self)
+    {
+        let ref_cnt = self.refresh_cnt as u16;
+        self.read_byte(0x3F00 | ref_cnt);
+        // TODO: wrapping?
+        self.refresh_cnt -= 1;
+    }
+
+    fn check_sprite_dma(&mut self)
+    {
+        // TODO
+    }
+
+    fn sprite_ptr_access(&mut self, num: usize)
+    {
+        // TODO
+    }
+
+    fn sprite_data_access(&mut self, num: usize, bytenum: usize)
+    {
+        // TODO
+    }
+
+    fn sample_border(&mut self)
+    {
+        if self.draw_this_line == true
+        {
+            if self.border_on == true
+            {
+                self.border_color_sample[(self.curr_cycle-13) as usize] = self.ec_color;
+            }
+            
+            self.screen_chunk_offset += 8;
+            self.fg_mask_offset +=1;
+        }
+    }
+    
+    /* *** main VIC-II loop *** */
+    pub fn update(&mut self, c64_cycle_cnt: u32) -> bool
+    {
+        // TODO
+        let mut mask: u8;
+
+        match self.curr_cycle
+        {
+            _ => (),
+        }
+
+        true
+    }
+    
 }
