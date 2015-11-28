@@ -58,11 +58,17 @@ impl C64
     
     pub fn update(&mut self)
     {
+        let mut should_trigger_vblank = false;
         //if self.clock.tick() { println!("Clock tick"); }
-        self.vic.borrow_mut().update(self.cycle_count);
+        self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank);
         // update sid here when it's done
         self.cpu.borrow_mut().update();
 
+        if should_trigger_vblank
+        {
+            //println!("VBLANK");
+        }
+        
         self.cycle_count += 1;
     }
 
@@ -75,6 +81,7 @@ impl C64
     pub fn render(&mut self) -> bool
     {
         self.vic.borrow_mut().render();
+
         minifb::update(&self.vic.borrow_mut().window_buffer)
     }
 }

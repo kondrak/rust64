@@ -9,10 +9,16 @@ use c64;
 use utils;
 //use video;
 
+// preferences (to be modifiable)
+static SKIP_FRAMES: u16 = 2;
+
 pub type VICShared = Rc<RefCell<VIC>>;
 
 // number of rasterlines for PAL (0x138)
 static NUM_RASTERLINES: u16 = 312;
+
+static FIRST_DISP_LINE: u16 = 0x10;
+static LAST_DISP_LINE: u16 = 0x11f;
 
 // first and last possible lines for bad lines
 static FIRST_DMA_LINE: u16 = 0x30;
@@ -72,8 +78,11 @@ pub struct VIC
     display_mode: u16,   // current display mode
     bad_lines_on: bool,
     lp_triggered: bool,  // lightpen irq triggered
+    mc: [u16; 8],        // sprite data counters
+    mc_base: [u16; 8],   // sprite data counter bases
     display_state: bool, // true: display state; false: idle state
     border_on: bool,     // upper/lower border on
+    ud_border_on: bool,  // TODO: check this again
     frame_skipped: bool, // frame is being skipped
     is_bad_line: bool,
     draw_this_line: bool,
@@ -82,6 +91,8 @@ pub struct VIC
     mx: Vec<u16>,       // special register: x position of sprites
 
     trigger_vblank: bool,
+    border_on_sample: [bool; 5],  // samples of border state at cycles 1, 17, 18, 56, 57)
+    fg_mask_buffer: [u8; 0x180/8],
     border_color_sample: [u8; c64::SCREEN_WIDTH/8],
     matrix_base: u16,
     char_base: u16,
@@ -89,6 +100,8 @@ pub struct VIC
     refresh_cnt: u8,    // refresh counter
     sprite_y_exp: u8,   // sprite y expansion flipflops
     sprite_dma_on: u8, // sprite ON flags
+    sprite_display_on: u8, // sprite display flags
+    sprite_draw: u8,       // draw sprite in this line
     gfx_data: u8,
     char_data: u8,
     color_data: u8,
@@ -135,15 +148,20 @@ impl VIC
             display_mode: 0,
             bad_lines_on: false,
             lp_triggered: false,
+            mc: [0; 8],
+            mc_base: [0; 8],
             display_state: false,
             border_on: false,
+            ud_border_on: false,
             frame_skipped: false,
             is_bad_line: false,
             draw_this_line: false,
             ml_idx: 0,
-            skip_cnt: 0,
+            skip_cnt: 1,
             mx: vec![0; 8],
             trigger_vblank: false,
+            border_on_sample: [false; 5],
+            fg_mask_buffer: [0; 0x180/8],
             border_color_sample: [0; c64::SCREEN_WIDTH / 8],
             matrix_base: 0,
             char_base: 0,
@@ -151,6 +169,8 @@ impl VIC
             refresh_cnt: 0,
             sprite_y_exp: 0,
             sprite_dma_on: 0,
+            sprite_display_on: 0,
+            sprite_draw: 0,
             gfx_data: 0,
             char_data: 0,
             color_data: 0,
@@ -615,17 +635,613 @@ impl VIC
     }
     
     /* *** main VIC-II loop *** */
-    pub fn update(&mut self, c64_cycle_cnt: u32) -> bool
+    // returns true if VBlank is to be triggered
+    pub fn update(&mut self, c64_cycle_cnt: u32, should_trigger_vblank: &mut bool) -> bool
     {
-        // TODO
         let mut mask: u8;
 
         match self.curr_cycle
         {
+            // fetch sprite pointer 3, inc raster counter, trigger raster irq,
+            // test for bad line, reset BA if sprites 3 and 4 are off, read data of sprite 3
+            1 => {
+                if self.raster_cnt == (NUM_RASTERLINES - 1)
+                {
+                    self.trigger_vblank = true;
+                }
+                else
+                {
+                    self.raster_cnt += 1;
+
+                    if self.raster_cnt == self.raster_irq
+                    {
+                        let ri = self.raster_irq();
+
+                        match ri
+                        {
+                            VICCallbackAction::TriggerVICIrq => as_mut!(self.cpu_ref).trigger_vic_irq(),
+                            _ => (),
+                        }
+                    }
+                    
+                    if self.raster_cnt == 0x30
+                    {
+                        self.bad_lines_on = (self.read_register(0xD011) & 0x10) != 0;
+                    }
+
+                    self.is_bad_line = (self.raster_cnt >= FIRST_DMA_LINE) &&
+                                       (self.raster_cnt <= LAST_DMA_LINE)  &&
+                                       ((self.raster_cnt & 7) == self.y_scroll) &&
+                                        self.bad_lines_on;
+
+                    self.draw_this_line = (self.raster_cnt >= FIRST_DISP_LINE) &&
+                                          (self.raster_cnt <= LAST_DISP_LINE) && !self.frame_skipped;       
+                }
+
+                self.border_on_sample[0] = self.border_on;
+
+                self.sprite_ptr_access(3);
+                self.sprite_data_access(3, 0);
+                self.display_if_bad_line();
+
+                if (self.sprite_dma_on & 0x18) == 0
+                {
+                    as_ref!(self.cpu_ref).ba_low = false;
+                }
+            },
+            // set BA for sprite 5, read data of sprite 3
+            2 => {
+                if self.trigger_vblank
+                {
+                    self.raster_cnt = 0;
+                    self.video_cnt_base = 0;
+
+                    self.refresh_cnt = 0xFF;
+                    self.lp_triggered = false;
+                    self.trigger_vblank = false;
+
+                    self.skip_cnt -= 1;
+                    self.frame_skipped = self.skip_cnt == 0;
+
+                    if !self.frame_skipped
+                    {
+                        self.skip_cnt = SKIP_FRAMES;
+                    }
+                    
+                    // trigger VBlank here
+                    *should_trigger_vblank = true;
+                    
+                    self.line_start_offset = 0;
+                    
+                    if self.raster_irq == 0
+                    {
+                        let ri = self.raster_irq();
+                        
+                        match ri
+                        {
+                            VICCallbackAction::TriggerVICIrq => as_mut!(self.cpu_ref).trigger_vic_irq(),
+                            _ => (),
+                        }
+                    }
+                }
+
+                self.screen_chunk_offset = self.line_start_offset;
+                self.fg_mask_offset = 0;
+                self.fg_mask_buffer = [0; 0x180/8];
+                
+                self.sprite_data_access(3, 1);
+                self.sprite_data_access(3, 2);
+                self.display_if_bad_line();
+
+                if (self.sprite_dma_on & 0x20) != 0
+                {
+                    self.set_ba_low(c64_cycle_cnt);
+                }
+            },
+            // fetch sprite pointer 4, reset BA if sprite 4 and 5 are off
+            3 => {
+                self.sprite_ptr_access(4);
+                self.sprite_data_access(4, 0);
+                self.display_if_bad_line();
+
+                if (self.sprite_dma_on & 0x30) == 0
+                {
+                    as_mut!(self.cpu_ref).ba_low = false;
+                }
+            },
+            // set BA for sprite 6, read data of sprite 4
+            4 => {
+                self.sprite_data_access(4, 1);
+                self.sprite_data_access(4, 2);
+                self.display_if_bad_line();
+
+                if (self.sprite_dma_on & 0x40) != 0
+                {
+                    self.set_ba_low(c64_cycle_cnt);
+                }
+            },
+            // fetch sprite pointer 5, reset BA if sprite 5 and 6 are off
+            5 => {
+                self.sprite_ptr_access(5);
+                self.sprite_data_access(5, 0);
+                self.display_if_bad_line();
+
+                if (self.sprite_dma_on & 0x60) == 0
+                {
+                    as_mut!(self.cpu_ref).ba_low = false;
+                }
+            },
+            // set BA for sprite 7, read data of sprite 5
+            6 => {
+                self.sprite_data_access(5, 1);
+                self.sprite_data_access(5, 2);
+                self.display_if_bad_line();
+
+                if (self.sprite_dma_on & 0x80) != 0
+                {
+                    self.set_ba_low(c64_cycle_cnt);
+                }
+            },
+            // fetch sprite pointer 6, reset BA if sprite 6 and 7 are off
+            7 => {
+                self.sprite_ptr_access(6);
+                self.sprite_data_access(6, 0);
+                self.display_if_bad_line();
+
+                if (self.sprite_dma_on & 0xC0) == 0
+                {
+                    as_mut!(self.cpu_ref).ba_low = false;
+                }
+            },
+            // read data of sprite 6
+            8 => {
+                self.sprite_data_access(6, 1);
+                self.sprite_data_access(6, 2);
+                self.display_if_bad_line();
+            },
+            // fetch sprite pointer 7, reset BA if sprite 7 are off
+            9 => {
+                self.sprite_ptr_access(7);
+                self.sprite_data_access(7, 0);
+                self.display_if_bad_line();
+
+                if (self.sprite_dma_on & 0x80) == 0
+                {
+                    as_mut!(self.cpu_ref).ba_low = false;
+                }
+            },
+            // read data of sprite 7
+            10 => {
+                self.sprite_data_access(7, 1);
+                self.sprite_data_access(7, 2);
+                self.display_if_bad_line();
+            },
+            // refresh, reset BA
+            11 => {
+                self.refresh_access();
+                self.display_if_bad_line();
+                as_mut!(self.cpu_ref).ba_low = false;
+            },
+            // refresh, turn on matrix access if bad line
+            12 => {
+                self.refresh_access();
+                self.fetch_if_bad_line(c64_cycle_cnt);
+            },
+            // refresh, turn on matrix access if bad line, reset raster_x, graphics display starts here
+            13 => {
+                self.draw_background();
+                self.sample_border();
+                self.refresh_access();
+                self.fetch_if_bad_line(c64_cycle_cnt);
+                self.raster_x = 0xFFFC;
+            },
+            // refresh, reset video counter, turn on matrix access and reset row counter if bad line
+            14 => {
+                self.draw_background();
+                self.sample_border();
+                self.refresh_access();
+                self.rc_if_bad_line(c64_cycle_cnt);
+                self.video_cnt = self.video_cnt_base;
+            },
+            // refresh, matrix access, inc mc_base by if if y expansion is set
+            15 => {
+                self.draw_background();
+                self.sample_border();
+                self.refresh_access();
+                self.fetch_if_bad_line(c64_cycle_cnt);
+
+                for i in 0..8
+                {
+                    if (self.sprite_y_exp & (1 << i)) != 0
+                    {
+                        self.mc_base[i] += 2;
+                    }
+                }
+                
+                self.ml_idx = 0;
+                self.matrix_access(c64_cycle_cnt);
+            },
+            // graphics access, matrix access, inc mc_base by 1 if y expansion is set
+            16 => {
+                self.draw_background();
+                self.sample_border();
+                self.graphics_access();
+                self.fetch_if_bad_line(c64_cycle_cnt);
+
+                mask = 1;
+
+                for i in 0..8
+                {
+                    if (self.sprite_y_exp & mask) != 0
+                    {
+                        self.mc_base[i] += 1;
+                    }
+
+                    if (self.mc_base[i] & 0x3F) == 0x3F
+                    {
+                        self.sprite_dma_on &= !mask;
+                    }
+
+                    mask <<= 1;
+                }
+
+                self.matrix_access(c64_cycle_cnt);
+            },
+            // graphics access, matrix access, turn off border in 40 column mode,
+            // display window starts here
+            17 => {
+                let ctrl1 = self.read_register(0xD011);
+                let ctrl2 = self.read_register(0xD016);
+
+                if (ctrl2 & 8) != 0
+                {
+                    if self.raster_cnt == self.dy_stop
+                    {
+                        self.ud_border_on = true;
+                    }
+                    else
+                    {
+                        if (ctrl1 & 0x10) != 0
+                        {
+                            if self.raster_cnt == self.dy_start
+                            {
+                                self.border_on = false;
+                                self.ud_border_on = false;
+                            }
+                            else
+                            {
+                                if !self.ud_border_on
+                                {
+                                    self.border_on = false;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if !self.ud_border_on
+                            {
+                                self.border_on = false;
+                            }
+                        }
+                    }
+                }
+
+                self.border_on_sample[1] = self.border_on;
+
+                self.draw_background();
+                self.draw_graphics();
+                self.sample_border();
+                self.graphics_access();
+                self.fetch_if_bad_line(c64_cycle_cnt);
+                self.matrix_access(c64_cycle_cnt);
+            },
+            // turn off border in 38 column mode
+            18 => {
+                let ctrl1 = self.read_register(0xD011);
+                let ctrl2 = self.read_register(0xD016);
+
+                if (ctrl2 & 8) == 0
+                {
+                    if self.raster_cnt == self.dy_stop
+                    {
+                        self.ud_border_on = true;
+                    }
+                    else
+                    {
+                        if (ctrl1 & 0x10) != 0
+                        {
+                            if self.raster_cnt == self.dy_start
+                            {
+                                self.border_on = false;
+                                self.ud_border_on = false;
+                            }
+                            else
+                            {
+                                if !self.ud_border_on
+                                {
+                                    self.border_on = false;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if !self.ud_border_on
+                            {
+                                self.border_on = false;
+                            }
+                        }
+                    }
+                }
+
+                self.border_on_sample[2] = self.border_on;
+            },
+            // graphics and matrix access
+            19...54 => {
+                self.draw_graphics();
+                self.sample_border();
+                self.graphics_access();
+                self.fetch_if_bad_line(c64_cycle_cnt);
+                self.matrix_access(c64_cycle_cnt);
+                self.last_char_data = self.char_data;
+            },
+            // lastr graphics access, turn off matrix access,
+            // turn on sprite DMA if y cooord is rightr and sprite enabled,
+            // handle sprite y expansion, set BA for sprite 0
+            55 => {
+                self.draw_graphics();
+                self.sample_border();
+                self.graphics_access();
+                self.display_if_bad_line();
+
+                mask = 1;
+
+                let spr_y_exp = self.read_register(0xD017);
+                
+                for _ in 0..8
+                {
+                    if (spr_y_exp & mask) != 0
+                    {
+                        self.sprite_y_exp ^= mask;
+                    }
+
+                    self.check_sprite_dma();
+
+                    if (self.sprite_dma_on & 0x01) != 0
+                    {
+                        self.set_ba_low(c64_cycle_cnt);
+                    }
+                    else
+                    {
+                        as_mut!(self.cpu_ref).ba_low = false;
+                    }
+
+                    mask <<= 1;
+                }
+            },
+            // turn on border in 38 column mode, turn on sprite DMA if Y is right and sprite enabled,
+            // set BA for sprite 0, display window ends here
+            56 => {
+                let ctrl2 = self.read_register(0xD016);
+
+                if (ctrl2 & 8) == 0
+                {
+                    self.border_on = true;
+                }
+
+                self.border_on_sample[3] = self.border_on;
+
+                self.draw_graphics();
+                self.sample_border();
+                self.idle_access();
+                self.display_if_bad_line();
+                self.check_sprite_dma();
+
+                if (self.sprite_dma_on & 0x01) != 0
+                {
+                    self.set_ba_low(c64_cycle_cnt);
+                }
+            },
+            // turn on border in 40 column mode, set BA for sprite 1, paint sprites
+            57 => {
+                let ctrl2 = self.read_register(0xD016);
+
+                if (ctrl2 & 8) != 0
+                {
+                    self.border_on = true;
+                }
+
+                self.border_on_sample[4] = self.border_on;
+
+                if self.sprite_draw == self.sprite_display_on
+                {
+                    //panic!("TODO: copy sprite draw data here");
+                }
+
+                mask = 1;
+
+                for _ in 0..8
+                {
+                    if ((self.sprite_display_on & mask) != 0) && ((self.sprite_dma_on & mask) == 0)
+                    {
+                        self.sprite_display_on &= !mask;
+                    }
+                }
+
+                self.draw_background();
+                self.sample_border();
+                self.idle_access();
+                self.display_if_bad_line();
+
+                if (self.sprite_dma_on & 0x02) != 0
+                {
+                    self.set_ba_low(c64_cycle_cnt);
+                }
+            },
+            // fetch sprite pointer 0, reset mc, turn on sprite display if needed,
+            // turn off display if row_cnt == 7, read data of sprite 0
+            58 => {
+                self.draw_background();
+                self.sample_border();
+
+                mask = 1;
+
+                for i in 0..8
+                {
+                    self.mc[i] = self.mc_base[i];
+
+                    // TODO: fetch data from registers $D001-0F properly here
+                    let my = 0;
+                    if ((self.sprite_dma_on & mask) != 0) && ((self.raster_cnt & 0x00FF) == my as u16)
+                    {
+                        self.sprite_display_on |= mask;
+                    }
+
+                    mask <<= 1;
+                }
+
+                self.sprite_ptr_access(0);
+                self.sprite_data_access(0, 0);
+
+                if self.row_cnt == 7
+                {
+                    self.video_cnt_base = self.video_cnt;
+                }
+
+                if self.is_bad_line || self.display_state
+                {
+                    self.display_state = true;
+                    self.row_cnt = (self.row_cnt + 1) & 7;
+                }
+            },
+            // set BA for sprite 2, read data of sprite 0
+            59 => {
+                self.draw_background();
+                self.sample_border();
+                self.sprite_data_access(0, 1);
+                self.sprite_data_access(0, 2);
+                self.display_if_bad_line();
+
+                if (self.sprite_dma_on & 0x04) != 0
+                {
+                    self.set_ba_low(c64_cycle_cnt);
+                }
+            },
+            // fetch sprite pointer 1, reset BA if sprite 1 and 2 are off
+            // graphics display ends here
+            60 => {
+                self.draw_background();
+                self.sample_border();
+
+                if self.draw_this_line
+                {
+                    if self.sprite_draw != 0 { self.draw_sprites(); }
+
+                    if self.border_on_sample[0]
+                    {
+                        for i in 0..4
+                        {
+                            utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8 as usize, self.border_color_sample[i]);
+                        }                       
+                    }
+
+                    if self.border_on_sample[1]
+                    {
+                        utils::memset8(&mut self.window_buffer, self.line_start_offset + 4*8, self.border_color_sample[4]);
+                    }
+
+                    if self.border_on_sample[2]
+                    {
+                        for i in 5..43
+                        {
+                            utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8, self.border_color_sample[i]);
+                        }
+                    }
+
+                    if self.border_on_sample[3]
+                    {
+                        utils::memset8(&mut self.window_buffer, self.line_start_offset + 43*8, self.border_color_sample[43]);
+                    }
+
+                    if self.border_on_sample[4]
+                    {
+                        for i in 44..c64::SCREEN_WIDTH/8
+                        {
+                            utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8, self.border_color_sample[i]);
+                        }
+                    }
+
+                    self.line_start_offset += c64::SCREEN_WIDTH;
+                }
+
+                self.sprite_ptr_access(1);
+                self.sprite_data_access(1, 0);
+                self.display_if_bad_line();
+
+                if (self.sprite_dma_on & 0x06) == 0
+                {
+                    as_ref!(self.cpu_ref).ba_low = false;
+                }
+            },
+            // set BA for sprite 3, read data of sprite 1
+            61 => {
+                self.sprite_data_access(1, 1);
+                self.sprite_data_access(1, 2);
+                self.display_if_bad_line();
+
+                if (self.sprite_dma_on & 0x08) != 0
+                {
+                    self.set_ba_low(c64_cycle_cnt);
+                }
+            },
+            // read sprite pointer 2, reset BA if sprite 2 and 3 are off, read data of sprite 2
+            62 => {
+                self.sprite_ptr_access(2);
+                self.sprite_data_access(2, 0);
+                self.display_if_bad_line();
+
+                if (self.sprite_dma_on & 0x0C) == 0
+                {
+                    as_ref!(self.cpu_ref).ba_low = false;
+                }
+            },
+            // set BA for sprite 4, read data of sprite 2
+            63 => {
+                self.sprite_data_access(2, 1);
+                self.sprite_data_access(2, 2);
+                self.display_if_bad_line();
+
+                if self.raster_cnt == self.dy_stop
+                {
+                    self.ud_border_on = true;
+                }
+                else
+                {
+                    let ctrl1 = self.read_register(0xD011);
+
+                    if ((ctrl1 & 0x10) != 0) && (self.raster_cnt == self.dy_start)
+                    {
+                        self.ud_border_on = false;
+                    }
+                }
+                
+                if (self.sprite_dma_on & 0x10) != 0
+                {
+                    self.set_ba_low(c64_cycle_cnt);
+                }
+                
+                // last cycle
+                self.raster_x += 8;
+                self.curr_cycle = 1;
+                true;
+            },
             _ => (),
         }
 
-        true
+        // next cycle
+        self.raster_x += 8;
+        println!("raster-cycle: {} {}", self.raster_x, self.curr_cycle);
+        self.curr_cycle += 1;
+        false
     }
     
 }
