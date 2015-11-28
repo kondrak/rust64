@@ -5,6 +5,7 @@ use c64::memory;
 use c64::cpu;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::num::Wrapping;
 use c64;
 use utils;
 //use video;
@@ -269,7 +270,7 @@ impl VIC
                 self.y_scroll = (value & 7) as u16;
 
                 let new_raster_irq = (self.raster_irq & 0xFF) | ((0x80 & value as u16) << 1);
-                if self.raster_irq != new_raster_irq && self.raster_cnt == new_raster_irq
+                if (self.raster_irq != new_raster_irq) && (self.raster_cnt == new_raster_irq)
                 {
                     *on_vic_write = self.raster_irq();
                 }
@@ -292,9 +293,9 @@ impl VIC
                     self.bad_lines_on = true;
                 }
 
-                self.is_bad_line = self.raster_cnt >= FIRST_DMA_LINE &&
-                                    self.raster_cnt <= LAST_DMA_LINE &&
-                                    ((self.raster_cnt & 7) == self.y_scroll) && self.bad_lines_on;
+                self.is_bad_line = (self.raster_cnt >= FIRST_DMA_LINE) &&
+                                   (self.raster_cnt <= LAST_DMA_LINE) &&
+                                   ((self.raster_cnt & 7) == self.y_scroll) && self.bad_lines_on;
                 let ctrl2 = self.read_register(0xD016);
                 self.display_mode = (((value & 0x60) | (ctrl2 & 0x10)) >> 4) as u16;
                 
@@ -312,14 +313,14 @@ impl VIC
                 self.raster_irq = new_raster_irq;
 
                 // TODO: is this correct?
-                 as_mut!(self.mem_ref).write_byte(addr, value)
+                as_mut!(self.mem_ref).write_byte(addr, value)
             },
             0xD016 =>
             {
                 let ctrl1 = self.read_register(0xD011);
                 self.x_scroll = (value & 7) as u16;
                 self.display_mode = (((ctrl1 & 0x60) | (value & 0x10)) >> 4) as u16;
-                
+
                 as_mut!(self.mem_ref).write_byte(addr, value)
             },
             0xD017 =>
@@ -473,6 +474,7 @@ impl VIC
             else // text
             {
                 addr = (self.matrix_line[self.ml_idx] << 3) as u16 | self.char_base | self.row_cnt;
+                //if addr > 4000 { addr = 0; } //println!("addr: {} {} {}", addr, self.char_base, self.row_cnt); }
             }
 
             if (ctrl1 & 0x40) != 0 // ECM
@@ -602,7 +604,7 @@ impl VIC
         let ref_cnt = self.refresh_cnt as u16;
         self.read_byte(0x3F00 | ref_cnt);
         // TODO: wrapping?
-        self.refresh_cnt -= 1;
+        self.refresh_cnt = (Wrapping(self.refresh_cnt) - Wrapping(1)).0;
     }
 
     fn check_sprite_dma(&mut self)
@@ -639,7 +641,10 @@ impl VIC
     pub fn update(&mut self, c64_cycle_cnt: u32, should_trigger_vblank: &mut bool) -> bool
     {
         let mut mask: u8;
+        let mut frame_finished = false;
 
+        //println!("raster-cycle: {}", self.curr_cycle);
+        
         match self.curr_cycle
         {
             // fetch sprite pointer 3, inc raster counter, trigger raster irq,
@@ -703,7 +708,7 @@ impl VIC
                     self.skip_cnt -= 1;
                     self.frame_skipped = self.skip_cnt == 0;
 
-                    if !self.frame_skipped
+                    if self.frame_skipped
                     {
                         self.skip_cnt = SKIP_FRAMES;
                     }
@@ -1105,6 +1110,7 @@ impl VIC
                 if self.row_cnt == 7
                 {
                     self.video_cnt_base = self.video_cnt;
+                    self.display_state = false;
                 }
 
                 if self.is_bad_line || self.display_state
@@ -1230,18 +1236,21 @@ impl VIC
                 }
                 
                 // last cycle
-                self.raster_x += 8;
-                self.curr_cycle = 1;
-                true;
+                //self.raster_x = (Wrapping(self.raster_x) + Wrapping(8)).0;
+                //self.curr_cycle = 1;
+                frame_finished = true;
             },
             _ => (),
         }
 
         // next cycle
-        self.raster_x += 8;
-        println!("raster-cycle: {} {}", self.raster_x, self.curr_cycle);
-        self.curr_cycle += 1;
-        false
+        self.raster_x = (Wrapping(self.raster_x) + Wrapping(8)).0;
+        //println!("raster-cycle: {}", self.curr_cycle);
+       // self.curr_cycle += 1;
+
+        if frame_finished { self.curr_cycle = 1; } else { self.curr_cycle += 1; }
+
+        frame_finished
     }
     
 }

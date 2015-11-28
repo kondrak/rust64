@@ -91,7 +91,7 @@ impl MemBank
                     0xD02F...0xD03F => (),                             // write ignored
                     0xD040...0xD3FF => self.write(0xD000 + (addr % 0x0040), val), // same as 0xD000-0xD03F
                     _ => self.data[(addr - self.offset) as usize] = val
-                }                
+                }
                 
             },
             _ => panic!("Can't write to ROM!")
