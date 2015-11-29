@@ -93,7 +93,7 @@ pub struct VIC
 
     trigger_vblank: bool,
     border_on_sample: [bool; 5],  // samples of border state at cycles 1, 17, 18, 56, 57)
-    fg_mask_buffer: [u8; 0x180/8],
+    fg_mask_buffer: [u8; c64::SCREEN_WIDTH/8],
     border_color_sample: [u8; c64::SCREEN_WIDTH/8],
     matrix_base: u16,
     char_base: u16,
@@ -162,7 +162,7 @@ impl VIC
             mx: vec![0; 8],
             trigger_vblank: false,
             border_on_sample: [false; 5],
-            fg_mask_buffer: [0; 0x180/8],
+            fg_mask_buffer: [0; c64::SCREEN_WIDTH/8],
             border_color_sample: [0; c64::SCREEN_WIDTH / 8],
             matrix_base: 0,
             char_base: 0,
@@ -569,7 +569,7 @@ impl VIC
 
     fn display_if_bad_line(&mut self)
     {
-        if self.is_bad_line == true
+        if self.is_bad_line
         {
             self.display_state = true;
         }
@@ -577,7 +577,7 @@ impl VIC
 
     fn fetch_if_bad_line(&mut self, c64_cycle_cnt: u32)
     {
-        if self.is_bad_line == false
+        if self.is_bad_line
         {
             self.display_state = true;
             self.set_ba_low(c64_cycle_cnt);
@@ -586,7 +586,7 @@ impl VIC
 
     fn rc_if_bad_line(&mut self, c64_cycle_cnt: u32)
     {
-        if self.is_bad_line == true
+        if self.is_bad_line
         {
             self.display_state = true;
             self.row_cnt = 0;
@@ -732,7 +732,7 @@ impl VIC
 
                 self.screen_chunk_offset = self.line_start_offset;
                 self.fg_mask_offset = 0;
-                self.fg_mask_buffer = [0; 0x180/8];
+                self.fg_mask_buffer = [0; c64::SCREEN_WIDTH/8];
                 
                 self.sprite_data_access(3, 1);
                 self.sprite_data_access(3, 2);
@@ -1008,19 +1008,19 @@ impl VIC
                     {
                         self.sprite_y_exp ^= mask;
                     }
-
-                    self.check_sprite_dma();
-
-                    if (self.sprite_dma_on & 0x01) != 0
-                    {
-                        self.set_ba_low(c64_cycle_cnt);
-                    }
-                    else
-                    {
-                        as_mut!(self.cpu_ref).ba_low = false;
-                    }
-
+                    
                     mask <<= 1;
+                }
+                
+                self.check_sprite_dma();
+
+                if (self.sprite_dma_on & 0x01) != 0
+                {
+                    self.set_ba_low(c64_cycle_cnt);
+                }
+                else
+                {
+                    as_mut!(self.cpu_ref).ba_low = false;
                 }
             },
             // turn on border in 38 column mode, turn on sprite DMA if Y is right and sprite enabled,
@@ -1070,6 +1070,8 @@ impl VIC
                     {
                         self.sprite_display_on &= !mask;
                     }
+
+                    mask <<= 1;
                 }
 
                 self.draw_background();
