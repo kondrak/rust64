@@ -56,9 +56,9 @@ impl MemBank
                 {
                     mem_bank.data.push(0);
                 }
-                
+
                 mem_bank.read_only = false;
-            }
+            },
             MemType::IO => {
                 mem_bank.data = Vec::<u8>::with_capacity(0x1000);
                 for _ in 0..0x1000

@@ -11,7 +11,7 @@ use utils;
 //use video;
 
 // preferences (to be modifiable)
-static SKIP_FRAMES: u16 = 2;
+static SKIP_FRAMES: u16 = 1;
 
 pub type VICShared = Rc<RefCell<VIC>>;
 
@@ -428,7 +428,8 @@ impl VIC
 
         if (va & 0x7000) == 0x1000
         {
-            self.last_byte = as_mut!(self.mem_ref).get_rom_bank(memory::MemType::CHARGEN).read(va & 0x0FFF);
+            let addr = 0xD000 + (va & 0x0FFF);
+            self.last_byte = as_mut!(self.mem_ref).get_rom_bank(memory::MemType::CHARGEN).read(addr);
         }
         else
         {
@@ -474,7 +475,6 @@ impl VIC
             else // text
             {
                 addr = (self.matrix_line[self.ml_idx] << 3) as u16 | self.char_base | self.row_cnt;
-                //if addr > 4000 { addr = 0; } //println!("addr: {} {} {}", addr, self.char_base, self.row_cnt); }
             }
 
             if (ctrl1 & 0x40) != 0 // ECM
