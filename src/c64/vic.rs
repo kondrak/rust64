@@ -11,7 +11,7 @@ use utils;
 //use video;
 
 // preferences (to be modifiable)
-static SKIP_FRAMES: u16 = 1;
+static SKIP_FRAMES: u16 = 2;
 
 pub type VICShared = Rc<RefCell<VIC>>;
 
@@ -44,7 +44,7 @@ pub struct VIC
     cpu_ref: Option<cpu::CPUShared>,
     //font: video::font::SysFont,
 
-    pub window_buffer: [u32; c64::SCREEN_WIDTH * c64::SCREEN_HEIGHT],
+    pub window_buffer: Vec<u32>,
     
     irq_flag: u8,
     irq_mask: u8,
@@ -119,7 +119,7 @@ impl VIC
         {
             mem_ref: None,
             cpu_ref: None,
-            window_buffer: [0; c64::SCREEN_WIDTH * c64::SCREEN_HEIGHT],
+            window_buffer: vec![0; c64::SCREEN_WIDTH * c64::SCREEN_HEIGHT],
             //font: video::font::SysFont::new(renderer),
             irq_flag: 0,
             irq_mask: 0,
@@ -545,9 +545,16 @@ impl VIC
         utils::memset8(&mut self.window_buffer, self.screen_chunk_offset, dst_color);
     }
     
-    pub fn draw_graphics(&self)
+    pub fn draw_graphics(&mut self)
     {
         // TODO
+        if !self.draw_this_line { return }
+
+        if self.ud_border_on
+        {
+            self.draw_background();
+            return
+        }
     }
 
     pub fn draw_sprites(&self)

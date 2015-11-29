@@ -6,7 +6,7 @@ pub mod opcodes;
 mod memory;
 mod vic;
 
-pub const SCREEN_WIDTH:  usize = 360; // extend 20 pixels left and right for the borders
+pub const SCREEN_WIDTH:  usize = 384; // extend 20 pixels left and right for the borders
 pub const SCREEN_HEIGHT: usize = 272; // extend 36 pixels top and down for the borders
 
 
@@ -67,6 +67,11 @@ impl C64
         if should_trigger_vblank
         {
             //println!("VBLANK");
+            //self.render();
+            //let w = self.vic.borrow_mut().window_buffer;
+            //println!("w: {}", w[0]);
+            //minifb::update(&self.vic.borrow_mut().window_buffer);
+
         }
         
         self.cycle_count += 1;
