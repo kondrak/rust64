@@ -979,6 +979,12 @@ impl VIC
                 }
 
                 self.border_on_sample[2] = self.border_on;
+                self.draw_graphics();
+                self.sample_border();
+                self.graphics_access();
+                self.fetch_if_bad_line(c64_cycle_cnt);
+                self.matrix_access(c64_cycle_cnt);
+                self.last_char_data = self.char_data;
             },
             // graphics and matrix access
             19...54 => {
