@@ -610,6 +610,7 @@ impl VIC
     fn check_sprite_dma(&mut self)
     {
         // TODO
+        for i in 0..8 { self.mc_base[i] = 0; }
     }
 
     fn sprite_ptr_access(&mut self, num: usize)
