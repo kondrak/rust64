@@ -195,11 +195,26 @@ impl VIC
     // TODO: prepare for more palettes?
     pub fn fetch_c64_color_rgba(&self, idx: u8) -> u32
     {
+        // palette RGB values copied from WinVICE
         match idx & 0x0F
         {
-            0x6  => 0x003E31A2,
-            0xE  => 0x007C70DA,
-            _ => 0x00110000,
+            0x00  => 0x00000000,
+            0x01  => 0x00FFFFFF,
+            0x02  => 0x00894036,
+            0x03  => 0x007ABFC7,
+            0x04  => 0x008A46AE,
+            0x05  => 0x0068A941,
+            0x06  => 0x003E31A2,
+            0x07  => 0x00D0DC71,
+            0x08  => 0x00905F25,
+            0x09  => 0x005C4700,
+            0x0A  => 0x00BB776D,
+            0x0B  => 0x00555555,
+            0x0C  => 0x00808080,
+            0x0D  => 0x00ACEA88,
+            0x0E  => 0x007C70DA,
+            0x0F  => 0x00ABABAB,
+            _ => panic!("Uknown color!"),
         }
     }
     
@@ -550,7 +565,8 @@ impl VIC
 
         if self.ud_border_on
         {
-            self.draw_background();
+            // TODO: not sure if correct
+            //self.draw_background();
             return
         }
     }
@@ -984,6 +1000,8 @@ impl VIC
                     }
                 }
 
+                // TODO: not sure if draw_background() should be here
+                self.draw_background();
                 self.border_on_sample[2] = self.border_on;
                 self.draw_graphics();
                 self.sample_border();
@@ -994,6 +1012,8 @@ impl VIC
             },
             // graphics and matrix access
             19...54 => {
+                // TODO: not sure if draw_background() should be here
+                self.draw_background();
                 self.draw_graphics();
                 self.sample_border();
                 self.graphics_access();
@@ -1005,6 +1025,8 @@ impl VIC
             // turn on sprite DMA if y cooord is rightr and sprite enabled,
             // handle sprite y expansion, set BA for sprite 0
             55 => {
+                // TODO: not sure if draw_background() should be here
+                self.draw_background();
                 self.draw_graphics();
                 self.sample_border();
                 self.graphics_access();
@@ -1047,6 +1069,8 @@ impl VIC
 
                 self.border_on_sample[3] = self.border_on;
 
+                // TODO: not sure if draw_background() should be here
+                self.draw_background();
                 self.draw_graphics();
                 self.sample_border();
                 self.idle_access();
@@ -1262,6 +1286,11 @@ impl VIC
                 // last cycle
                 //self.raster_x = (Wrapping(self.raster_x) + Wrapping(8)).0;
                 //self.curr_cycle = 1;
+                //let mut x = VICCallbackAction::None;
+                //let mut r = self.read_register(0xD021);
+
+                //r = Wrapping(r) + Wrapping(1)).0;
+                //self.write_register(0xD020, r, &mut x);
                 frame_finished = true;
             },
             _ => (),
