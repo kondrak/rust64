@@ -48,13 +48,6 @@ pub struct VIC
     
     irq_flag: u8,
     irq_mask: u8,
-
-    // background color palette indices
-    ec_color: u8,
-    b0c_color: u8,
-    b1c_color: u8,
-    b2c_color: u8,
-    b3c_color: u8,
     
     matrix_line: [u8; 40], // video line buffer, read in bad lines
     color_line: [u8; 40],  // color line buffer, read in bad lines
@@ -120,14 +113,8 @@ impl VIC
             mem_ref: None,
             cpu_ref: None,
             window_buffer: vec![0; c64::SCREEN_WIDTH * c64::SCREEN_HEIGHT],
-            //font: video::font::SysFont::new(renderer),
             irq_flag: 0,
             irq_mask: 0,
-            ec_color: 0,
-            b0c_color: 0,
-            b1c_color: 0,
-            b2c_color: 0,
-            b3c_color: 0,
             matrix_line: [0; 40],
             color_line: [0; 40],
             last_byte: 0,
@@ -206,9 +193,14 @@ impl VIC
     }
 
     // TODO: prepare for more palettes?
-    pub fn fetch_c64_color(&self, idx: u8) -> u8
+    pub fn fetch_c64_color_rgba(&self, idx: u8) -> u32
     {
-        idx & 0x0F
+        match idx & 0x0F
+        {
+            0x6  => 0x003E31A2,
+            0xE  => 0x007C70DA,
+            _ => 0x00110000,
+        }
     }
     
     pub fn read_register(&self, addr: u16) -> u8
@@ -504,15 +496,20 @@ impl VIC
 
         if !self.draw_this_line { return }
 
+        
+        //if self.read_register(0xD021) & 0x0f == 0 { println!("cycle {}", self.curr_cycle); }
+        
+        //println!("cycle {}", self.curr_cycle);
+        
         match self.display_mode
         {
             // standard text, multicolor text, multicolor bitmap
             0 | 1 | 3 => {
-                dst_color = self.b0c_color;
+                dst_color = self.read_register(0xD021);
             },
             // standard bitmap
             2 => {
-                dst_color = self.fetch_c64_color(self.last_char_data);
+                dst_color = self.last_char_data;
             },
             // ECM text
             4 => {
@@ -520,29 +517,30 @@ impl VIC
                 {
                     if (self.last_char_data & 0x40) != 0
                     {
-                        dst_color = self.b3c_color;
+                        dst_color = self.read_register(0xD024);
                     }
                     else
                     {
-                        dst_color = self.b2c_color;
+                        dst_color = self.read_register(0xD023);
                     }
                 }
                 else
                 {
                     if (self.last_char_data & 0x40) != 0
                     {
-                        dst_color = self.b1c_color;
+                        dst_color = self.read_register(0xD022);
                     }
                     else
                     {
-                        dst_color = self.b0c_color;
+                        dst_color = self.read_register(0xD021);
                     }
                 }
             },
-            _ => dst_color = self.fetch_c64_color(0),
+            _ => dst_color = 0,
         }
 
-        utils::memset8(&mut self.window_buffer, self.screen_chunk_offset, dst_color);
+        let color_rgba = self.fetch_c64_color_rgba(dst_color);
+        utils::memset8(&mut self.window_buffer, self.screen_chunk_offset, color_rgba);
     }
     
     pub fn draw_graphics(&mut self)
@@ -636,7 +634,7 @@ impl VIC
         {
             if self.border_on == true
             {
-                self.border_color_sample[(self.curr_cycle-13) as usize] = self.ec_color;
+                self.border_color_sample[(self.curr_cycle-13) as usize] = self.read_register(0xD020);
             }
             
             self.screen_chunk_offset += 8;
@@ -1158,37 +1156,47 @@ impl VIC
                 {
                     if self.sprite_draw != 0 { self.draw_sprites(); }
 
+                    // left border
                     if self.border_on_sample[0]
                     {
                         for i in 0..4
                         {
-                            utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8 as usize, self.border_color_sample[i]);
-                        }                       
+                            let color_rgba = self.fetch_c64_color_rgba(self.border_color_sample[i]);
+                            utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8 as usize, color_rgba);
+                        }
                     }
 
+                    // top and bottom - first 8 pixels
                     if self.border_on_sample[1]
                     {
-                        utils::memset8(&mut self.window_buffer, self.line_start_offset + 4*8, self.border_color_sample[4]);
+                        let color_rgba = self.fetch_c64_color_rgba(self.border_color_sample[4]);
+                        utils::memset8(&mut self.window_buffer, self.line_start_offset + 4*8, color_rgba);
                     }
 
+                    // top and bottom
                     if self.border_on_sample[2]
                     {
                         for i in 5..43
                         {
-                            utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8, self.border_color_sample[i]);
+                            let color_rgba = self.fetch_c64_color_rgba(self.border_color_sample[i]);
+                            utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8, color_rgba);
                         }
                     }
 
+                    // top and bottom - last 8 pixels
                     if self.border_on_sample[3]
                     {
-                        utils::memset8(&mut self.window_buffer, self.line_start_offset + 43*8, self.border_color_sample[43]);
+                        let color_rgba = self.fetch_c64_color_rgba(self.border_color_sample[43]);
+                        utils::memset8(&mut self.window_buffer, self.line_start_offset + 43*8, color_rgba);
                     }
 
+                    // right border
                     if self.border_on_sample[4]
                     {
                         for i in 44..c64::SCREEN_WIDTH/8
                         {
-                            utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8, self.border_color_sample[i]);
+                            let color_rgba = self.fetch_c64_color_rgba(self.border_color_sample[4]);
+                            utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8, color_rgba);
                         }
                     }
 
