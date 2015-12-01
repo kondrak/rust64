@@ -682,7 +682,20 @@ impl VIC
 
     fn draw_multi(&mut self, color: &[u8])
     {
-        // TODO
+        let screen_pos = self.screen_chunk_offset + self.x_scroll as usize;
+
+        self.fg_mask_buffer[self.fg_mask_offset  ] |= ((self.gfx_data & 0xAA) | (self.gfx_data & 0xAA) >> 1) >> self.x_scroll;
+        self.fg_mask_buffer[self.fg_mask_offset+1] |= ((self.gfx_data & 0xAA) | (self.gfx_data & 0xAA) >> 1) << (8 - self.x_scroll);
+
+        let mut data = self.gfx_data;
+        self.window_buffer[screen_pos + 7] = self.fetch_c64_color_rgba(color[(data & 3) as usize]); data >>= 2;
+        self.window_buffer[screen_pos + 6] = self.window_buffer[screen_pos + 7];
+        self.window_buffer[screen_pos + 5] = self.fetch_c64_color_rgba(color[(data & 3) as usize]); data >>= 2;
+        self.window_buffer[screen_pos + 4] = self.window_buffer[screen_pos + 5];
+        self.window_buffer[screen_pos + 3] = self.fetch_c64_color_rgba(color[(data & 3) as usize]); data >>= 2;
+        self.window_buffer[screen_pos + 2] = self.window_buffer[screen_pos + 3];
+        self.window_buffer[screen_pos + 1] = self.fetch_c64_color_rgba(color[(data as usize)]);
+        self.window_buffer[screen_pos    ] = self.window_buffer[screen_pos + 1];
     }
     
     pub fn draw_sprites(&self)
@@ -1398,8 +1411,6 @@ impl VIC
                 }
                 
                 // last cycle
-                //self.raster_x = (Wrapping(self.raster_x) + Wrapping(8)).0;
-                //self.curr_cycle = 1;
                 //let mut x = VICCallbackAction::None;
                 //let mut r = self.read_register(0xD021);
 
@@ -1412,9 +1423,6 @@ impl VIC
 
         // next cycle
         self.raster_x = (Wrapping(self.raster_x) + Wrapping(8)).0;
-        //println!("raster-cycle: {}", self.curr_cycle);
-       // self.curr_cycle += 1;
-
         if frame_finished { self.curr_cycle = 1; } else { self.curr_cycle += 1; }
 
         frame_finished
