@@ -68,10 +68,9 @@ impl C64
         {
             //println!("VBLANK");
             //self.render();
-            //let w = self.vic.borrow_mut().window_buffer;
-            //println!("w: {}", w[0]);
+            //let w = self.vic.borrow_mut().window_buffer[0];
+            //println!("w: {}", w);
             //minifb::update(&self.vic.borrow_mut().window_buffer);
-
         }
         
         self.cycle_count += 1;
@@ -85,8 +84,8 @@ impl C64
     // debug
     pub fn render(&mut self) -> bool
     {
-        self.vic.borrow_mut().render();
-
+        //self.vic.borrow_mut().render();
+        //true
         minifb::update(&self.vic.borrow_mut().window_buffer)
     }
 }

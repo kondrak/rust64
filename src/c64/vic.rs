@@ -477,11 +477,11 @@ impl VIC
 
             if (ctrl1 & 0x20) != 0 // bitmap
             {
-                addr = ((self.video_cnt & 0x03FF) << 3) as u16 | self.bitmap_base | self.row_cnt;
+                addr = (self.video_cnt & 0x03FF) << 3 | self.bitmap_base | self.row_cnt;
             }
             else // text
             {
-                addr = (self.matrix_line[self.ml_idx] << 3) as u16 | self.char_base | self.row_cnt;
+                addr = (self.matrix_line[self.ml_idx] as u16) << 3 | self.char_base | self.row_cnt;
             }
 
             if (ctrl1 & 0x40) != 0 // ECM
@@ -560,17 +560,131 @@ impl VIC
     
     pub fn draw_graphics(&mut self)
     {
-        // TODO
         if !self.draw_this_line { return }
-
+        
         if self.ud_border_on
         {
             // TODO: not sure if correct
             //self.draw_background();
             return
         }
+
+        let mut dst_color = [0;4];
+
+        match self.display_mode
+        {
+            0 => { // standard text
+                dst_color[0] = self.read_register(0xD021);
+                dst_color[1] = self.color_data;
+                self.draw_std(&dst_color);
+            },
+            1 => { // multicolor text
+                if (self.color_data & 8) != 0
+                {
+                    dst_color[0] = self.read_register(0xD021);
+                    dst_color[1] = self.read_register(0xD022);
+                    dst_color[2] = self.read_register(0xD023);
+                    dst_color[3] = self.color_data & 7;
+                    self.draw_multi(&dst_color);
+                }
+                else
+                {
+                    dst_color[0] = self.read_register(0xD021);
+                    dst_color[1] = self.color_data;
+                    self.draw_std(&dst_color);
+                }
+            },
+            2 => { // standard bitmap
+                dst_color[0] = self.char_data;
+                dst_color[1] = self.char_data >> 4;
+                self.draw_std(&dst_color);
+            },
+            3 => { // multicolor bitmap
+                dst_color[0] = self.read_register(0xD021);
+                dst_color[1] = self.char_data >> 4;
+                dst_color[2] = self.char_data;
+                dst_color[3] = self.color_data;
+                self.draw_multi(&dst_color);
+            },
+            4 => { // ECM text
+                if (self.char_data & 0x80) != 0
+                {
+                    if (self.char_data & 0x40) != 0
+                    {
+                        dst_color[0] = self.read_register(0xD024);
+                    }
+                    else
+                    {
+                        dst_color[0] = self.read_register(0xD023);
+                    }
+                }
+                else
+                {
+                    if (self.char_data & 0x40) != 0
+                    {
+                        dst_color[0] = self.read_register(0xD022);
+                    }
+                    else
+                    {
+                        dst_color[0] = self.read_register(0xD021);
+                    }
+                }
+
+                dst_color[1] = self.color_data;
+                self.draw_std(&dst_color);
+            },
+            5 => { // invalid multicolor text
+                utils::memset8(&mut self.window_buffer, self.screen_chunk_offset + self.x_scroll as usize, 0);
+
+                if (self.color_data & 8) != 0
+                {
+                    self.fg_mask_buffer[self.fg_mask_offset  ] |= ((self.gfx_data & 0xAA) | (self.gfx_data & 0xAA) >> 1) >> self.x_scroll;
+                    self.fg_mask_buffer[self.fg_mask_offset+1] |= ((self.gfx_data & 0xAA) | (self.gfx_data & 0xAA) >> 1) << (8 - self.x_scroll);
+                }
+                else
+                {
+                    self.fg_mask_buffer[self.fg_mask_offset  ] |= self.gfx_data >> self.x_scroll;
+                    self.fg_mask_buffer[self.fg_mask_offset+1] |= self.gfx_data << (7 - self.x_scroll);
+                }
+            },
+            6 => { // invalid standard bitmap
+                utils::memset8(&mut self.window_buffer, self.screen_chunk_offset + self.x_scroll as usize, 0);
+                self.fg_mask_buffer[self.fg_mask_offset  ] |= self.gfx_data >> self.x_scroll;
+                self.fg_mask_buffer[self.fg_mask_offset+1] |= self.gfx_data << (7 - self.x_scroll);
+            },
+            7 => { // invalid multicolor bitmap
+                utils::memset8(&mut self.window_buffer, self.screen_chunk_offset + self.x_scroll as usize, 0);
+                self.fg_mask_buffer[self.fg_mask_offset  ] |= ((self.gfx_data & 0xAA) | (self.gfx_data & 0xAA) >> 1) >> self.x_scroll;
+                self.fg_mask_buffer[self.fg_mask_offset+1] |= ((self.gfx_data & 0xAA) | (self.gfx_data & 0xAA) >> 1) << (8 - self.x_scroll);
+            },
+            _ => panic!("Unknown display mode for drawing graphics!"),
+        }
     }
 
+    /* *** helper functions for draw_graphics *** */
+    fn draw_std(&mut self, color: &[u8])
+    {
+        let screen_pos = self.screen_chunk_offset + self.x_scroll as usize;
+        
+        self.fg_mask_buffer[self.fg_mask_offset     ] |= self.gfx_data >> self.x_scroll;
+        self.fg_mask_buffer[self.fg_mask_offset + 1 ] |= self.gfx_data << (7 - self.x_scroll);
+
+        let mut data = self.gfx_data;
+        self.window_buffer[screen_pos + 7] = self.fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
+        self.window_buffer[screen_pos + 6] = self.fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
+        self.window_buffer[screen_pos + 5] = self.fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
+        self.window_buffer[screen_pos + 4] = self.fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
+        self.window_buffer[screen_pos + 3] = self.fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
+        self.window_buffer[screen_pos + 2] = self.fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
+        self.window_buffer[screen_pos + 1] = self.fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
+        self.window_buffer[screen_pos    ] = self.fetch_c64_color_rgba(color[data as usize]);
+    }
+
+    fn draw_multi(&mut self, color: &[u8])
+    {
+        // TODO
+    }
+    
     pub fn draw_sprites(&self)
     {
         // TODO
