@@ -564,8 +564,7 @@ impl VIC
         
         if self.ud_border_on
         {
-            // TODO: not sure if correct
-            //self.draw_background();
+            self.draw_background();
             return
         }
 
@@ -1127,8 +1126,6 @@ impl VIC
                     }
                 }
 
-                // TODO: not sure if draw_background() should be here
-                self.draw_background();
                 self.border_on_sample[2] = self.border_on;
                 self.draw_graphics();
                 self.sample_border();
@@ -1139,8 +1136,6 @@ impl VIC
             },
             // graphics and matrix access
             19...54 => {
-                // TODO: not sure if draw_background() should be here
-                self.draw_background();
                 self.draw_graphics();
                 self.sample_border();
                 self.graphics_access();
@@ -1152,8 +1147,6 @@ impl VIC
             // turn on sprite DMA if y cooord is rightr and sprite enabled,
             // handle sprite y expansion, set BA for sprite 0
             55 => {
-                // TODO: not sure if draw_background() should be here
-                self.draw_background();
                 self.draw_graphics();
                 self.sample_border();
                 self.graphics_access();
@@ -1196,8 +1189,6 @@ impl VIC
 
                 self.border_on_sample[3] = self.border_on;
 
-                // TODO: not sure if draw_background() should be here
-                self.draw_background();
                 self.draw_graphics();
                 self.sample_border();
                 self.idle_access();
@@ -1414,8 +1405,8 @@ impl VIC
                 //let mut x = VICCallbackAction::None;
                 //let mut r = self.read_register(0xD021);
 
-                //r = Wrapping(r) + Wrapping(1)).0;
-                //self.write_register(0xD020, r, &mut x);
+                //r = (Wrapping(r) + Wrapping(1)).0;
+                //self.write_register(0xD021, r, &mut x);
                 frame_finished = true;
             },
             _ => (),
