@@ -5,6 +5,7 @@ extern crate sdl2;
 use c64::opcodes;
 use c64::memory;
 use c64::vic;
+use c64::cia;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -40,6 +41,8 @@ pub struct CPU
     pub Y: u8,   // index register
     pub mem_ref: Option<memory::MemShared>, // reference to shared system memory
     pub vic_ref: Option<vic::VICShared>,
+    pub cia1_ref: Option<cia::CIAShared>,
+    pub cia2_ref: Option<cia::CIAShared>,
     pub ba_low: bool,  // is BA low?
     pub prev_PC: u16, // previous program counter - for debugging
     pub op_debugger: utils::OpDebugger
@@ -59,16 +62,20 @@ impl CPU
             Y: 0,
             mem_ref: None,
             vic_ref: None,
+            cia1_ref: None,
+            cia2_ref: None,
             ba_low: false,
             prev_PC: 0,
             op_debugger: utils::OpDebugger::new()
         }))
     }
 
-    pub fn set_references(&mut self, memref: memory::MemShared, vicref: vic::VICShared)
+    pub fn set_references(&mut self, memref: memory::MemShared, vicref: vic::VICShared, cia1ref: cia::CIAShared, cia2ref: cia::CIAShared)
     {
         self.mem_ref = Some(memref);
         self.vic_ref = Some(vicref);
+        self.cia1_ref = Some(cia1ref);
+        self.cia2_ref = Some(cia2ref);
     }    
     
     pub fn set_status_flag(&mut self, flag: StatusFlag, value: bool)
@@ -177,6 +184,10 @@ impl CPU
         {
             // VIC-II address space
             0xD000...0xD400 => as_ref!(self.vic_ref).read_register(addr),
+            // CIA1 address space
+            0xDC00...0xDCFF => as_ref!(self.cia1_ref).read_register(addr),
+            // CIA2 address space
+            0xDD00...0xDD0F => as_ref!(self.cia2_ref).read_register(addr),
             _ => as_ref!(self.mem_ref).read_byte(addr)
         }
     }
