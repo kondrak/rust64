@@ -23,3 +23,4 @@ Resources used to create this emulator:
 - http://www.zimmers.net/cbmpics/cbm/c64/vic-ii.txt
 - http://frodo.cebix.net/ (inspired the VIC-II implementaiton)
 - https://www.c64-wiki.com
+- http://archive.6502.org/datasheets/mos_6526_cia.pdf

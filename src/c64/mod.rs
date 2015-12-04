@@ -46,8 +46,8 @@ impl C64
 
         // cyclic dependencies are not possible in Rust (yet?), so we have
         // to resort to setting references manually
-        c64.cia1.borrow_mut().set_references(cpu.clone(), vic.clone());
-        c64.cia2.borrow_mut().set_references(cpu.clone(), vic.clone());
+        c64.cia1.borrow_mut().set_references(memory.clone(), cpu.clone(), vic.clone());
+        c64.cia2.borrow_mut().set_references(memory.clone(), cpu.clone(), vic.clone());
         c64.vic.borrow_mut().set_references(memory.clone(), cpu.clone());
         c64.cpu.borrow_mut().set_references(memory.clone(), vic.clone(), cia1.clone(), cia2.clone());
         
