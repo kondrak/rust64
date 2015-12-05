@@ -1,5 +1,6 @@
 // CIA
 #![allow(dead_code)]
+#![allow(non_camel_case_types)]
 use c64::cpu;
 use c64::vic;
 use c64::memory;
@@ -237,7 +238,22 @@ pub struct CIA
 
     timer_a: CIATimer,
     timer_b: CIATimer,
+    irq_mask: u8,
     icr: u8,
+
+    // TOD timer
+    tod_halt: bool,
+    tod_freq_div: u16,
+    tod_hour: u8,
+    tod_min: u8,
+    tod_sec: u8,
+    tod_dsec: u8, // deciseconds
+
+    // alarm time
+    alarm_hour: u8,
+    alarm_min: u8,
+    alarm_sec: u8,
+    alarm_dsec: u8
 }
 
 impl CIA
@@ -252,7 +268,19 @@ impl CIA
 
             timer_a: CIATimer::new(true),
             timer_b: CIATimer::new(false),
+            irq_mask: 0,
             icr: 0,
+
+            tod_halt: false,
+            tod_freq_div: 0,
+            tod_hour: 0,
+            tod_min: 0,
+            tod_sec: 0,
+            tod_dsec: 0,
+            alarm_hour: 0,
+            alarm_min: 0,
+            alarm_sec: 0,
+            alarm_dsec: 0,
         }))
     }
 
@@ -268,7 +296,19 @@ impl CIA
         // TODO
         self.timer_a.reset();
         self.timer_b.reset();
+        self.irq_mask = 0;
         self.icr = 0;
+
+        self.tod_halt = false;
+        self.tod_freq_div = 0;
+        self.tod_hour = 0;
+        self.tod_min  = 0;
+        self.tod_sec  = 0;
+        self.tod_dsec = 0;
+        self.alarm_hour = 0;
+        self.alarm_min  = 0;
+        self.alarm_sec  = 0;
+        self.alarm_dsec = 0;
     }
 
     pub fn read_register(&self, addr: u16) -> u8
@@ -288,5 +328,106 @@ impl CIA
         self.timer_a.update(&mut self.icr, false);
         let ta_underflow = self.timer_a.underflow;
         self.timer_b.update(&mut self.icr, ta_underflow);
+    }
+
+    pub fn count_tod(&mut self)
+    {
+        let mut lo: u8 = 0;
+        let mut hi: u8 = 0;
+
+        if self.tod_freq_div != 0
+        {
+            self.tod_freq_div -= 1;
+        }
+        else
+        {
+            // adust frequency according to 50/60Hz flag
+            if (self.timer_a.ctrl & 0x80) != 0
+            {
+                self.tod_freq_div = 4;
+            }
+            else
+            {
+                self.tod_freq_div = 5;
+            }
+
+            self.tod_dsec += 1;
+            if self.tod_dsec > 9
+            {
+                self.tod_dsec = 0;
+
+                lo = (self.tod_sec & 0x0F) + 1;
+                hi = self.tod_sec >> 4;
+
+                if lo > 9
+                {
+                    lo = 0;
+                    hi += 1;
+                }
+
+                if hi > 5
+                {
+                    self.tod_sec = 0;
+
+                    lo = (self.tod_min & 0x0F) + 1;
+                    hi = self.tod_min >> 4;
+
+                    if lo > 9
+                    {
+                        lo = 0;
+                        hi += 1;
+                    }
+
+                    if hi > 5
+                    {
+                        self.tod_min = 0;
+
+                        lo = (self.tod_hour & 0x0F) + 1;
+                        hi = self.tod_hour >> 4;
+
+                        if lo > 9
+                        {
+                            lo = 0;
+                            hi += 1;
+                        }
+
+                        self.tod_hour |= (hi << 4) | lo;
+                        if (self.tod_hour & 0x1F) > 0x11
+                        {
+                            self.tod_hour = self.tod_hour & 0x80 ^ 0x80;
+                        }
+                            
+                    }
+                    else
+                    {
+                        self.tod_min = (hi << 4) | lo;
+                    }
+                }
+                else
+                {
+                    self.tod_sec = (hi << 4) | lo;
+               }
+            }
+            
+            // trigger irq if alarm time reached
+            if (self.tod_dsec == self.alarm_dsec) &&
+               (self.tod_sec  == self.alarm_sec)  &&
+               (self.tod_min  == self.alarm_min)  &&
+               (self.tod_hour == self.alarm_hour)
+            {
+                self.trigger_irq(4);
+            }
+        }
+    }
+
+    pub fn trigger_irq(&mut self, mask: u8)
+    {
+        self.icr |= mask;
+
+        if (self.irq_mask & mask) != 0
+        {
+            self.icr |= 0x80;
+            // TODO: call cia or nmi irq here depending on cia chip!
+        }
     }
 }

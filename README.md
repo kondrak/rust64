@@ -12,6 +12,7 @@ Status:
 - <code>VIC-II</code>   - missing sprites (todo)
 - <code>CIA</code>      - in progress
 - <code>IO</code>       - in progress
+- <code>SID</code>      - todo
 - <code>load prg</code> - todo
 - <code>drives</code>   - todo
 
