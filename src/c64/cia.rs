@@ -23,6 +23,211 @@ enum TimerState
     COUNT,
     COUNT_STOP
 }
+// Struct for CIA timer A/B
+struct CIATimer
+{
+    state: TimerState, // current state of the timer
+    is_ta: bool, // is this timer A?
+    value: u16,  // timer value (TA/TB)
+    latch: u16,  // timer latch
+    ctrl: u8,    // control timer (CRA/CRB)
+    new_ctrl: u8,
+    has_new_ctrl: bool,
+    is_cnt_phi2: bool,      // timer is counting phi2
+    irq_next_cycle: bool,   // perform timer interrupt next cycle
+    underflow: bool,        // timer underflowed
+    cnt_ta_underflow: bool, // timer is counting underflows of Timer A 
+}
+
+impl CIATimer
+{
+    pub fn new(is_ta: bool) -> CIATimer
+    {
+        CIATimer
+        {
+            state: TimerState::STOP,
+            is_ta: is_ta,
+            value: 0xFFFF,
+            latch: 1,
+            ctrl:  0,
+            new_ctrl: 0,
+            has_new_ctrl: false,
+            is_cnt_phi2:  false,
+            irq_next_cycle:   false,
+            underflow:        false,
+            cnt_ta_underflow: false,
+        }
+    }
+    pub fn reset(&mut self)
+    {
+        self.state    = TimerState::STOP;
+        self.value    = 0xFFFF;
+        self.latch    = 1;
+        self.ctrl     = 0;
+        self.new_ctrl = 0;
+        self.has_new_ctrl     = false;
+        self.is_cnt_phi2      = false;
+        self.irq_next_cycle   = false;
+        self.underflow        = false;
+        self.cnt_ta_underflow = false;
+    }
+    
+    pub fn update(&mut self, cia_icr: &mut u8, ta_underflow: bool)
+    {
+        match self.state
+        {
+            TimerState::STOP => (),
+            TimerState::WAIT_COUNT => {
+                self.state = TimerState::COUNT;
+            },
+            TimerState::LOAD_STOP => {
+                self.state = TimerState::STOP;
+                self.value = self.latch;
+            },
+            TimerState::LOAD_COUNT => {
+                self.state = TimerState::COUNT;
+                self.value = self.latch;
+            },
+            TimerState::LOAD_WAIT_COUNT => {
+                self.state = TimerState::WAIT_COUNT;
+
+                if self.value == 1
+                {
+                    self.irq(cia_icr);
+                }
+                else
+                {
+                    self.value = self.latch;
+                }
+            }
+            TimerState::COUNT => {
+                self.count(cia_icr, ta_underflow);
+            },
+            TimerState::COUNT_STOP => {
+                self.state = TimerState::STOP;
+                self.count(cia_icr, ta_underflow);
+            }
+        }
+
+        self.idle();        
+    }
+    
+    pub fn idle(&mut self)
+    {
+        if self.has_new_ctrl
+        {
+            match self.state
+            {
+                TimerState::STOP | TimerState::LOAD_STOP =>
+                {
+                    if (self.new_ctrl & 1) != 0
+                    {
+                        if (self.new_ctrl & 0x10) != 0
+                        {
+                            self.state = TimerState::LOAD_WAIT_COUNT;
+                        }
+                        else
+                        {
+                            self.state = TimerState::WAIT_COUNT;
+                        }
+                    }
+                    else
+                    {
+                        if (self.new_ctrl & 0x10) != 0
+                        {
+                            self.state = TimerState::LOAD_STOP;
+                        }
+                    }
+                      
+                },
+                TimerState::WAIT_COUNT | TimerState::LOAD_COUNT =>
+                {
+                    if (self.new_ctrl & 1) != 0
+                    {
+                        if (self.new_ctrl & 8) != 0
+                        {
+                            self.new_ctrl &= 0xFE;
+                            self.state = TimerState::STOP;
+                        }
+                        else
+                        {
+                            if (self.new_ctrl & 0x10) != 0
+                            {
+                                self.state = TimerState::LOAD_WAIT_COUNT;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        self.state = TimerState::STOP;
+                    }
+                },
+                TimerState::COUNT =>
+                {
+                    if (self.new_ctrl & 1) != 0
+                    {
+                        if (self.new_ctrl & 0x10) != 0
+                        {
+                            self.state = TimerState::LOAD_WAIT_COUNT;
+                        }
+                    }
+                    else
+                    {
+                        if (self.new_ctrl & 0x10) != 0
+                        {
+                            self.state = TimerState::LOAD_STOP;
+                        }
+                        else
+                        {
+                            self.state = TimerState::COUNT_STOP;
+                        }
+                    }
+                },
+                _ => (),
+            }
+
+            self.ctrl = self.new_ctrl & 0xEF;
+            self.has_new_ctrl = false;
+        }
+    }
+        
+    pub fn irq(&mut self, cia_icr: &mut u8)
+    {
+        self.value = self.latch;
+        self.irq_next_cycle = true;
+        *cia_icr |= if self.is_ta { 1 } else { 2 };
+
+        if (self.ctrl & 8) != 0
+        {
+            self.ctrl &= 0xFE;
+            self.new_ctrl &= 0xFE;
+            self.state = TimerState::LOAD_STOP;
+        }
+        else
+        {
+            self.state = TimerState::LOAD_COUNT;
+        }
+    }
+
+    pub fn count(&mut self, cia_icr: &mut u8, ta_underflow: bool)
+    {
+        if self.is_cnt_phi2 || (self.cnt_ta_underflow && ta_underflow)
+        {
+            let curr_val = self.value;
+            self.value -= 1;
+            if (curr_val == 0) || (self.value == 0)
+            {
+                match self.state
+                {
+                    TimerState::STOP => (),
+                    _ => self.irq(cia_icr),
+                }
+
+                self.underflow = true;
+            }
+        }        
+    }
+}
 
 pub struct CIA
 {
@@ -30,25 +235,9 @@ pub struct CIA
     cpu_ref: Option<cpu::CPUShared>,
     vic_ref: Option<vic::VICShared>,
 
-    ta_state: TimerState,  // timer A state
-    tb_state: TimerState,  // timer B state
-    ta: u16,
-    tb: u16,
-    ta_cnt_phi2: bool,
-    tb_cnt_phi2: bool,
-    tb_cnt_ta: bool,
-    ta_underflow: bool,
+    timer_a: CIATimer,
+    timer_b: CIATimer,
     icr: u8,
-    ta_irq_next_cycle: bool,
-    tb_irq_next_cycle: bool,
-    latch_a: u16,
-    latch_b: u16,
-    cra: u8,
-    crb: u8,
-    new_cra: u8,
-    new_crb: u8,
-    has_new_cra: bool,
-    has_new_crb: bool,
 }
 
 impl CIA
@@ -60,26 +249,10 @@ impl CIA
             mem_ref: None,
             cpu_ref: None,
             vic_ref: None,
-            
-            ta_state: TimerState::STOP,
-            tb_state: TimerState::STOP,
-            ta: 0,
-            tb: 0,
-            ta_cnt_phi2: false,
-            tb_cnt_phi2: false,
-            tb_cnt_ta: false,
-            ta_underflow: false,
+
+            timer_a: CIATimer::new(true),
+            timer_b: CIATimer::new(false),
             icr: 0,
-            ta_irq_next_cycle: false,
-            tb_irq_next_cycle: false,
-            latch_a: 0,
-            latch_b: 0,
-            cra: 0,
-            crb: 0,
-            new_cra: 0,
-            new_crb: 0,
-            has_new_cra: false,
-            has_new_crb: false,
         }))
     }
 
@@ -93,25 +266,9 @@ impl CIA
     pub fn reset(&mut self)
     {
         // TODO
-        self.ta_state = TimerState::STOP;
-        self.tb_state = TimerState::STOP;
-        self.ta = 0;
-        self.tb = 0;
-        self.ta_cnt_phi2 = false;
-        self.tb_cnt_phi2 = false;
-        self.tb_cnt_ta = false;
-        self.ta_underflow = false;
+        self.timer_a.reset();
+        self.timer_b.reset();
         self.icr = 0;
-        self.ta_irq_next_cycle = false;
-        self.tb_irq_next_cycle = false;
-        self.latch_a = 0;
-        self.latch_b = 0;
-        self.cra = 0;
-        self.crb = 0;
-        self.new_cra = 0;
-        self.new_crb = 0;
-        self.has_new_cra = false;
-        self.has_new_crb = false;
     }
 
     pub fn read_register(&self, addr: u16) -> u8
@@ -128,319 +285,8 @@ impl CIA
     
     pub fn update(&mut self)
     {
-        self.ta_underflow = false;
-        self.update_timer_a();
-        self.update_timer_b();        
-    }
-
-    fn update_timer_a(&mut self)
-    {
-        match self.ta_state
-        {
-            TimerState::STOP => (),            
-            TimerState::WAIT_COUNT => {
-                self.ta_state = TimerState::COUNT;
-            },
-            TimerState::LOAD_STOP => {
-                self.ta_state = TimerState::STOP;
-                self.ta = self.latch_a;
-            },
-            TimerState::LOAD_COUNT => {
-                self.ta_state = TimerState::COUNT;
-                self.ta = self.latch_a;
-            },
-            TimerState::LOAD_WAIT_COUNT => {
-                self.ta_state = TimerState::WAIT_COUNT;
-
-                if self.ta == 1
-                {
-                    self.ta_irq();
-                }
-                else
-                {
-                    self.ta = self.latch_a;
-                }
-            },
-            TimerState::COUNT => {
-                self.ta_count();
-            },
-            TimerState::COUNT_STOP => {
-                self.ta_state = TimerState::STOP;
-                self.ta_count();
-            }
-        }
-
-        self.ta_idle();
-    }
-
-    fn ta_idle(&mut self)
-    {
-        if self.has_new_cra
-        {
-            match self.ta_state
-            {
-                TimerState::STOP | TimerState::LOAD_STOP =>
-                {
-                    if (self.new_cra & 1) != 0
-                    {
-                        if (self.new_cra & 0x10) != 0
-                        {
-                            self.ta_state = TimerState::LOAD_WAIT_COUNT;
-                        }
-                        else
-                        {
-                            self.ta_state = TimerState::WAIT_COUNT;
-                        }
-                    }
-                    else
-                    {
-                        if (self.new_cra & 0x10) != 0
-                        {
-                            self.ta_state = TimerState::LOAD_STOP;
-                        }
-                    }
-                      
-                },
-                TimerState::WAIT_COUNT | TimerState::LOAD_COUNT =>
-                {
-                    if (self.new_cra & 1) != 0
-                    {
-                        if (self.new_cra & 8) != 0
-                        {
-                            self.new_cra &= 0xFE;
-                            self.ta_state = TimerState::STOP;
-                        }
-                        else
-                        {
-                            if (self.new_cra & 0x10) != 0
-                            {
-                                self.ta_state = TimerState::LOAD_WAIT_COUNT;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        self.ta_state = TimerState::STOP;
-                    }
-                },
-                TimerState::COUNT =>
-                {
-                    if (self.new_cra & 1) != 0
-                    {
-                        if (self.new_cra & 0x10) != 0
-                        {
-                            self.ta_state = TimerState::LOAD_WAIT_COUNT;
-                        }
-                    }
-                    else
-                    {
-                        if (self.new_cra & 0x10) != 0
-                        {
-                            self.ta_state = TimerState::LOAD_STOP;
-                        }
-                        else
-                        {
-                            self.ta_state = TimerState::COUNT_STOP;
-                        }
-                    }
-                },
-                _ => (),
-            }
-
-            self.cra = self.new_cra & 0xEF;
-            self.has_new_cra = false;
-        }
-    }
-
-    fn ta_irq(&mut self)
-    {
-        self.ta = self.latch_a;
-        self.ta_irq_next_cycle = true;
-        self.icr |= 1;
-
-        if (self.cra & 8) != 0
-        {
-            self.cra &= 0xFE;
-            self.new_cra &= 0xFE;
-            self.ta_state = TimerState::LOAD_STOP;
-        }
-        else
-        {
-            self.ta_state = TimerState::LOAD_COUNT;
-        }
-    }
-
-    
-    fn ta_count(&mut self)
-    {
-        if self.ta_cnt_phi2
-        {
-            let curr_ta = self.ta;
-            self.ta -= 1;
-            if (curr_ta == 0) || (self.ta == 0)
-            {
-                match self.ta_state
-                {
-                    TimerState::STOP => (),
-                    _ => self.ta_irq(),
-                }
-
-                self.ta_underflow = true;
-            }
-        }
-    }     
-
-    fn update_timer_b(&mut self)
-    {
-        match self.tb_state
-        {
-            TimerState::STOP => (),
-            TimerState::WAIT_COUNT => {
-                self.tb_state = TimerState::COUNT;
-            },
-            TimerState::LOAD_STOP => {
-                self.tb_state = TimerState::COUNT;
-                self.tb = self.latch_b;
-            },
-            TimerState::LOAD_COUNT => {
-                self.tb_state = TimerState::COUNT;
-                self.tb = self.latch_b;
-            },
-            TimerState::LOAD_WAIT_COUNT => {
-                self.tb_state = TimerState::WAIT_COUNT;
-
-                if self.tb == 1
-                {
-                    self.tb_irq();
-                }
-                else
-                {
-                    self.tb = self.latch_b;
-                }
-            }
-            TimerState::COUNT => {
-                self.tb_count();
-            },
-            TimerState::COUNT_STOP => {
-                self.tb_state = TimerState::STOP;
-                self.tb_count();
-            }
-        }
-
-        self.tb_idle();
-    }    
-
-    fn tb_idle(&mut self)
-    {
-        if self.has_new_crb
-        {
-            match self.tb_state
-            {
-                TimerState::STOP | TimerState::LOAD_STOP =>
-                {
-                    if (self.new_crb & 1) != 0
-                    {
-                        if (self.new_crb & 0x10) != 0
-                        {
-                            self.tb_state = TimerState::LOAD_WAIT_COUNT;
-                        }
-                        else
-                        {
-                            self.tb_state = TimerState::WAIT_COUNT;
-                        }
-                    }
-                    else
-                    {
-                        if (self.new_crb & 0x10) != 0
-                        {
-                            self.tb_state = TimerState::LOAD_STOP;
-                        }
-                    }
-                      
-                },
-                TimerState::WAIT_COUNT | TimerState::LOAD_COUNT =>
-                {
-                    if (self.new_crb & 1) != 0
-                    {
-                        if (self.new_crb & 8) != 0
-                        {
-                            self.new_crb &= 0xFE;
-                            self.tb_state = TimerState::STOP;
-                        }
-                        else
-                        {
-                            if (self.new_crb & 0x10) != 0
-                            {
-                                self.tb_state = TimerState::LOAD_WAIT_COUNT;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        self.tb_state = TimerState::STOP;
-                    }
-                },
-                TimerState::COUNT =>
-                {
-                    if (self.new_crb & 1) != 0
-                    {
-                        if (self.new_crb & 0x10) != 0
-                        {
-                            self.tb_state = TimerState::LOAD_WAIT_COUNT;
-                        }
-                    }
-                    else
-                    {
-                        if (self.new_crb & 0x10) != 0
-                        {
-                            self.tb_state = TimerState::LOAD_STOP;
-                        }
-                        else
-                        {
-                            self.tb_state = TimerState::COUNT_STOP;
-                        }
-                    }
-                },
-                _ => (),
-            }
-
-            self.crb = self.new_crb & 0xEF;
-            self.has_new_crb = false;
-        }
-    }  
-    
-    fn tb_irq(&mut self)
-    {
-        self.tb = self.latch_b;
-        self.tb_irq_next_cycle = true;
-        self.icr |= 2;
-
-        if (self.crb & 8) != 0
-        {
-            self.crb &= 0xFE;
-            self.new_crb &= 0xFE;
-            self.tb_state = TimerState::LOAD_STOP;
-        }
-        else
-        {
-            self.tb_state = TimerState::LOAD_COUNT;
-        }
-    }
-
-    fn tb_count(&mut self)
-    {
-        if self.tb_cnt_phi2 || (self.tb_cnt_ta && self.ta_underflow)
-        {
-            let curr_tb = self.tb;
-            self.tb -= 1;
-            if (curr_tb == 0) || (self.tb == 0)
-            {
-                match self.tb_state
-                {
-                    TimerState::STOP => (),
-                    _ => self.tb_irq(),
-                }
-            }
-        }
+        self.timer_a.update(&mut self.icr, false);
+        let ta_underflow = self.timer_a.underflow;
+        self.timer_b.update(&mut self.icr, ta_underflow);
     }
 }
