@@ -29,8 +29,8 @@ impl C64
     {
         let memory = memory::Memory::new_shared();
         let vic    = vic::VIC::new_shared();
-        let cia1   = cia::CIA::new_shared();
-        let cia2   = cia::CIA::new_shared();
+        let cia1   = cia::CIA::new_shared(true);
+        let cia2   = cia::CIA::new_shared(false);
         let cpu    = cpu::CPU::new_shared();
 
         let c64 = C64

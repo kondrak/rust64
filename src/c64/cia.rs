@@ -11,7 +11,11 @@ pub type CIAShared = Rc<RefCell<CIA>>;
 
 pub enum CIACallbackAction
 {
-    CIA_NONE,
+    None,
+    ClearCIAIRQ,
+    ClearNMI,
+    TriggerCIAIRQ,
+    TriggerNMI
 }
 
 enum TimerState
@@ -236,11 +240,18 @@ pub struct CIA
     cpu_ref: Option<cpu::CPUShared>,
     vic_ref: Option<vic::VICShared>,
 
+    is_cia1: bool,  // is this CIA1 or CIA2 chip?
+    
     timer_a: CIATimer,
     timer_b: CIATimer,
     irq_mask: u8,
     icr: u8,
-
+    pra: u8,
+    prb: u8,
+    ddra: u8,
+    ddrb: u8,
+    sdr: u8,
+    
     // TOD timer
     tod_halt: bool,
     tod_freq_div: u16,
@@ -253,12 +264,22 @@ pub struct CIA
     alarm_hour: u8,
     alarm_min: u8,
     alarm_sec: u8,
-    alarm_dsec: u8
+    alarm_dsec: u8,
+
+    // CIA1 only
+    key_matrix: [u8; 8],
+    rev_matrix: [u8; 8],
+    joystick_1: u8,
+    joystick_2: u8,
+    prev_lp: u8,
+
+    // CIA2 only
+    iec_lines: u8,
 }
 
 impl CIA
 {
-    pub fn new_shared() -> CIAShared
+    pub fn new_shared(is_cia1: bool) -> CIAShared
     {
         Rc::new(RefCell::new(CIA
         {
@@ -266,10 +287,17 @@ impl CIA
             cpu_ref: None,
             vic_ref: None,
 
+            is_cia1: is_cia1,
+            
             timer_a: CIATimer::new(true),
             timer_b: CIATimer::new(false),
             irq_mask: 0,
             icr: 0,
+            pra: 0,
+            prb: 0,
+            ddra: 0,
+            ddrb: 0,
+            sdr: 0,
 
             tod_halt: false,
             tod_freq_div: 0,
@@ -281,6 +309,16 @@ impl CIA
             alarm_min: 0,
             alarm_sec: 0,
             alarm_dsec: 0,
+
+            // CIA1 only
+            key_matrix: [0xFF; 8],
+            rev_matrix: [0xFF; 8],
+            joystick_1: 0xFF,
+            joystick_2: 0xFF,
+            prev_lp: 0x10,
+
+            // CIA2 only
+            iec_lines: 0xD0
         }))
     }
 
@@ -298,6 +336,11 @@ impl CIA
         self.timer_b.reset();
         self.irq_mask = 0;
         self.icr = 0;
+        self.pra = 0;
+        self.prb = 0;
+        self.ddra = 0;
+        self.ddrb = 0;
+        self.sdr = 0;
 
         self.tod_halt = false;
         self.tod_freq_div = 0;
@@ -309,18 +352,368 @@ impl CIA
         self.alarm_min  = 0;
         self.alarm_sec  = 0;
         self.alarm_dsec = 0;
+
+        // CIA1 only
+        for i in 0..8 { self.key_matrix[i] = 0xFF; self.rev_matrix[i] = 0xFF; }
+        self.joystick_1 = 0xFF;
+        self.joystick_2 = 0xFF;
+        self.prev_lp = 0x10;
+
+        // CIA2 only
+        self.iec_lines = 0xD0;
     }
 
-    pub fn read_register(&self, addr: u16) -> u8
+    pub fn read_register(&mut self, addr: u16) -> u8
     {
-        // TODO
-        0
+        if self.is_cia1 { self.read_cia1_register(addr) } else { self.read_cia2_register(addr) }
+    }
+
+    fn read_cia1_register(&mut self, addr: u16) -> u8
+    {
+        match addr
+        {
+            0xDC00 => {
+                let mut retval = self.pra | !self.ddra;
+                let tst = (self.prb | !self.ddrb) & self.joystick_1;
+
+                if tst & 0x01 == 0 { retval &= self.rev_matrix[0]; }
+                if tst & 0x02 == 0 { retval &= self.rev_matrix[1]; }
+                if tst & 0x04 == 0 { retval &= self.rev_matrix[2]; }
+                if tst & 0x08 == 0 { retval &= self.rev_matrix[3]; }
+                if tst & 0x10 == 0 { retval &= self.rev_matrix[4]; }
+                if tst & 0x20 == 0 { retval &= self.rev_matrix[5]; }
+                if tst & 0x40 == 0 { retval &= self.rev_matrix[6]; }
+                if tst & 0x80 == 0 { retval &= self.rev_matrix[7]; }
+                
+                retval & self.joystick_2
+            },
+            0xDC01 => {
+                let mut retval = !self.ddrb;
+                let tst = (self.pra | !self.ddra) & self.joystick_2;
+
+                if tst & 0x01 == 0 { retval &= self.key_matrix[0]; }
+                if tst & 0x02 == 0 { retval &= self.key_matrix[1]; }
+                if tst & 0x04 == 0 { retval &= self.key_matrix[2]; }
+                if tst & 0x08 == 0 { retval &= self.key_matrix[3]; }
+                if tst & 0x10 == 0 { retval &= self.key_matrix[4]; }
+                if tst & 0x20 == 0 { retval &= self.key_matrix[5]; }
+                if tst & 0x40 == 0 { retval &= self.key_matrix[6]; }
+                if tst & 0x80 == 0 { retval &= self.key_matrix[7]; }
+
+                (retval | (self.prb & self.ddrb)) & self.joystick_1
+            },
+            0xDC02 => self.ddra,
+            0xDC03 => self.ddrb,
+            0xDC04 => self.timer_a.value as u8,
+            0xDC05 => (self.timer_a.value >> 8) as u8,
+            0xDC06 => self.timer_b.value as u8,
+            0xDC07 => (self.timer_b.value >> 8) as u8,
+            0xDC08 => {
+                self.tod_halt = false;
+                self.tod_dsec
+            },
+            0xDC09 => self.tod_sec,
+            0xDC0A => self.tod_min,
+            0xDC0B => {
+                self.tod_halt = true;
+                self.tod_hour
+            },
+            0xDC0C => self.sdr,
+            0xDC0D => {
+                let curr_icr = self.icr;
+                self.icr = 0;
+                // TODO: clear CIA IRQ here
+                curr_icr
+            },
+            0xDC0E => self.timer_a.ctrl,
+            0xDC0F => self.timer_b.ctrl,
+            0xDC10...0xDCFF => self.read_cia1_register(0xDC00 + addr % 0x10),
+            _ => as_mut!(self.mem_ref).read_byte(addr)
+        }
+    }
+
+    fn read_cia2_register(&mut self, addr: u16) -> u8
+    {
+        match addr
+        {
+            0xDD00 => {
+                // TODO
+                0
+            },
+            0xDD01 => self.prb | !self.ddrb,
+            0xDD02 => self.ddra,
+            0xDD03 => self.ddrb,
+            0xDD04 => self.timer_a.value as u8,
+            0xDD05 => (self.timer_a.value >> 8) as u8,
+            0xDD06 => self.timer_b.value as u8,
+            0xDD07 => (self.timer_b.value >> 8) as u8,
+            0xDD08 => {
+                self.tod_halt = false;
+                self.tod_dsec
+            },
+            0xDD09 => self.tod_sec,
+            0xDD0A => self.tod_min,
+            0xDD0B => {
+                self.tod_halt = true;
+                self.tod_hour
+            },
+            0xDD0C => self.sdr,
+            0xDD0D => {
+                let curr_icr = self.icr;
+                self.icr = 0;
+                // TODO: clear NMI here
+                curr_icr
+            },
+            0xDD0E => self.timer_a.ctrl,
+            0xDD0F => self.timer_b.ctrl,
+            0xDD10...0xDDFF => self.read_cia2_register(0xDD00 + addr % 0x10),
+            _ => as_mut!(self.mem_ref).read_byte(addr)
+        }
     }
 
     pub fn write_register(&mut self, addr: u16, value: u8, on_cia_write: &mut CIACallbackAction) -> bool
     {
-        // TODO
-        true
+        if self.is_cia1
+        {
+            self.write_cia1_register(addr, value, on_cia_write)
+        }
+        else
+        {
+            self.write_cia2_register(addr, value, on_cia_write)
+        }
+    }
+
+    fn write_cia1_register(&mut self, addr: u16, value: u8, on_cia_write: &mut CIACallbackAction) -> bool
+    {
+        match addr
+        {
+            0xDC00 => { self.pra = value; true },
+            0xDC01 => { self.prb = value; self.check_lp(); true },
+            0xDC02 => { self.ddra = value; true },
+            0xDC03 => { self.ddrb = value; self.check_lp(); true },
+            0xDC04 => { self.timer_a.latch = (self.timer_a.latch & 0xFF00) | value as u16; true },
+            0xDC05 => {
+                self.timer_a.latch = (self.timer_a.latch & 0x00FF) | ((value as u16) << 8);
+                if (self.timer_a.ctrl & 1) == 0
+                {
+                    self.timer_a.value = self.timer_a.latch;
+                }
+                true
+            },
+            0xDC06 => { self.timer_b.latch = (self.timer_b.latch & 0xFF00) | value as u16; true },
+            0xDC07 => {
+                self.timer_b.latch = (self.timer_b.latch & 0x00FF) | ((value as u16) << 8);
+                if (self.timer_b.ctrl & 1) == 0
+                {
+                    self.timer_b.value = self.timer_b.latch;
+                }
+                true
+            },
+            0xDC08 => {
+                if (self.timer_b.ctrl & 0x80) != 0
+                {
+                    self.alarm_dsec = value & 0x0F;
+                }
+                else
+                {
+                    self.tod_dsec = value & 0x0F;
+                }
+                true
+            },
+            0xDC09 => {
+                if (self.timer_b.ctrl & 0x80) != 0
+                {
+                    self.alarm_sec = value & 0x7F;
+                }
+                else
+                {
+                    self.tod_sec = value & 0x7F;
+                }
+                true
+            },
+            0xDC0A => {
+                if (self.timer_b.ctrl & 0x80) != 0
+                {
+                    self.alarm_min = value & 0x7F;
+                }
+                else
+                {
+                    self.tod_min = value & 0x7F;
+                }
+                true
+            },
+             0xDC0B => {
+                if (self.timer_b.ctrl & 0x80) != 0
+                {
+                    self.alarm_hour = value & 0x9F;
+                }
+                else
+                {
+                    self.tod_hour = value & 0x9F;
+                }
+                true
+             },
+            0xDC0C => {
+                self.sdr = value;
+                self.trigger_irq(8);
+                true
+            },
+            0xDC0D => {
+                if (value & 0x80) != 0
+                {
+                    self.irq_mask |= value & 0x7F;
+                }
+                else
+                {
+                    self.irq_mask &= !value;
+                }
+
+                if (self.icr & self.irq_mask & 0x1F) != 0
+                {
+                    self.icr |= 0x80;
+                    // TODO: trigger CIA irq here
+                }
+                true
+            },
+            0xDC0E => {
+                self.timer_a.has_new_ctrl = true;
+                self.timer_a.new_ctrl = value;
+                self.timer_a.is_cnt_phi2 = (value & 0x20) == 0;
+                true
+            },
+            0xDC0F => {
+                self.timer_b.has_new_ctrl = true;
+                self.timer_b.new_ctrl = value;
+                self.timer_b.is_cnt_phi2 = (value & 0x60) == 0;
+                self.timer_b.cnt_ta_underflow = (value & 0x60) == 0x40;
+                true
+            },
+            0xDC10...0xDCFF => self.write_cia1_register(0xDC00 + addr & 0x10, value, on_cia_write),
+            _ => as_mut!(self.mem_ref).write_byte(addr, value)
+        }
+    }
+
+    fn write_cia2_register(&mut self, addr: u16, value: u8, on_cia_write: &mut CIACallbackAction) -> bool
+    {
+        match addr
+        {
+            0xDD00 => {
+                // TODO
+                self.pra = value; true
+            },
+            0xDD01 => { self.prb = value; true },
+            0xDD02 => { self.ddra = value; as_mut!(self.vic_ref).on_va_change(!(self.pra | !self.ddra) & 3); true },
+            0xDD03 => { self.ddrb = value; true },
+            0xDD04 => { self.timer_a.latch = (self.timer_a.latch & 0xFF00) | value as u16; true },
+            0xDD05 => {
+                self.timer_a.latch = (self.timer_a.latch & 0x00FF) | ((value as u16) << 8);
+                if (self.timer_a.ctrl & 1) == 0
+                {
+                    self.timer_a.value = self.timer_a.latch;
+                }
+                true
+            },
+            0xDD06 => { self.timer_b.latch = (self.timer_b.latch & 0xFF00) | value as u16; true },
+            0xDD07 => {
+                self.timer_b.latch = (self.timer_b.latch & 0x00FF) | ((value as u16) << 8);
+                if (self.timer_b.ctrl & 1) == 0
+                {
+                    self.timer_b.value = self.timer_b.latch;
+                }
+                true
+            },
+            0xDD08 => {
+                if (self.timer_b.ctrl & 0x80) != 0
+                {
+                    self.alarm_dsec = value & 0x0F;
+                }
+                else
+                {
+                    self.tod_dsec = value & 0x0F;
+                }
+                true
+            },
+            0xDD09 => {
+                if (self.timer_b.ctrl & 0x80) != 0
+                {
+                    self.alarm_sec = value & 0x7F;
+                }
+                else
+                {
+                    self.tod_sec = value & 0x7F;
+                }
+                true
+            },
+            0xDD0A => {
+                if (self.timer_b.ctrl & 0x80) != 0
+                {
+                    self.alarm_min = value & 0x7F;
+                }
+                else
+                {
+                    self.tod_min = value & 0x7F;
+                }
+                true
+            },
+             0xDD0B => {
+                if (self.timer_b.ctrl & 0x80) != 0
+                {
+                    self.alarm_hour = value & 0x9F;
+                }
+                else
+                {
+                    self.tod_hour = value & 0x9F;
+                }
+                true
+             },
+            0xDD0C => {
+                self.sdr = value;
+                self.trigger_irq(8);
+                true
+            },
+            0xDD0D => {
+                if (value & 0x80) != 0
+                {
+                    self.irq_mask |= value & 0x7F;
+                }
+                else
+                {
+                    self.irq_mask &= !value;
+                }
+
+                if (self.icr & self.irq_mask & 0x1F) != 0
+                {
+                    self.icr |= 0x80;
+                    // TODO: trigger NMI here
+                }
+                true
+            },
+            0xDD0E => {
+                self.timer_a.has_new_ctrl = true;
+                self.timer_a.new_ctrl = value;
+                self.timer_a.is_cnt_phi2 = (value & 0x20) == 0;
+                true
+            },
+            0xDD0F => {
+                self.timer_b.has_new_ctrl = true;
+                self.timer_b.new_ctrl = value;
+                self.timer_b.is_cnt_phi2 = (value & 0x60) == 0;
+                self.timer_b.cnt_ta_underflow = (value & 0x60) == 0x40;
+                true
+            },
+            0xDD10...0xDDFF => self.write_cia2_register(0xDD00 + addr & 0x10, value, on_cia_write),
+            _ => as_mut!(self.mem_ref).write_byte(addr, value)
+        }
+    }
+
+    fn check_lp(&mut self)
+    {
+        if ((self.prb | !self.ddrb) & 0x10) != self.prev_lp
+        {
+            as_mut!(self.vic_ref).trigger_lp_irq();            
+        }
+
+        self.prev_lp = (self.prb | !self.ddrb) & 0x10;
     }
     
     pub fn update(&mut self)
@@ -332,8 +725,8 @@ impl CIA
 
     pub fn count_tod(&mut self)
     {
-        let mut lo: u8 = 0;
-        let mut hi: u8 = 0;
+        let mut lo: u8;
+        let mut hi: u8;
 
         if self.tod_freq_div != 0
         {

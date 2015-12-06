@@ -403,9 +403,9 @@ impl VIC
         }
     }
 
-    pub fn on_va_change(&mut self, new_va: u16)
+    pub fn on_va_change(&mut self, new_va: u8)
     {
-        self.cia_vabase = new_va << 14;
+        self.cia_vabase = (new_va as u16) << 14;
         let vbase = self.read_register(0xD018);
         let mut vicwrite: VICCallbackAction = VICCallbackAction::None;
         self.write_register(0xD018, vbase, &mut vicwrite);
