@@ -390,7 +390,6 @@ impl CIA
             0x0D => {
                 let curr_icr = self.icr;
                 self.icr = 0;
-                // TODO: clear CIA IRQ (CIA1) or NMI (CIA2) here
                 *on_cia_read = if self.is_cia1 { CIACallbackAction::ClearCIAIRQ } else { CIACallbackAction::ClearNMI };
                 curr_icr
             },
@@ -532,7 +531,11 @@ impl CIA
              },
             0x0C => {
                 self.sdr = value;
-                self.trigger_irq(8);
+                let irq_triggered = self.trigger_irq(8);
+                if irq_triggered
+                {
+                    *on_cia_write = if self.is_cia1 { CIACallbackAction::TriggerCIAIRQ } else { CIACallbackAction::TriggerNMI };
+                }
                 true
             },
             0x0D => {
@@ -548,7 +551,6 @@ impl CIA
                 if (self.icr & self.irq_mask & 0x1F) != 0
                 {
                     self.icr |= 0x80;
-                    // TODO: trigger CIA irq (CIA1) or NMI (CIA2) here
                     *on_cia_write = if self.is_cia1 { CIACallbackAction::TriggerCIAIRQ } else { CIACallbackAction::TriggerNMI };
                 }
                 true
@@ -642,7 +644,7 @@ impl CIA
         }
         else
         {
-            // adust frequency according to 50/60Hz flag
+            // adjust frequency according to 50/60Hz flag
             if (self.timer_a.ctrl & 0x80) != 0
             {
                 self.tod_freq_div = 4;
@@ -716,19 +718,34 @@ impl CIA
                (self.tod_min  == self.alarm_min)  &&
                (self.tod_hour == self.alarm_hour)
             {
-                self.trigger_irq(4);
+                if self.trigger_irq(4)
+                {
+                    if self.is_cia1
+                    {
+                        as_mut!(self.cpu_ref).trigger_cia_irq();
+                    }
+                    else
+                    {
+                        as_mut!(self.cpu_ref).trigger_nmi();
+                    };
+                }
             }
         }
     }
 
-    pub fn trigger_irq(&mut self, mask: u8)
+    // true - irq triggered; false - not
+    pub fn trigger_irq(&mut self, mask: u8) -> bool
     {
         self.icr |= mask;
 
         if (self.irq_mask & mask) != 0
         {
             self.icr |= 0x80;
-            // TODO: call cia or nmi irq here depending on cia chip!
+            true
+        }
+        else
+        {
+            false
         }
     }
 }
