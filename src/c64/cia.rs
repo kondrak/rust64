@@ -366,7 +366,6 @@ impl CIA
     pub fn read_register(&mut self, addr: u16, on_cia_read: &mut CIACallbackAction) -> u8
     {
         //let base_addr = if self.is_cia1 { 0xDC00 } else { 0xDD00 };
-
         // CIA1 and CIA2 share behavior for certain addresses
         match addr & 0x00FF
         {

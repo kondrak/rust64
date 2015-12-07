@@ -76,8 +76,8 @@ impl C64
         self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank);        
         // update sid here when it's done
 
-        //self.cia1.borrow_mut().update();
-        //self.cia2.borrow_mut().update();        
+        self.cia1.borrow_mut().update();
+        self.cia2.borrow_mut().update();
         
         self.cpu.borrow_mut().update();
 
@@ -91,11 +91,6 @@ impl C64
         }
         
         self.cycle_count += 1;
-    }
-
-    pub fn vblank(&self, draw_frame: bool)
-    {
-        // TODO
     }
 
     // debug

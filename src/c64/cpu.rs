@@ -253,6 +253,7 @@ impl CPU
     pub fn trigger_vic_irq(&mut self)
     {
         // TODO:
+        println!("VIC irq");
     }
 
     pub fn clear_vic_irq(&mut self)
@@ -263,6 +264,7 @@ impl CPU
     pub fn trigger_nmi(&mut self)
     {
         // TODO
+        println!("NMI irq");
     }
 
     pub fn clear_nmi(&mut self)
@@ -273,6 +275,7 @@ impl CPU
     pub fn trigger_cia_irq(&mut self)
     {
         // TODO
+        println!("CIA irq");
     }
 
     pub fn clear_cia_irq(&mut self)
