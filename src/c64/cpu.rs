@@ -159,11 +159,16 @@ impl CPU
     pub fn write_byte(&mut self, addr: u16, value: u8) -> bool
     {
         let mut on_vic_write: vic::VICCallbackAction = vic::VICCallbackAction::None;
+        let mut on_cia_write: cia::CIACallbackAction = cia::CIACallbackAction::None;
         let mut mem_write_ok: bool;
         match addr
         {
             // VIC-II address space
             0xD000...0xD400 => mem_write_ok = as_mut!(self.vic_ref).write_register(addr, value, &mut on_vic_write),
+            // CIA1 address space
+            0xDC00...0xDCFF => mem_write_ok = as_mut!(self.cia1_ref).write_register(addr, value, &mut on_cia_write),
+            // CIA2 address space
+            0xDD00...0xDD0F => mem_write_ok = as_mut!(self.cia2_ref).write_register(addr, value, &mut on_cia_write),            
             _ => mem_write_ok = as_mut!(self.mem_ref).write_byte(addr, value),
         }
 
@@ -175,21 +180,44 @@ impl CPU
             _ => (),
         }
 
+        match on_cia_write
+        {
+            cia::CIACallbackAction::TriggerCIAIRQ => self.trigger_cia_irq(),
+            cia::CIACallbackAction::ClearCIAIRQ   => self.clear_cia_irq(),
+            cia::CIACallbackAction::TriggerNMI    => self.trigger_nmi(),
+            cia::CIACallbackAction::ClearNMI      => self.clear_nmi(),            
+            _ => (),
+        }        
+
         mem_write_ok
     }
     
     pub fn read_byte(&self, addr: u16) -> u8
     {
+        let mut byte: u8;
+        let mut on_cia_read: cia::CIACallbackAction = cia::CIACallbackAction::None;
+        
         match addr
         {
             // VIC-II address space
-            0xD000...0xD400 => as_ref!(self.vic_ref).read_register(addr),
+            0xD000...0xD400 => byte = as_ref!(self.vic_ref).read_register(addr),
             // CIA1 address space
-            0xDC00...0xDCFF => as_ref!(self.cia1_ref).read_register(addr),
+            0xDC00...0xDCFF => byte = as_ref!(self.cia1_ref).read_register(addr, &mut on_cia_read),
             // CIA2 address space
-            0xDD00...0xDD0F => as_ref!(self.cia2_ref).read_register(addr),
-            _ => as_ref!(self.mem_ref).read_byte(addr)
+            0xDD00...0xDD0F => byte = as_ref!(self.cia2_ref).read_register(addr, &mut on_cia_read),
+            _ => byte = as_ref!(self.mem_ref).read_byte(addr)
         }
+
+        /*match on_cia_read
+        {
+            cia::CIACallbackAction::TriggerCIAIRQ => self.trigger_cia_irq(),
+            cia::CIACallbackAction::ClearCIAIRQ   => self.clear_cia_irq(),
+            cia::CIACallbackAction::TriggerNMI    => self.trigger_nmi(),
+            cia::CIACallbackAction::ClearNMI      => self.clear_nmi(),            
+            _ => (),
+        }*/
+
+        byte
     }
 
     pub fn read_word_le(&self, addr: u16) -> u16
@@ -235,7 +263,17 @@ impl CPU
         // TODO
     }
 
+    pub fn clear_nmi(&mut self)
+    {
+        // TODO
+    }
+
     pub fn trigger_cia_irq(&mut self)
+    {
+        // TODO
+    }
+
+    pub fn clear_cia_irq(&mut self)
     {
         // TODO
     }

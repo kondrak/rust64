@@ -73,10 +73,12 @@ impl C64
     {
         let mut should_trigger_vblank = false;
         //if self.clock.tick() { println!("Clock tick"); }
-        //self.cia1.borrow_mut().update();
-        //self.cia2.borrow_mut().update();
-        self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank);
+        self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank);        
         // update sid here when it's done
+
+        //self.cia1.borrow_mut().update();
+        //self.cia2.borrow_mut().update();        
+        
         self.cpu.borrow_mut().update();
 
         if should_trigger_vblank
@@ -84,6 +86,8 @@ impl C64
             //let w = self.vic.borrow_mut().window_buffer[0];
             //println!("w: {}", w);
             //minifb::update(&self.vic.borrow_mut().window_buffer);
+            self.cia1.borrow_mut().count_tod();
+            self.cia2.borrow_mut().count_tod();
         }
         
         self.cycle_count += 1;
