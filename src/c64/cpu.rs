@@ -114,7 +114,8 @@ impl CPU
 
     pub fn next_byte(&mut self) -> u8
     {
-        let op = self.read_byte(self.PC);
+        let pc = self.PC;
+        let op = self.read_byte(pc);
         self.PC += 1;
         op
     }
@@ -138,7 +139,8 @@ impl CPU
 
     pub fn pop_byte(&mut self) -> u8
     {
-        let value = self.read_byte(0x0100 + (self.SP + 0x01) as u16);
+        let addr = 0x0100 + (self.SP + 0x01) as u16;
+        let value = self.read_byte(addr);
         self.SP += 0x01;
         value
     }
@@ -192,7 +194,7 @@ impl CPU
         mem_write_ok
     }
     
-    pub fn read_byte(&self, addr: u16) -> u8
+    pub fn read_byte(&mut self, addr: u16) -> u8
     {
         let mut byte: u8;
         let mut on_cia_read: cia::CIACallbackAction = cia::CIACallbackAction::None;
@@ -200,22 +202,22 @@ impl CPU
         match addr
         {
             // VIC-II address space
-            0xD000...0xD400 => byte = as_ref!(self.vic_ref).read_register(addr),
+            0xD000...0xD400 => byte = as_mut!(self.vic_ref).read_register(addr),
             // CIA1 address space
-            0xDC00...0xDCFF => byte = as_ref!(self.cia1_ref).read_register(addr, &mut on_cia_read),
+            0xDC00...0xDCFF => byte = as_mut!(self.cia1_ref).read_register(addr, &mut on_cia_read),
             // CIA2 address space
-            0xDD00...0xDD0F => byte = as_ref!(self.cia2_ref).read_register(addr, &mut on_cia_read),
-            _ => byte = as_ref!(self.mem_ref).read_byte(addr)
+            0xDD00...0xDD0F => byte = as_mut!(self.cia2_ref).read_register(addr, &mut on_cia_read),
+            _ => byte = as_mut!(self.mem_ref).read_byte(addr)
         }
 
-        /*match on_cia_read
+        match on_cia_read
         {
             cia::CIACallbackAction::TriggerCIAIRQ => self.trigger_cia_irq(),
             cia::CIACallbackAction::ClearCIAIRQ   => self.clear_cia_irq(),
             cia::CIACallbackAction::TriggerNMI    => self.trigger_nmi(),
             cia::CIACallbackAction::ClearNMI      => self.clear_nmi(),            
             _ => (),
-        }*/
+        }
 
         byte
     }
