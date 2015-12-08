@@ -76,6 +76,8 @@ impl C64
         self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank);        
         // update sid here when it's done
 
+        self.cia1.borrow_mut().process_irq();
+        self.cia2.borrow_mut().process_irq();
         self.cia1.borrow_mut().update();
         self.cia2.borrow_mut().update();
         

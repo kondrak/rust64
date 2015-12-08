@@ -624,6 +624,43 @@ impl CIA
 
         self.prev_lp = (self.prb | !self.ddrb) & 0x10;
     }
+
+    pub fn process_irq(&mut self)
+    {
+        if self.timer_a.irq_next_cycle
+        {
+            if self.trigger_irq(1)
+            {
+                if self.is_cia1
+                {
+                    as_mut!(self.cpu_ref).trigger_cia_irq();
+                }
+                else
+                {
+                    as_mut!(self.cpu_ref).trigger_nmi();
+                }
+            }
+            
+            self.timer_a.irq_next_cycle = false
+        }
+
+        if self.timer_a.irq_next_cycle
+        {
+            if self.trigger_irq(2)
+            {
+                if self.is_cia1
+                {
+                    as_mut!(self.cpu_ref).trigger_cia_irq();
+                }
+                else
+                {
+                    as_mut!(self.cpu_ref).trigger_nmi();
+                }
+            }
+            
+            self.timer_a.irq_next_cycle = false
+        }
+    }
     
     pub fn update(&mut self)
     {

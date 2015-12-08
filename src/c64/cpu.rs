@@ -44,6 +44,9 @@ pub struct CPU
     pub cia1_ref: Option<cia::CIAShared>,
     pub cia2_ref: Option<cia::CIAShared>,
     pub ba_low: bool,  // is BA low?
+    pub cia_irq: bool,
+    pub vic_irq: bool,
+    nmi: bool,
     pub prev_PC: u16, // previous program counter - for debugging
     pub op_debugger: utils::OpDebugger
 }
@@ -65,6 +68,9 @@ impl CPU
             cia1_ref: None,
             cia2_ref: None,
             ba_low: false,
+            cia_irq: false,
+            vic_irq: false,
+            nmi: false,
             prev_PC: 0,
             op_debugger: utils::OpDebugger::new()
         }))
@@ -102,14 +108,21 @@ impl CPU
         let pc = self.read_word_le(RESET_VECTOR);
         self.PC = pc;
         self.SP = 0xFF;
+        self.ba_low = false;
+        self.cia_irq = false;
+        self.vic_irq = false;
+        self.nmi = false;
     }
 
     pub fn update(&mut self)
     {
+        if self.ba_low { return }
+        if self.process_nmi() { return }
+        
+        if self.process_irq() { return }
         let op = self.next_byte();
+        //println!("${:04X}", self.PC);
         self.process_op(op);
-        self.process_nmi();
-        self.process_irq();
     }
 
     pub fn next_byte(&mut self) -> u8
@@ -237,16 +250,47 @@ impl CPU
         as_ref!(self.mem_ref).write_word_le(addr, value)
     }
     
-    fn process_nmi(&mut self)
+    fn process_nmi(&mut self) -> bool
     {
-        // TODO: non-maskable irq
+        // 7 cycles
+        if self.nmi
+        {
+            println!("NMI");
+            let curr_pc = self.PC;
+            let curr_p = self.P;
+            self.push_word(curr_pc);
+            self.push_byte(curr_p);
+            self.set_status_flag(StatusFlag::InterruptDisable, true);
+            self.PC = as_ref!(self.mem_ref).read_word_le(NMI_VECTOR);
+            self.nmi = false;
+            true
+        }
+        else
+        {
+            false
+        }
     }
     
-    fn process_irq(&mut self)
+    fn process_irq(&mut self) -> bool
     {
-        if !self.get_status_flag(StatusFlag::InterruptDisable)
+        // 7 cycles
+        if (self.cia_irq || self.vic_irq) && !self.get_status_flag(StatusFlag::InterruptDisable)
         {
-            // TODO irq
+            self.set_status_flag(StatusFlag::Break, false);
+            let curr_pc = self.PC;
+            let curr_p = self.P;
+            println!("PC {} P {}", curr_pc, curr_p);
+            self.push_word(curr_pc);
+            self.push_byte(curr_p);
+            self.set_status_flag(StatusFlag::InterruptDisable, true);
+            self.PC = as_ref!(self.mem_ref).read_word_le(IRQ_VECTOR);
+            self.cia_irq = false;
+            self.vic_irq = false;
+            true
+        }
+        else
+        {
+            false
         }
     }
 
@@ -254,33 +298,39 @@ impl CPU
     {
         // TODO:
         println!("VIC irq");
+        self.vic_irq = true;
     }
 
     pub fn clear_vic_irq(&mut self)
     {
         // TODO
+        self.vic_irq = false;
     }
 
     pub fn trigger_nmi(&mut self)
     {
         // TODO
         println!("NMI irq");
+        self.nmi = true;
     }
 
     pub fn clear_nmi(&mut self)
     {
         // TODO
+        self.nmi = false;
     }
 
     pub fn trigger_cia_irq(&mut self)
     {
         // TODO
-        println!("CIA irq");
+        //println!("CIA irq");
+        self.cia_irq = true;
     }
 
     pub fn clear_cia_irq(&mut self)
     {
         // TODO
+        self.cia_irq = false;
     }
     
     fn process_op(&mut self, opcode: u8) -> u8
