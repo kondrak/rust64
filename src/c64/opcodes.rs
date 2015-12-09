@@ -214,8 +214,8 @@ impl Op
             Op::PLP => {
                 let p = cpu.pop_byte();
                 cpu.P = p;
-                // PLP may affect even the unused flag bit
-                cpu.P |= 0x20;
+                // TODO: should we really set unused flag?
+                cpu.set_status_flag(cpu::StatusFlag::Unused, true);
             },
             Op::AND => {
                 let v = operand.get_value(cpu);
@@ -464,7 +464,6 @@ impl Op
                 let pc = cpu.pop_word();
                 cpu.P = p;
                 cpu.PC = pc;
-                cpu.P |= 0x20;
             },
             Op::HLT => panic!("Received HLT instruction at ${:04X}", cpu.PC),
             _       => () //println!("Unknown op: {}{} at ${:04X}", self, addr_mode, cpu.PC)
