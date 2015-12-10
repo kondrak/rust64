@@ -175,7 +175,7 @@ impl CPU
     {
         let mut on_vic_write: vic::VICCallbackAction = vic::VICCallbackAction::None;
         let mut on_cia_write: cia::CIACallbackAction = cia::CIACallbackAction::None;
-        let mut mem_write_ok: bool;
+        let mem_write_ok: bool;
         match addr
         {
             // VIC-II address space
@@ -209,7 +209,7 @@ impl CPU
     
     pub fn read_byte(&mut self, addr: u16) -> u8
     {
-        let mut byte: u8;
+        let byte: u8;
         let mut on_cia_read: cia::CIACallbackAction = cia::CIACallbackAction::None;
         
         match addr
@@ -279,7 +279,7 @@ impl CPU
             self.set_status_flag(StatusFlag::Break, false);
             let curr_pc = self.PC;
             let curr_p = self.P;
-            println!("PC {} P {}", curr_pc, curr_p);
+            //println!("PC {} P {}", curr_pc, curr_p);
             self.push_word(curr_pc);
             self.push_byte(curr_p);
             self.set_status_flag(StatusFlag::InterruptDisable, true);

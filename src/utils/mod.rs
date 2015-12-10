@@ -75,8 +75,8 @@ pub fn debug_instruction(opcode: u8, instruction: Option<(&opcodes::Op, u8, &opc
     match instruction
     {
         Some((instruction, num_cycles, addr_mode)) => {
-            let mut operand_hex: String;
-            let mut operand: String;
+            let operand_hex: String;
+            let operand: String;
 
             // RTS? pop from queue to continue logging
             match *instruction

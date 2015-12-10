@@ -28,12 +28,7 @@ fn main()
     c64.reset();
 
     let mut render_cnt: u16 = 0;
-    
-    if !(minifb::open("Rust64", c64::SCREEN_WIDTH, c64::SCREEN_HEIGHT))
-    {
-        panic!("Could not create window");
-    }
-    
+
     while running
     {
         //renderer.copy(&texture, None, Some(Rect::new_unwrap(0, 0, 256, 64)));
@@ -67,6 +62,4 @@ fn main()
         if render_cnt == 0
         { running &= c64.render(); } //renderer.clear(); c64.render(&mut renderer); renderer.present(); }
     }
-
-    minifb::close();
 }

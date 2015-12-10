@@ -8,4 +8,4 @@ authors = [ "Krzysztof Kondrak <krzysztof.kondrak@gmail.com>" ]
 
 sdl2 = "*"
 time = "*"
-minifb = { git = "https://github.com/emoon/rust_minifb.git" }
+minifb = { git = "https://github.com/emoon/rust_minifb.git", branch = "windows-rs" }

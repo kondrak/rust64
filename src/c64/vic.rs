@@ -507,7 +507,7 @@ impl VIC
 
     pub fn draw_background(&mut self)
     {
-        let mut dst_color: u8;
+        let dst_color: u8;
 
         if !self.draw_this_line { return }
 

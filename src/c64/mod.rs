@@ -1,5 +1,6 @@
 extern crate sdl2;
 extern crate minifb;
+use minifb::*;
 pub mod cpu;
 pub mod opcodes;
 //mod clock;
@@ -13,6 +14,7 @@ pub const SCREEN_HEIGHT: usize = 272; // extend 36 pixels top and down for the b
 
 pub struct C64
 {
+    window: minifb::Window,
     memory: memory::MemShared,
     //clock: clock::Clock,
     cpu: cpu::CPUShared,
@@ -35,7 +37,8 @@ impl C64
 
         let c64 = C64
         {
-            memory: memory.clone(),                     // shared system memory (RAM, ROM, IO registers)
+            window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, Scale::X4, Vsync::No).unwrap(),
+            memory: memory.clone(), // shared system memory (RAM, ROM, IO registers)
             //clock: clock::Clock::new(),
             cpu: cpu.clone(),
             cia1: cia1.clone(),
@@ -87,7 +90,7 @@ impl C64
         {
             //let w = self.vic.borrow_mut().window_buffer[0];
             //println!("w: {}", w);
-            //minifb::update(&self.vic.borrow_mut().window_buffer);
+            //self.window.update(&self.vic.borrow_mut().window_buffer);
             self.cia1.borrow_mut().count_tod();
             self.cia2.borrow_mut().count_tod();
         }
@@ -98,8 +101,11 @@ impl C64
     // debug
     pub fn render(&mut self) -> bool
     {
-        //self.vic.borrow_mut().render();
         //true
-        minifb::update(&self.vic.borrow_mut().window_buffer)
+        for key in self.window.get_keys().iter()
+        {
+            match *key { _ => () }
+        }
+        self.window.update(&self.vic.borrow_mut().window_buffer)
     }
 }
