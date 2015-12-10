@@ -14,7 +14,7 @@ pub const SCREEN_HEIGHT: usize = 272; // extend 36 pixels top and down for the b
 
 pub struct C64
 {
-    window: minifb::Window,
+    pub window: minifb::Window,
     memory: memory::MemShared,
     //clock: clock::Clock,
     cpu: cpu::CPUShared,
@@ -99,13 +99,13 @@ impl C64
     }
 
     // debug
-    pub fn render(&mut self) -> bool
+    pub fn render(&mut self)
     {
         //true
-        for key in self.window.get_keys().iter()
+        /*for key in self.window.get_keys().iter()
         {
             match *key { _ => () }
-        }
-        self.window.update(&self.vic.borrow_mut().window_buffer)
+        }*/
+        self.window.update(&self.vic.borrow_mut().window_buffer);
     }
 }

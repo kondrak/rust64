@@ -1,5 +1,6 @@
 extern crate sdl2;
 extern crate minifb;
+use minifb::*;
 //use sdl2::keyboard::Keycode;
 use std::num::Wrapping;
 
@@ -21,7 +22,6 @@ fn main()
     let mut renderer = window.renderer().accelerated().present_vsync().build().unwrap();
      */
     
-    let mut running = true;
     //let mut event_pump = sdl_context.event_pump().unwrap();
 
     let mut c64 = c64::C64::new();
@@ -29,7 +29,7 @@ fn main()
 
     let mut render_cnt: u16 = 0;
 
-    while running
+    while c64.window.is_open() && !c64.window.is_key_down(Key::Escape)
     {
         //renderer.copy(&texture, None, Some(Rect::new_unwrap(0, 0, 256, 64)));
         //renderer.copy_ex(&texture, None, Some(Rect::new_unwrap(450, 100, 256, 256)), 30.0, None, (false, false));
@@ -60,6 +60,6 @@ fn main()
         render_cnt = (Wrapping(render_cnt) + Wrapping(1)).0;
 
         if render_cnt == 0
-        { running &= c64.render(); } //renderer.clear(); c64.render(&mut renderer); renderer.present(); }
+        { c64.render(); } //renderer.clear(); c64.render(&mut renderer); renderer.present(); }
     }
 }
