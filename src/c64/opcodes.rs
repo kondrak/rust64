@@ -466,7 +466,8 @@ impl Op
                 cpu.PC = pc;
             },
             Op::HLT => panic!("Received HLT instruction at ${:04X}", cpu.PC),
-            _       => () //println!("Unknown op: {}{} at ${:04X}", self, addr_mode, cpu.PC)
+            // TODO: handle undocumented ops
+            _       => panic!("Unsupported op: {} at ${:04X}", self, cpu.PC)
         }
     } 
 }
