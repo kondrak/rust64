@@ -40,9 +40,9 @@ impl AddrMode
     {
         match *self
         {
-            AddrMode::Implied                     => panic!("Can't get operand address"),
-            AddrMode::Accumulator                 => panic!("Can't get operand address"),
-            AddrMode::Immediate(..)               => panic!("Can't get operand address"),
+            AddrMode::Implied                     => panic!("Can't get operand address, PC ${:04X} ", cpu.prev_PC - 1),
+            AddrMode::Accumulator                 => panic!("Can't get operand address, PC ${:04X} ", cpu.prev_PC - 1),
+            AddrMode::Immediate(..)               => panic!("Can't get operand address, PC ${:04X} ", cpu.prev_PC - 1),
             AddrMode::Absolute(next_word)         => next_word,
             AddrMode::AbsoluteIndexedX(next_word) => next_word + cpu.X as u16,
             AddrMode::AbsoluteIndexedY(next_word) => next_word + cpu.Y as u16,
@@ -60,7 +60,7 @@ impl AddrMode
     {
        match *self
         {
-            AddrMode::Implied                     => panic!("Can't get operand value"),
+            AddrMode::Implied                     => panic!("Can't get operand value, PC ${:04X} ", cpu.prev_PC - 1),
             AddrMode::Accumulator                 => cpu.A,
             AddrMode::Immediate(next_byte)        => next_byte,
             _ => {
@@ -74,10 +74,10 @@ impl AddrMode
     {
         match *self
         {
-            AddrMode::Implied         => panic!("Can't set operand value"),
+            AddrMode::Implied         => panic!("Can't set operand value, PC ${:04X} ", cpu.prev_PC - 1),
             AddrMode::Accumulator     => cpu.A = value,
-            AddrMode::Immediate(..)   => panic!("Can't set operand value"),
-            AddrMode::Relative(..)    => panic!("Can't set operand value"),
+            AddrMode::Immediate(..)   => panic!("Can't set operand value, PC ${:04X} ", cpu.prev_PC - 1),
+            AddrMode::Relative(..)    => panic!("Can't set operand value, PC ${:04X} ", cpu.prev_PC - 1),
             _ => {
                 let addr = self.get_address(cpu);
                 let byte_written = cpu.write_byte(addr, value);
@@ -646,7 +646,7 @@ pub fn get_instruction(opcode: u8, cpu: &mut cpu::CPU) -> Option<(Op, u8, AddrMo
              /* INX     */ 0xE8 => (Op::INX, 2, AddrMode::Implied),
              /* SBC_imm */ 0xE9 => (Op::SBC, 2, AddrMode::Immediate(cpu.next_byte())),
              /* NOP     */ 0xEA => (Op::NOP, 2, AddrMode::Implied),
-             /* CPX     */ 0xEC => (Op::CPX, 4, AddrMode::Implied),
+             /* CPX     */ 0xEC => (Op::CPX, 4, AddrMode::Absolute(cpu.next_word())),
              /* SBC_abs */ 0xED => (Op::SBC, 4, AddrMode::Absolute(cpu.next_word())),
              /* INC_abs */ 0xEE => (Op::INC, 6, AddrMode::Absolute(cpu.next_word())),
              /* BEQ_rel */ 0xF0 => (Op::BEQ, 2, AddrMode::Relative(cpu.next_byte() as i8)), // add 1 cycle if page boundary is crossed
