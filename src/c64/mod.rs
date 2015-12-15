@@ -5,6 +5,7 @@ pub mod cpu;
 pub mod opcodes;
 //mod clock;
 mod memory;
+mod io;
 mod cia;
 mod vic;
 
@@ -16,6 +17,7 @@ pub struct C64
 {
     pub window: minifb::Window,
     memory: memory::MemShared,
+    keyboard: io::Keyboard,
     //clock: clock::Clock,
     cpu: cpu::CPUShared,
     cia1: cia::CIAShared,
@@ -39,6 +41,7 @@ impl C64
         {
             window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, Scale::X1, Vsync::No).unwrap(),
             memory: memory.clone(), // shared system memory (RAM, ROM, IO registers)
+            keyboard: io::Keyboard::new(),
             //clock: clock::Clock::new(),
             cpu: cpu.clone(),
             cia1: cia1.clone(),
@@ -76,6 +79,9 @@ impl C64
     {
         let mut should_trigger_vblank = false;
         //if self.clock.tick() { println!("Clock tick"); }
+
+        //self.keyboard.update_keystates(&self.window);
+        
         self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank);        
         // update sid here when it's done
 
@@ -88,6 +94,7 @@ impl C64
 
         if should_trigger_vblank
         {
+            //self.keyboard.update_keystates(&self.window);
             //let w = self.vic.borrow_mut().window_buffer[0];
             //println!("w: {}", w);
             //self.window.update(&self.vic.borrow_mut().window_buffer);
@@ -102,10 +109,6 @@ impl C64
     pub fn render(&mut self)
     {
         //true
-        /*for key in self.window.get_keys().iter()
-        {
-            match *key { _ => () }
-        }*/
         self.window.update(&self.vic.borrow_mut().window_buffer);
     }
 }
