@@ -2,7 +2,6 @@ extern crate sdl2;
 extern crate minifb;
 use minifb::*;
 //use sdl2::keyboard::Keycode;
-use std::num::Wrapping;
 
 #[macro_use]
 mod utils;
@@ -26,8 +25,6 @@ fn main()
 
     let mut c64 = c64::C64::new();
     c64.reset();
-
-    let mut render_cnt: u16 = 0;
 
     while c64.window.is_open() && !c64.window.is_key_down(Key::Escape)
     {
@@ -54,12 +51,6 @@ fn main()
             }
         } */
         
-        c64.update();
-
-        // don't refresh screen every cpu instruction - until VIC is done
-        render_cnt = (Wrapping(render_cnt) + Wrapping(1)).0;
-
-        if render_cnt == 0
-        { c64.render(); } //renderer.clear(); c64.render(&mut renderer); renderer.present(); }
+        c64.run();
     }
 }

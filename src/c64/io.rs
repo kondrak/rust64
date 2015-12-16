@@ -1,5 +1,6 @@
 extern crate minifb;
 use minifb::*;
+use c64::cia;
 
 // C64 keyboard
 pub struct Keyboard
@@ -17,11 +18,12 @@ impl Keyboard
         }
     }
 
-    pub fn update_keystates(&mut self, window: &Window)
+    pub fn update_keystates(&mut self, window: &Window, cia1: &mut cia::CIAShared)
     {
         // TODO: actual key state saving should likely be done outside of vsync;
         // only update CIA key matrix in vstate
-
+        cia1.borrow_mut().key_matrix;
+        cia1.borrow_mut().rev_matrix;
 
         if window.is_key_down(Key::Key0) { println!("0"); }
         if window.is_key_down(Key::Key1) { println!("1"); }

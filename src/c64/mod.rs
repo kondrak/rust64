@@ -75,13 +75,13 @@ impl C64
     }
     
     
-    pub fn update(&mut self)
+    pub fn run(&mut self)
     {
         let mut should_trigger_vblank = false;
         //if self.clock.tick() { println!("Clock tick"); }
 
         self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank);        
-        // update sid here when it's done
+        // TODO: update sid *HERE* when it's done
 
         self.cia1.borrow_mut().process_irq();
         self.cia2.borrow_mut().process_irq();
@@ -92,20 +92,12 @@ impl C64
 
         if should_trigger_vblank
         {
-            //let w = self.vic.borrow_mut().window_buffer[0];
-            //println!("w: {}", w);
             self.window.update(&self.vic.borrow_mut().window_buffer);
-            self.keyboard.update_keystates(&self.window);
+            self.keyboard.update_keystates(&self.window, &mut self.cia1);
             self.cia1.borrow_mut().count_tod();
             self.cia2.borrow_mut().count_tod();
         }
         
         self.cycle_count += 1;
-    }
-
-    // debug
-    pub fn render(&mut self)
-    {
-        //self.window.update(&self.vic.borrow_mut().window_buffer);
     }
 }
