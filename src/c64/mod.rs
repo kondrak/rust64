@@ -80,7 +80,7 @@ impl C64
         let mut should_trigger_vblank = false;
         //if self.clock.tick() { println!("Clock tick"); }
 
-        //self.keyboard.update_keystates(&self.window);
+        self.keyboard.update_keystates(&self.window);
         
         self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank);        
         // update sid here when it's done
@@ -97,7 +97,7 @@ impl C64
             //self.keyboard.update_keystates(&self.window);
             //let w = self.vic.borrow_mut().window_buffer[0];
             //println!("w: {}", w);
-            //self.window.update(&self.vic.borrow_mut().window_buffer);
+            self.window.update(&self.vic.borrow_mut().window_buffer);
             self.cia1.borrow_mut().count_tod();
             self.cia2.borrow_mut().count_tod();
         }
@@ -108,7 +108,6 @@ impl C64
     // debug
     pub fn render(&mut self)
     {
-        //true
-        self.window.update(&self.vic.borrow_mut().window_buffer);
+        //self.window.update(&self.vic.borrow_mut().window_buffer);
     }
 }
