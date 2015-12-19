@@ -5,6 +5,7 @@ pub mod cpu;
 pub mod opcodes;
 //mod clock;
 mod memory;
+mod io;
 mod cia;
 mod vic;
 
@@ -16,6 +17,7 @@ pub struct C64
 {
     pub window: minifb::Window,
     memory: memory::MemShared,
+    keyboard: io::Keyboard,
     //clock: clock::Clock,
     cpu: cpu::CPUShared,
     cia1: cia::CIAShared,
@@ -37,8 +39,9 @@ impl C64
 
         let c64 = C64
         {
-            window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, Scale::X4, Vsync::No).unwrap(),
+            window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, Scale::X1, Vsync::No).unwrap(),
             memory: memory.clone(), // shared system memory (RAM, ROM, IO registers)
+            keyboard: io::Keyboard::new(),
             //clock: clock::Clock::new(),
             cpu: cpu.clone(),
             cia1: cia1.clone(),
@@ -72,12 +75,13 @@ impl C64
     }
     
     
-    pub fn update(&mut self)
+    pub fn run(&mut self)
     {
         let mut should_trigger_vblank = false;
         //if self.clock.tick() { println!("Clock tick"); }
+
         self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank);        
-        // update sid here when it's done
+        // TODO: update sid *HERE* when it's done
 
         self.cia1.borrow_mut().process_irq();
         self.cia2.borrow_mut().process_irq();
@@ -88,24 +92,12 @@ impl C64
 
         if should_trigger_vblank
         {
-            //let w = self.vic.borrow_mut().window_buffer[0];
-            //println!("w: {}", w);
-            //self.window.update(&self.vic.borrow_mut().window_buffer);
+            self.window.update(&self.vic.borrow_mut().window_buffer);
+            self.keyboard.update_keystates(&self.window, &mut self.cia1);
             self.cia1.borrow_mut().count_tod();
             self.cia2.borrow_mut().count_tod();
         }
         
         self.cycle_count += 1;
-    }
-
-    // debug
-    pub fn render(&mut self)
-    {
-        //true
-        /*for key in self.window.get_keys().iter()
-        {
-            match *key { _ => () }
-        }*/
-        self.window.update(&self.vic.borrow_mut().window_buffer);
     }
 }

@@ -267,8 +267,8 @@ pub struct CIA
     alarm_dsec: u8,
 
     // CIA1 only
-    key_matrix: [u8; 8],
-    rev_matrix: [u8; 8],
+    pub key_matrix: [u8; 8],
+    pub rev_matrix: [u8; 8],
     joystick_1: u8,
     joystick_2: u8,
     prev_lp: u8,
