@@ -83,13 +83,28 @@ impl Keyboard
         if window.is_key_down(Key::F8) { c64_keycode = self.keycode_to_c64(Key::F8); }
         
         if window.is_key_down(Key::Down)  { c64_keycode = self.keycode_to_c64(Key::Down); }
-        if window.is_key_down(Key::Up)    { c64_keycode = self.keycode_to_c64(Key::Up); }
+        if window.is_key_down(Key::Up)    { c64_keycode = self.keycode_to_c64(Key::Up);   }
         if window.is_key_down(Key::Right) { c64_keycode = self.keycode_to_c64(Key::Right); }
-        if window.is_key_down(Key::Left)  { c64_keycode = self.keycode_to_c64(Key::Left); }
-        if window.is_key_down(Key::Space) { c64_keycode = self.keycode_to_c64(Key::Space); }
+        if window.is_key_down(Key::Left)  { c64_keycode = self.keycode_to_c64(Key::Left);  }
+        if window.is_key_down(Key::Space) { c64_keycode = self.keycode_to_c64(Key::Space);  }
+        if window.is_key_down(Key::Comma) { c64_keycode = self.keycode_to_c64(Key::Comma);  }
+        if window.is_key_down(Key::Period) { c64_keycode = self.keycode_to_c64(Key::Period); }
+        if window.is_key_down(Key::Slash)  { c64_keycode = self.keycode_to_c64(Key::Slash);  }
+        if window.is_key_down(Key::NumPadAsterisk)  { c64_keycode = self.keycode_to_c64(Key::NumPadAsterisk); }
+        if window.is_key_down(Key::Backspace) { c64_keycode = self.keycode_to_c64(Key::Backspace); }
+        if window.is_key_down(Key::Minus)  { c64_keycode = self.keycode_to_c64(Key::Minus); }
+        //if window.is_key_down(Key::Plus)   { c64_keycode = self.keycode_to_c64(Key::Plus); }
+        if window.is_key_down(Key::Insert) { c64_keycode = self.keycode_to_c64(Key::Insert); }
+        if window.is_key_down(Key::Home)   { c64_keycode = self.keycode_to_c64(Key::Home); }
+        if window.is_key_down(Key::LeftBracket)  { c64_keycode = self.keycode_to_c64(Key::LeftBracket); }
+        if window.is_key_down(Key::RightBracket) { c64_keycode = self.keycode_to_c64(Key::RightBracket); }
+        if window.is_key_down(Key::Delete) { c64_keycode = self.keycode_to_c64(Key::Delete); }
 
-        if window.is_key_down(Key::Tab)      { c64_keycode = self.keycode_to_c64(Key::Tab);      }
-        if window.is_key_down(Key::LeftCtrl) { c64_keycode = self.keycode_to_c64(Key::LeftCtrl); }
+        if window.is_key_down(Key::Semicolon)  { c64_keycode = self.keycode_to_c64(Key::Semicolon);  }
+        if window.is_key_down(Key::Apostrophe) { c64_keycode = self.keycode_to_c64(Key::Apostrophe); }
+        if window.is_key_down(Key::Backslash)  { c64_keycode = self.keycode_to_c64(Key::Backslash);  }
+        if window.is_key_down(Key::Tab)        { c64_keycode = self.keycode_to_c64(Key::Tab);        }
+        if window.is_key_down(Key::LeftCtrl)   { c64_keycode = self.keycode_to_c64(Key::LeftCtrl);   }
 
         if c64_keycode != 0xFF
         {
@@ -167,11 +182,36 @@ impl Keyboard
             Key::F6 => to_c64(0, 6) | 0x80,
             Key::F7 => to_c64(0, 3),
             Key::F8 => to_c64(0, 3) | 0x80,
-            Key::Down  => to_c64(0,7),
-            Key::Up    => to_c64(0,7) | 0x80,
-            Key::Right => to_c64(0,2),
-            Key::Left  => to_c64(0,2) | 0x80,
-            Key::Space => to_c64(7,4),
+            Key::Down   => to_c64(0, 7),
+            Key::Up     => to_c64(0, 7) | 0x80,
+            Key::Right  => to_c64(0, 2),
+            Key::Left   => to_c64(0, 2) | 0x80,
+            Key::Space  => to_c64(7, 4),
+            Key::Comma  => to_c64(5, 7),
+            Key::Period => to_c64(5, 4),
+            Key::Slash  => to_c64(6, 7),
+            Key::NumPadAsterisk  => to_c64(6, 1),
+            Key::Backspace => to_c64(0, 0),
+            // Plus key
+            Key::Minus  => to_c64(5, 0),
+            // Minus key
+            //Key::Plus   => to_c64(5, 3),
+            // Pound key
+            Key::Insert => to_c64(6, 0),
+            // CLR/Home key
+            Key::Home => to_c64(6, 3),
+            // @ key
+            Key::LeftBracket  => to_c64(5, 6),
+            // Asterisk key
+            Key::RightBracket => to_c64(6, 1),
+            // Home key
+            Key::Delete => to_c64(6, 6),
+            // Colon key
+            Key::Semicolon  => to_c64(5, 5),
+            // Semicolon key
+            Key::Apostrophe => to_c64(6, 2),
+            // Equals key
+            Key::Backslash => to_c64(6, 5),
             // Control key
             Key::Tab => to_c64(7, 2),
             // Commodore key
