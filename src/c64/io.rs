@@ -7,7 +7,7 @@ use c64::cia;
 
  Bit |    7      6   5     4      3     2        1       0
 -----+------------------------------------------------------
-  7  |   STOP    Q   C=  SPACE    2    CTRL     <-       1
+  7  | RUNSTOP   Q   C=  SPACE    2    CTRL     <-       1
   6  |    /      ^   =   RSHIFT  HOME   ;       *      POUND
   5  |    ,      @   "     .      -     L       P        +
   4  |    N      O   K     M      0     J       I        9
@@ -92,10 +92,12 @@ impl Keyboard
         if window.is_key_down(Key::Slash)  { c64_keycode = self.keycode_to_c64(Key::Slash);  }
         if window.is_key_down(Key::NumPadAsterisk)  { c64_keycode = self.keycode_to_c64(Key::NumPadAsterisk); }
         if window.is_key_down(Key::Backspace) { c64_keycode = self.keycode_to_c64(Key::Backspace); }
-        if window.is_key_down(Key::Minus)  { c64_keycode = self.keycode_to_c64(Key::Minus); }
-        //if window.is_key_down(Key::Plus)   { c64_keycode = self.keycode_to_c64(Key::Plus); }
+        if window.is_key_down(Key::Backquote) { c64_keycode = self.keycode_to_c64(Key::Backquote); }
+        //if window.is_key_down(Key::Escape) { c64_keycode = self.keycode_to_c64(Key::Escape); }
+        if window.is_key_down(Key::Minus)  { c64_keycode = self.keycode_to_c64(Key::Minus);  }
+        if window.is_key_down(Key::Equal)  { c64_keycode = self.keycode_to_c64(Key::Equal);  }
         if window.is_key_down(Key::Insert) { c64_keycode = self.keycode_to_c64(Key::Insert); }
-        if window.is_key_down(Key::Home)   { c64_keycode = self.keycode_to_c64(Key::Home); }
+        if window.is_key_down(Key::Home)   { c64_keycode = self.keycode_to_c64(Key::Home);   }
         if window.is_key_down(Key::LeftBracket)  { c64_keycode = self.keycode_to_c64(Key::LeftBracket); }
         if window.is_key_down(Key::RightBracket) { c64_keycode = self.keycode_to_c64(Key::RightBracket); }
         if window.is_key_down(Key::Delete) { c64_keycode = self.keycode_to_c64(Key::Delete); }
@@ -192,10 +194,14 @@ impl Keyboard
             Key::Slash  => to_c64(6, 7),
             Key::NumPadAsterisk  => to_c64(6, 1),
             Key::Backspace => to_c64(0, 0),
+            // Left arrow key
+            Key::Backquote => to_c64(7, 1),
+            // Run Stop key
+            //Key::Escape => to_c64(7, 7),
             // Plus key
             Key::Minus  => to_c64(5, 0),
             // Minus key
-            //Key::Plus   => to_c64(5, 3),
+            Key::Equal  => to_c64(5, 3),
             // Pound key
             Key::Insert => to_c64(6, 0),
             // CLR/Home key
