@@ -33,125 +33,82 @@ impl Keyboard
 
     pub fn update_keystates(&mut self, window: &Window, cia1: &mut cia::CIAShared)
     {
-        let mut c64_keycode: u8 = 0xFF;
         // TODO: Restore and Run Stop keys
-        if window.is_key_down(Key::Key0) { c64_keycode = self.keycode_to_c64(Key::Key0); }
-        if window.is_key_down(Key::Key1) { c64_keycode = self.keycode_to_c64(Key::Key1); }
-        if window.is_key_down(Key::Key2) { c64_keycode = self.keycode_to_c64(Key::Key2); }
-        if window.is_key_down(Key::Key3) { c64_keycode = self.keycode_to_c64(Key::Key3); }
-        if window.is_key_down(Key::Key4) { c64_keycode = self.keycode_to_c64(Key::Key4); }
-        if window.is_key_down(Key::Key5) { c64_keycode = self.keycode_to_c64(Key::Key5); }
-        if window.is_key_down(Key::Key6) { c64_keycode = self.keycode_to_c64(Key::Key6); }
-        if window.is_key_down(Key::Key7) { c64_keycode = self.keycode_to_c64(Key::Key7); }
-        if window.is_key_down(Key::Key8) { c64_keycode = self.keycode_to_c64(Key::Key8); }
-        if window.is_key_down(Key::Key9) { c64_keycode = self.keycode_to_c64(Key::Key9); }
+        if window.is_key_down(Key::Key0) { self.on_key_press(Key::Key0, cia1); } else { self.on_key_release(Key::Key0, cia1); }
+        if window.is_key_down(Key::Key1) { self.on_key_press(Key::Key1, cia1); } else { self.on_key_release(Key::Key1, cia1); }
+        if window.is_key_down(Key::Key2) { self.on_key_press(Key::Key2, cia1); } else { self.on_key_release(Key::Key2, cia1); }
+        if window.is_key_down(Key::Key3) { self.on_key_press(Key::Key3, cia1); } else { self.on_key_release(Key::Key3, cia1); }
+        if window.is_key_down(Key::Key4) { self.on_key_press(Key::Key4, cia1); } else { self.on_key_release(Key::Key4, cia1); }
+        if window.is_key_down(Key::Key5) { self.on_key_press(Key::Key5, cia1); } else { self.on_key_release(Key::Key5, cia1); }
+        if window.is_key_down(Key::Key6) { self.on_key_press(Key::Key6, cia1); } else { self.on_key_release(Key::Key6, cia1); }
+        if window.is_key_down(Key::Key7) { self.on_key_press(Key::Key7, cia1); } else { self.on_key_release(Key::Key7, cia1); }
+        if window.is_key_down(Key::Key8) { self.on_key_press(Key::Key8, cia1); } else { self.on_key_release(Key::Key8, cia1); }
+        if window.is_key_down(Key::Key9) { self.on_key_press(Key::Key9, cia1); } else { self.on_key_release(Key::Key9, cia1); }
         
-        if window.is_key_down(Key::A) { c64_keycode = self.keycode_to_c64(Key::A); }
-        if window.is_key_down(Key::B) { c64_keycode = self.keycode_to_c64(Key::B); }
-        if window.is_key_down(Key::C) { c64_keycode = self.keycode_to_c64(Key::C); }
-        if window.is_key_down(Key::D) { c64_keycode = self.keycode_to_c64(Key::D); }
-        if window.is_key_down(Key::E) { c64_keycode = self.keycode_to_c64(Key::E); }
-        if window.is_key_down(Key::F) { c64_keycode = self.keycode_to_c64(Key::F); }
-        if window.is_key_down(Key::G) { c64_keycode = self.keycode_to_c64(Key::G); }
-        if window.is_key_down(Key::H) { c64_keycode = self.keycode_to_c64(Key::H); }
-        if window.is_key_down(Key::I) { c64_keycode = self.keycode_to_c64(Key::I); }
-        if window.is_key_down(Key::J) { c64_keycode = self.keycode_to_c64(Key::J); }
-        if window.is_key_down(Key::K) { c64_keycode = self.keycode_to_c64(Key::K); }
-        if window.is_key_down(Key::L) { c64_keycode = self.keycode_to_c64(Key::L); }
-        if window.is_key_down(Key::M) { c64_keycode = self.keycode_to_c64(Key::M); }
-        if window.is_key_down(Key::N) { c64_keycode = self.keycode_to_c64(Key::N); }
-        if window.is_key_down(Key::O) { c64_keycode = self.keycode_to_c64(Key::O); }
-        if window.is_key_down(Key::P) { c64_keycode = self.keycode_to_c64(Key::P); }
-        if window.is_key_down(Key::Q) { c64_keycode = self.keycode_to_c64(Key::Q); }
-        if window.is_key_down(Key::R) { c64_keycode = self.keycode_to_c64(Key::R); }
-        if window.is_key_down(Key::S) { c64_keycode = self.keycode_to_c64(Key::S); }
-        if window.is_key_down(Key::T) { c64_keycode = self.keycode_to_c64(Key::T); }
-        if window.is_key_down(Key::U) { c64_keycode = self.keycode_to_c64(Key::U); }
-        if window.is_key_down(Key::V) { c64_keycode = self.keycode_to_c64(Key::V); }
-        if window.is_key_down(Key::W) { c64_keycode = self.keycode_to_c64(Key::W); }
-        if window.is_key_down(Key::X) { c64_keycode = self.keycode_to_c64(Key::X); }
-        if window.is_key_down(Key::Y) { c64_keycode = self.keycode_to_c64(Key::Y); }
-        if window.is_key_down(Key::Z) { c64_keycode = self.keycode_to_c64(Key::Z); }
+        if window.is_key_down(Key::A) { self.on_key_press(Key::A, cia1); } else { self.on_key_release(Key::A, cia1); }
+        if window.is_key_down(Key::B) { self.on_key_press(Key::B, cia1); } else { self.on_key_release(Key::B, cia1); }
+        if window.is_key_down(Key::C) { self.on_key_press(Key::C, cia1); } else { self.on_key_release(Key::C, cia1); }
+        if window.is_key_down(Key::D) { self.on_key_press(Key::D, cia1); } else { self.on_key_release(Key::D, cia1); }
+        if window.is_key_down(Key::E) { self.on_key_press(Key::E, cia1); } else { self.on_key_release(Key::E, cia1); }
+        if window.is_key_down(Key::F) { self.on_key_press(Key::F, cia1); } else { self.on_key_release(Key::F, cia1); }
+        if window.is_key_down(Key::G) { self.on_key_press(Key::G, cia1); } else { self.on_key_release(Key::G, cia1); }
+        if window.is_key_down(Key::H) { self.on_key_press(Key::H, cia1); } else { self.on_key_release(Key::H, cia1); }
+        if window.is_key_down(Key::I) { self.on_key_press(Key::I, cia1); } else { self.on_key_release(Key::I, cia1); }
+        if window.is_key_down(Key::J) { self.on_key_press(Key::J, cia1); } else { self.on_key_release(Key::J, cia1); }
+        if window.is_key_down(Key::K) { self.on_key_press(Key::K, cia1); } else { self.on_key_release(Key::K, cia1); }
+        if window.is_key_down(Key::L) { self.on_key_press(Key::L, cia1); } else { self.on_key_release(Key::L, cia1); }
+        if window.is_key_down(Key::M) { self.on_key_press(Key::M, cia1); } else { self.on_key_release(Key::M, cia1); }
+        if window.is_key_down(Key::N) { self.on_key_press(Key::N, cia1); } else { self.on_key_release(Key::N, cia1); }
+        if window.is_key_down(Key::O) { self.on_key_press(Key::O, cia1); } else { self.on_key_release(Key::O, cia1); }
+        if window.is_key_down(Key::P) { self.on_key_press(Key::P, cia1); } else { self.on_key_release(Key::P, cia1); }
+        if window.is_key_down(Key::Q) { self.on_key_press(Key::Q, cia1); } else { self.on_key_release(Key::Q, cia1); }
+        if window.is_key_down(Key::R) { self.on_key_press(Key::R, cia1); } else { self.on_key_release(Key::R, cia1); }
+        if window.is_key_down(Key::S) { self.on_key_press(Key::S, cia1); } else { self.on_key_release(Key::S, cia1); }
+        if window.is_key_down(Key::T) { self.on_key_press(Key::T, cia1); } else { self.on_key_release(Key::T, cia1); }
+        if window.is_key_down(Key::U) { self.on_key_press(Key::U, cia1); } else { self.on_key_release(Key::U, cia1); }
+        if window.is_key_down(Key::V) { self.on_key_press(Key::V, cia1); } else { self.on_key_release(Key::V, cia1); }
+        if window.is_key_down(Key::W) { self.on_key_press(Key::W, cia1); } else { self.on_key_release(Key::W, cia1); }
+        if window.is_key_down(Key::X) { self.on_key_press(Key::X, cia1); } else { self.on_key_release(Key::X, cia1); }
+        if window.is_key_down(Key::Y) { self.on_key_press(Key::Y, cia1); } else { self.on_key_release(Key::Y, cia1); }
+        if window.is_key_down(Key::Z) { self.on_key_press(Key::Z, cia1); } else { self.on_key_release(Key::Z, cia1); }
 
-        if window.is_key_down(Key::F1) { c64_keycode = self.keycode_to_c64(Key::F1); }
-        if window.is_key_down(Key::F2) { c64_keycode = self.keycode_to_c64(Key::F2); }
-        if window.is_key_down(Key::F3) { c64_keycode = self.keycode_to_c64(Key::F3); }
-        if window.is_key_down(Key::F4) { c64_keycode = self.keycode_to_c64(Key::F4); }
-        if window.is_key_down(Key::F5) { c64_keycode = self.keycode_to_c64(Key::F5); }
-        if window.is_key_down(Key::F6) { c64_keycode = self.keycode_to_c64(Key::F6); }
-        if window.is_key_down(Key::F7) { c64_keycode = self.keycode_to_c64(Key::F7); }
-        if window.is_key_down(Key::F8) { c64_keycode = self.keycode_to_c64(Key::F8); }
+        if window.is_key_down(Key::F1) { self.on_key_press(Key::F1, cia1); } else { self.on_key_release(Key::F1, cia1); }
+        if window.is_key_down(Key::F2) { self.on_key_press(Key::F2, cia1); } else { self.on_key_release(Key::F2, cia1); }
+        if window.is_key_down(Key::F3) { self.on_key_press(Key::F3, cia1); } else { self.on_key_release(Key::F3, cia1); }
+        if window.is_key_down(Key::F4) { self.on_key_press(Key::F4, cia1); } else { self.on_key_release(Key::F4, cia1); }
+        if window.is_key_down(Key::F5) { self.on_key_press(Key::F5, cia1); } else { self.on_key_release(Key::F5, cia1); }
+        if window.is_key_down(Key::F6) { self.on_key_press(Key::F6, cia1); } else { self.on_key_release(Key::F6, cia1); }
+        if window.is_key_down(Key::F7) { self.on_key_press(Key::F7, cia1); } else { self.on_key_release(Key::F7, cia1); }
+        if window.is_key_down(Key::F8) { self.on_key_press(Key::F8, cia1); } else { self.on_key_release(Key::F8, cia1); }
         
-        if window.is_key_down(Key::Down)  { c64_keycode = self.keycode_to_c64(Key::Down); }
-        if window.is_key_down(Key::Up)    { c64_keycode = self.keycode_to_c64(Key::Up);   }
-        if window.is_key_down(Key::Right) { c64_keycode = self.keycode_to_c64(Key::Right); }
-        if window.is_key_down(Key::Left)  { c64_keycode = self.keycode_to_c64(Key::Left);  }
-        if window.is_key_down(Key::Space) { c64_keycode = self.keycode_to_c64(Key::Space);  }
-        if window.is_key_down(Key::Comma) { c64_keycode = self.keycode_to_c64(Key::Comma);  }
-        if window.is_key_down(Key::Period) { c64_keycode = self.keycode_to_c64(Key::Period); }
-        if window.is_key_down(Key::Slash)  { c64_keycode = self.keycode_to_c64(Key::Slash);  }
-        if window.is_key_down(Key::NumPadAsterisk)  { c64_keycode = self.keycode_to_c64(Key::NumPadAsterisk); }
-        if window.is_key_down(Key::Enter    ) { c64_keycode = self.keycode_to_c64(Key::Enter); }
-        if window.is_key_down(Key::Backspace) { c64_keycode = self.keycode_to_c64(Key::Backspace); }
-        if window.is_key_down(Key::Backquote) { c64_keycode = self.keycode_to_c64(Key::Backquote); }
-        if window.is_key_down(Key::LeftShift) { c64_keycode = self.keycode_to_c64(Key::LeftShift); }
-        if window.is_key_down(Key::RightShift) { c64_keycode = self.keycode_to_c64(Key::RightShift); }
-        //if window.is_key_down(Key::Escape) { c64_keycode = self.keycode_to_c64(Key::Escape); }
-        if window.is_key_down(Key::Minus)  { c64_keycode = self.keycode_to_c64(Key::Minus);  }
-        if window.is_key_down(Key::Equal)  { c64_keycode = self.keycode_to_c64(Key::Equal);  }
-        if window.is_key_down(Key::Insert) { c64_keycode = self.keycode_to_c64(Key::Insert); }
-        if window.is_key_down(Key::Home)   { c64_keycode = self.keycode_to_c64(Key::Home);   }
-        if window.is_key_down(Key::LeftBracket)  { c64_keycode = self.keycode_to_c64(Key::LeftBracket); }
-        if window.is_key_down(Key::RightBracket) { c64_keycode = self.keycode_to_c64(Key::NumPadAsterisk); }
-        if window.is_key_down(Key::Delete) { c64_keycode = self.keycode_to_c64(Key::Delete); }
+        if window.is_key_down(Key::Down)   { self.on_key_press(Key::Down, cia1);  } else { self.on_key_release(Key::Down, cia1); }
+        if window.is_key_down(Key::Up)     { self.on_key_press(Key::Up, cia1);    } else { self.on_key_release(Key::Up, cia1); }
+        if window.is_key_down(Key::Right)  { self.on_key_press(Key::Right, cia1); } else { self.on_key_release(Key::Right, cia1); }
+        if window.is_key_down(Key::Left)   { self.on_key_press(Key::Left, cia1);  } else { self.on_key_release(Key::Left, cia1); }
+        if window.is_key_down(Key::Space)  { self.on_key_press(Key::Space, cia1); } else { self.on_key_release(Key::Space, cia1); }
+        if window.is_key_down(Key::Comma)  { self.on_key_press(Key::Comma, cia1); } else { self.on_key_release(Key::Comma, cia1); }
+        if window.is_key_down(Key::Period) { self.on_key_press(Key::Period, cia1); } else { self.on_key_release(Key::Period, cia1); }
+        if window.is_key_down(Key::Slash)  { self.on_key_press(Key::Slash, cia1);   } else { self.on_key_release(Key::Slash, cia1); }
+        if window.is_key_down(Key::NumPadAsterisk) { self.on_key_press(Key::NumPadAsterisk, cia1); } else { self.on_key_release(Key::NumPadAsterisk, cia1); }
+        if window.is_key_down(Key::Enter)      { self.on_key_press(Key::Enter, cia1);      } else { self.on_key_release(Key::Enter, cia1); }
+        if window.is_key_down(Key::Backspace)  { self.on_key_press(Key::Backspace, cia1);  } else { self.on_key_release(Key::Backspace, cia1); }
+        if window.is_key_down(Key::Backquote)  { self.on_key_press(Key::Backquote, cia1);  } else { self.on_key_release(Key::Backquote, cia1); }
+        if window.is_key_down(Key::LeftShift)  { self.on_key_press(Key::LeftShift, cia1);  } else { self.on_key_release(Key::LeftShift, cia1); }
+        if window.is_key_down(Key::RightShift) { self.on_key_press(Key::RightShift, cia1); } else { self.on_key_release(Key::RightShift, cia1); }
+        //if window.is_key_down(Key::Escape) { self.on_key_press(Key::Escape, cia1); } else { self.on_key_release(Key::Escape, cia1); }
+        if window.is_key_down(Key::Minus)  { self.on_key_press(Key::Minus, cia1);  } else { self.on_key_release(Key::Minus, cia1); }
+        if window.is_key_down(Key::Equal)  { self.on_key_press(Key::Equal, cia1);  } else { self.on_key_release(Key::Equal, cia1); }
+        if window.is_key_down(Key::Insert) { self.on_key_press(Key::Insert, cia1); } else { self.on_key_release(Key::Insert, cia1); }
+        if window.is_key_down(Key::Home)   { self.on_key_press(Key::Home, cia1);   } else { self.on_key_release(Key::Home, cia1); }
+        if window.is_key_down(Key::LeftBracket)  { self.on_key_press(Key::LeftBracket, cia1);    } else { self.on_key_release(Key::LeftBracket, cia1); }
+        if window.is_key_down(Key::RightBracket) { self.on_key_press(Key::NumPadAsterisk, cia1); } else { self.on_key_release(Key::NumPadAsterisk, cia1); }
+        if window.is_key_down(Key::Delete) { self.on_key_press(Key::Delete, cia1); } else { self.on_key_release(Key::Delete, cia1); }
 
-        if window.is_key_down(Key::Semicolon)  { c64_keycode = self.keycode_to_c64(Key::Semicolon);  }
-        if window.is_key_down(Key::Apostrophe) { c64_keycode = self.keycode_to_c64(Key::Apostrophe); }
-        if window.is_key_down(Key::Backslash)  { c64_keycode = self.keycode_to_c64(Key::Backslash);  }
-        if window.is_key_down(Key::Tab)        { c64_keycode = self.keycode_to_c64(Key::Tab);        }
-        if window.is_key_down(Key::LeftCtrl)   { c64_keycode = self.keycode_to_c64(Key::LeftCtrl);   }
-
-        // detected a pressed key
-        if c64_keycode != 0xFF
-        {
-            self.pressed_keys[c64_keycode as usize] = true;
-            
-            let c64_bit  = c64_keycode & 7;
-            let c64_byte = (c64_keycode >> 3) & 7;
-
-            // key is shifted?
-            if (c64_keycode & 0x80) != 0
-            {
-                cia1.borrow_mut().key_matrix[6] &= 0xEF;
-                cia1.borrow_mut().rev_matrix[4] &= 0xBF;
-            }
-
-            cia1.borrow_mut().key_matrix[c64_byte as usize] &= !(1 << c64_bit);
-            cia1.borrow_mut().rev_matrix[c64_bit as usize]  &= !(1 << c64_byte);
-        }
-        else
-        {
-            // if no key pressed, should we process key release?
-            for k in 0..256
-            {
-                if self.pressed_keys[k] == true
-                {
-                    self.pressed_keys[k] = false;
-                    let c64_bit  = k & 7;
-                    let c64_byte = (k >> 3) & 7;
-                    
-                    // key is shifted?
-                    if (k & 0x80) != 0
-                    {
-                        cia1.borrow_mut().key_matrix[6] |= 0x10;
-                        cia1.borrow_mut().rev_matrix[4] |= 0x40;
-                    }
-
-                    cia1.borrow_mut().key_matrix[c64_byte as usize] |= 1 << c64_bit;
-                    cia1.borrow_mut().rev_matrix[c64_bit as usize]  |= 1 << c64_byte;
-                }
-            }
-        }
+        if window.is_key_down(Key::Semicolon)  { self.on_key_press(Key::Semicolon, cia1);  } else { self.on_key_release(Key::Semicolon, cia1); }
+        if window.is_key_down(Key::Apostrophe) { self.on_key_press(Key::Apostrophe, cia1); } else { self.on_key_release(Key::Apostrophe, cia1); }
+        if window.is_key_down(Key::Backslash)  { self.on_key_press(Key::Backslash, cia1);  } else { self.on_key_release(Key::Backslash, cia1); }
+        if window.is_key_down(Key::Tab)        { self.on_key_press(Key::Tab, cia1);        } else { self.on_key_release(Key::Tab, cia1); }
+        if window.is_key_down(Key::LeftCtrl)   { self.on_key_press(Key::LeftCtrl, cia1);   } else { self.on_key_release(Key::LeftCtrl, cia1); }
         
         // iterating over all keys is crawling-slow for some reason...
        /* for key in window.get_keys().unwrap()
@@ -163,6 +120,56 @@ impl Keyboard
         } */
     }
 
+    fn on_key_press(&mut self, keycode: Key, cia1: &mut cia::CIAShared)
+    {
+        let c64_keycode = self.keycode_to_c64(keycode);
+
+        if self.pressed_keys[c64_keycode as usize] == true
+        {
+            return
+        }
+        
+        self.pressed_keys[c64_keycode as usize] = true;
+
+        let c64_bit  = c64_keycode & 7;
+        let c64_byte = (c64_keycode >> 3) & 7;
+        
+        // key is shifted?
+        if (c64_keycode & 0x80) != 0
+        {
+            cia1.borrow_mut().key_matrix[6] &= 0xEF;
+            cia1.borrow_mut().rev_matrix[4] &= 0xBF;
+        }
+        
+        cia1.borrow_mut().key_matrix[c64_byte as usize] &= !(1 << c64_bit);
+        cia1.borrow_mut().rev_matrix[c64_bit as usize]  &= !(1 << c64_byte);
+    }
+
+    fn on_key_release(&mut self, keycode: Key, cia1: &mut cia::CIAShared)
+    {
+        let c64_keycode = self.keycode_to_c64(keycode);
+
+        if self.pressed_keys[c64_keycode as usize] == false
+        {
+            return
+        }
+        
+        self.pressed_keys[c64_keycode as usize] = false;
+
+        let c64_bit  = c64_keycode & 7;
+        let c64_byte = (c64_keycode >> 3) & 7;
+        
+        // key is shifted?
+        if (c64_keycode & 0x80) != 0
+        {
+            cia1.borrow_mut().key_matrix[6] |= 0x10;
+            cia1.borrow_mut().rev_matrix[4] |= 0x40;
+        }
+        
+        cia1.borrow_mut().key_matrix[c64_byte as usize] |= 1 << c64_bit;
+        cia1.borrow_mut().rev_matrix[c64_bit as usize]  |= 1 << c64_byte;
+    }
+    
     fn keycode_to_c64(&self, keycode: Key) -> u8
     {
         // fetch key's bit combination as represented in C64 keyboard matrix
