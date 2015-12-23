@@ -18,7 +18,7 @@ use c64::cia;
 */
 pub struct Keyboard
 {
-    keys: u8,
+    pressed_keys: [bool; 256],
 }
 
 impl Keyboard
@@ -27,7 +27,7 @@ impl Keyboard
     {
         Keyboard
         {
-            keys: 0,
+            pressed_keys: [false; 256]
         }
     }
 
@@ -94,13 +94,15 @@ impl Keyboard
         if window.is_key_down(Key::Enter    ) { c64_keycode = self.keycode_to_c64(Key::Enter); }
         if window.is_key_down(Key::Backspace) { c64_keycode = self.keycode_to_c64(Key::Backspace); }
         if window.is_key_down(Key::Backquote) { c64_keycode = self.keycode_to_c64(Key::Backquote); }
+        if window.is_key_down(Key::LeftShift) { c64_keycode = self.keycode_to_c64(Key::LeftShift); }
+        if window.is_key_down(Key::RightShift) { c64_keycode = self.keycode_to_c64(Key::RightShift); }
         //if window.is_key_down(Key::Escape) { c64_keycode = self.keycode_to_c64(Key::Escape); }
         if window.is_key_down(Key::Minus)  { c64_keycode = self.keycode_to_c64(Key::Minus);  }
         if window.is_key_down(Key::Equal)  { c64_keycode = self.keycode_to_c64(Key::Equal);  }
         if window.is_key_down(Key::Insert) { c64_keycode = self.keycode_to_c64(Key::Insert); }
         if window.is_key_down(Key::Home)   { c64_keycode = self.keycode_to_c64(Key::Home);   }
         if window.is_key_down(Key::LeftBracket)  { c64_keycode = self.keycode_to_c64(Key::LeftBracket); }
-        if window.is_key_down(Key::RightBracket) { c64_keycode = self.keycode_to_c64(Key::RightBracket); }
+        if window.is_key_down(Key::RightBracket) { c64_keycode = self.keycode_to_c64(Key::NumPadAsterisk); }
         if window.is_key_down(Key::Delete) { c64_keycode = self.keycode_to_c64(Key::Delete); }
 
         if window.is_key_down(Key::Semicolon)  { c64_keycode = self.keycode_to_c64(Key::Semicolon);  }
@@ -109,8 +111,11 @@ impl Keyboard
         if window.is_key_down(Key::Tab)        { c64_keycode = self.keycode_to_c64(Key::Tab);        }
         if window.is_key_down(Key::LeftCtrl)   { c64_keycode = self.keycode_to_c64(Key::LeftCtrl);   }
 
+        // detected a pressed key
         if c64_keycode != 0xFF
         {
+            self.pressed_keys[c64_keycode as usize] = true;
+            
             let c64_bit  = c64_keycode & 7;
             let c64_byte = (c64_keycode >> 3) & 7;
 
@@ -124,6 +129,30 @@ impl Keyboard
             cia1.borrow_mut().key_matrix[c64_byte as usize] &= !(1 << c64_bit);
             cia1.borrow_mut().rev_matrix[c64_bit as usize]  &= !(1 << c64_byte);
         }
+        else
+        {
+            // if no key pressed, should we process key release?
+            for k in 0..256
+            {
+                if self.pressed_keys[k] == true
+                {
+                    self.pressed_keys[k] = false;
+                    let c64_bit  = k & 7;
+                    let c64_byte = (k >> 3) & 7;
+                    
+                    // key is shifted?
+                    if (k & 0x80) != 0
+                    {
+                        cia1.borrow_mut().key_matrix[6] |= 0x10;
+                        cia1.borrow_mut().rev_matrix[4] |= 0x40;
+                    }
+
+                    cia1.borrow_mut().key_matrix[c64_byte as usize] |= 1 << c64_bit;
+                    cia1.borrow_mut().rev_matrix[c64_bit as usize]  |= 1 << c64_byte;
+                }
+            }
+        }
+        
         // iterating over all keys is crawling-slow for some reason...
        /* for key in window.get_keys().unwrap()
         {
@@ -197,7 +226,9 @@ impl Keyboard
             Key::Enter     => to_c64(0, 1),
             Key::Backspace => to_c64(0, 0),
             // Left arrow key
-            Key::Backquote => to_c64(7, 1),
+            Key::Backquote  => to_c64(7, 1),
+            Key::LeftShift  => to_c64(1, 7),
+            Key::RightShift => to_c64(6, 4),
             // Run Stop key
             //Key::Escape => to_c64(7, 7),
             // Plus key
@@ -210,8 +241,6 @@ impl Keyboard
             Key::Home => to_c64(6, 3),
             // @ key
             Key::LeftBracket  => to_c64(5, 6),
-            // Asterisk key
-            Key::RightBracket => to_c64(6, 1),
             // Home key
             Key::Delete => to_c64(6, 6),
             // Colon key
