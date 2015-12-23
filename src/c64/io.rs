@@ -34,7 +34,7 @@ impl Keyboard
     pub fn update_keystates(&mut self, window: &Window, cia1: &mut cia::CIAShared)
     {
         let mut c64_keycode: u8 = 0xFF;
-        
+        // TODO: Restore and Run Stop keys
         if window.is_key_down(Key::Key0) { c64_keycode = self.keycode_to_c64(Key::Key0); }
         if window.is_key_down(Key::Key1) { c64_keycode = self.keycode_to_c64(Key::Key1); }
         if window.is_key_down(Key::Key2) { c64_keycode = self.keycode_to_c64(Key::Key2); }
@@ -91,6 +91,7 @@ impl Keyboard
         if window.is_key_down(Key::Period) { c64_keycode = self.keycode_to_c64(Key::Period); }
         if window.is_key_down(Key::Slash)  { c64_keycode = self.keycode_to_c64(Key::Slash);  }
         if window.is_key_down(Key::NumPadAsterisk)  { c64_keycode = self.keycode_to_c64(Key::NumPadAsterisk); }
+        if window.is_key_down(Key::Enter    ) { c64_keycode = self.keycode_to_c64(Key::Enter); }
         if window.is_key_down(Key::Backspace) { c64_keycode = self.keycode_to_c64(Key::Backspace); }
         if window.is_key_down(Key::Backquote) { c64_keycode = self.keycode_to_c64(Key::Backquote); }
         //if window.is_key_down(Key::Escape) { c64_keycode = self.keycode_to_c64(Key::Escape); }
@@ -193,6 +194,7 @@ impl Keyboard
             Key::Period => to_c64(5, 4),
             Key::Slash  => to_c64(6, 7),
             Key::NumPadAsterisk  => to_c64(6, 1),
+            Key::Enter     => to_c64(0, 1),
             Key::Backspace => to_c64(0, 0),
             // Left arrow key
             Key::Backquote => to_c64(7, 1),
