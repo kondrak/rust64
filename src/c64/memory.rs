@@ -200,7 +200,8 @@ impl Memory
         match addr
         {
             0x0000...0x9FFF => &mut self.ram,
-            0xA000...0xCFFF => if self.basic_on { &mut self.basic } else { &mut self.ram },
+            0xA000...0xBFFF => if self.basic_on { &mut self.basic } else { &mut self.ram },
+            0xC000...0xCFFF => &mut self.ram,
             0xD000...0xDFFF => {
                 if self.chargen_on { return &mut self.chargen }
                 if self.io_on      { return &mut self.io; }
