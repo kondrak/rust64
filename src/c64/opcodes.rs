@@ -250,7 +250,7 @@ impl Op
                 let mut res: u16 = (Wrapping(cpu.A as u16) + Wrapping(v as u16)).0;
                 if cpu.get_status_flag(cpu::StatusFlag::Carry)
                 {
-                    res += 0x0001;
+                    res = (Wrapping(res) + Wrapping(0x0001)).0;
                 }
                 cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) != 0);
                 let res = res as u8;
@@ -266,7 +266,7 @@ impl Op
                 let mut res: u16 = (Wrapping(cpu.A as u16) - Wrapping(v as u16)).0;
                 if !cpu.get_status_flag(cpu::StatusFlag::Carry)
                 {
-                    res -= 0x0001;
+                    res = (Wrapping(res) - Wrapping(0x0001)).0;
                 }
                 cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) == 0);
                 let res = res as u8;
