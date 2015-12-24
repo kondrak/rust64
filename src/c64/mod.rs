@@ -3,7 +3,7 @@ extern crate minifb;
 use minifb::*;
 pub mod cpu;
 pub mod opcodes;
-//mod clock;
+mod clock;
 mod memory;
 mod io;
 mod cia;
@@ -12,13 +12,16 @@ mod vic;
 pub const SCREEN_WIDTH:  usize = 384; // extend 20 pixels left and right for the borders
 pub const SCREEN_HEIGHT: usize = 272; // extend 36 pixels top and down for the borders
 
+// PAL clock frequency in Hz
+const CLOCK_FREQ: f64 = 985248.0;
+
 
 pub struct C64
 {
     pub window: minifb::Window,
     memory: memory::MemShared,
     keyboard: io::Keyboard,
-    //clock: clock::Clock,
+    clock: clock::Clock,
     cpu: cpu::CPUShared,
     cia1: cia::CIAShared,
     cia2: cia::CIAShared,
@@ -42,7 +45,7 @@ impl C64
             window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, Scale::X1, Vsync::No).unwrap(),
             memory: memory.clone(), // shared system memory (RAM, ROM, IO registers)
             keyboard: io::Keyboard::new(),
-            //clock: clock::Clock::new(),
+            clock: clock::Clock::new(CLOCK_FREQ),
             cpu: cpu.clone(),
             cia1: cia1.clone(),
             cia2: cia2.clone(),
@@ -77,32 +80,33 @@ impl C64
     
     pub fn run(&mut self)
     {
-        let mut should_trigger_vblank = false;
-        //if self.clock.tick() { println!("Clock tick"); }
+        if self.clock.tick() { 
+            let mut should_trigger_vblank = false;
 
-        self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank);        
-        // TODO: update sid *HERE* when it's done
+            self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank);
 
-        self.cia1.borrow_mut().process_irq();
-        self.cia2.borrow_mut().process_irq();
-        self.cia1.borrow_mut().update();
-        self.cia2.borrow_mut().update();
+            // TODO: update sid *HERE* when it's done
+            self.cia1.borrow_mut().process_irq();
+            self.cia2.borrow_mut().process_irq();
+            self.cia1.borrow_mut().update();
+            self.cia2.borrow_mut().update();
         
-        self.cpu.borrow_mut().update();
+            self.cpu.borrow_mut().update();
 
-        if should_trigger_vblank
-        {
-            self.window.update(&self.vic.borrow_mut().window_buffer);
-            self.keyboard.update_keystates(&self.window, &mut self.cia1);
-            self.cia1.borrow_mut().count_tod();
-            self.cia2.borrow_mut().count_tod();
-
-            if self.keyboard.check_restore_key(&self.window)
+            if should_trigger_vblank
             {
-                self.cpu.borrow_mut().trigger_nmi();
+                self.window.update(&self.vic.borrow_mut().window_buffer);
+                self.keyboard.update_keystates(&self.window, &mut self.cia1);
+                self.cia1.borrow_mut().count_tod();
+                self.cia2.borrow_mut().count_tod();
+
+                if self.keyboard.check_restore_key(&self.window)
+                {
+                    self.cpu.borrow_mut().trigger_nmi();
+                }
             }
+            
+            self.cycle_count += 1;
         }
-        
-        self.cycle_count += 1;
     }
 }
