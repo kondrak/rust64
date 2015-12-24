@@ -269,8 +269,8 @@ pub struct CIA
     // CIA1 only
     pub key_matrix: [u8; 8],
     pub rev_matrix: [u8; 8],
-    joystick_1: u8,
-    joystick_2: u8,
+    pub joystick_1: u8,
+    pub joystick_2: u8,
     prev_lp: u8,
 
     // CIA2 only

@@ -20,7 +20,7 @@ pub struct C64
 {
     pub window: minifb::Window,
     memory: memory::MemShared,
-    keyboard: io::Keyboard,
+    io:    io::IO,
     clock: clock::Clock,
     cpu: cpu::CPUShared,
     cia1: cia::CIAShared,
@@ -44,7 +44,7 @@ impl C64
         {
             window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, Scale::X1, Vsync::No).unwrap(),
             memory: memory.clone(), // shared system memory (RAM, ROM, IO registers)
-            keyboard: io::Keyboard::new(),
+            io:    io::IO::new(),
             clock: clock::Clock::new(CLOCK_FREQ),
             cpu: cpu.clone(),
             cia1: cia1.clone(),
@@ -96,11 +96,11 @@ impl C64
             if should_trigger_vblank
             {
                 self.window.update(&self.vic.borrow_mut().window_buffer);
-                self.keyboard.update_keystates(&self.window, &mut self.cia1);
+                self.io.update(&self.window, &mut self.cia1);
                 self.cia1.borrow_mut().count_tod();
                 self.cia2.borrow_mut().count_tod();
 
-                if self.keyboard.check_restore_key(&self.window)
+                if self.io.check_restore_key(&self.window)
                 {
                     self.cpu.borrow_mut().trigger_nmi();
                 }

@@ -1,6 +1,5 @@
 extern crate sdl2;
 extern crate minifb;
-use minifb::*;
 //use sdl2::keyboard::Keycode;
 
 #[macro_use]

@@ -16,25 +16,27 @@ use c64::cia;
   1  |  LSHIFT   E   S     Z      4     A       W        3
   0  |  CRSR-DN  F5  F3    F1     F7  CRSR-RT  RETURN  DELETE
 */
-pub struct Keyboard
+pub struct IO
 {
     pressed_keys: [bool; 256],
+    joy_port1: bool,
 }
 
-
-impl Keyboard
+impl IO
 {
-    pub fn new() -> Keyboard
+    pub fn new() -> IO
     {
-        Keyboard
+        IO
         {
-            pressed_keys: [false; 256]
+            pressed_keys: [false; 256],
+            joy_port1: true
         }
     }
     
-    pub fn update_keystates(&mut self, window: &Window, cia1: &mut cia::CIAShared)
+    pub fn update(&mut self, window: &Window, cia1: &mut cia::CIAShared)
     {
-        // TODO: Restore and Run Stop keys
+        /* Keyboard processing */
+        // iterating over all keys is crawling-slow, so check individual keys
         self.process_key(window.is_key_down(Key::Key0), Key::Key0, cia1);
         self.process_key(window.is_key_down(Key::Key1), Key::Key1, cia1);
         self.process_key(window.is_key_down(Key::Key2), Key::Key2, cia1);
@@ -110,19 +112,40 @@ impl Keyboard
         self.process_key(window.is_key_down(Key::Tab),        Key::Tab,        cia1);
         self.process_key(window.is_key_down(Key::LeftCtrl),   Key::LeftCtrl,   cia1);
 
-        // iterating over all keys is crawling-slow for some reason...
-       /* for key in window.get_keys().unwrap()
+        /* Joystick processing */
+        self.process_joystick(window.is_key_down(Key::NumPad1), Key::NumPad1, cia1);
+        self.process_joystick(window.is_key_down(Key::NumPad2), Key::NumPad2, cia1);
+        self.process_joystick(window.is_key_down(Key::NumPad3), Key::NumPad3, cia1);
+        self.process_joystick(window.is_key_down(Key::NumPad4), Key::NumPad4, cia1);
+        self.process_joystick(window.is_key_down(Key::NumPad5), Key::NumPad5, cia1);
+        self.process_joystick(window.is_key_down(Key::NumPad6), Key::NumPad6, cia1);
+        self.process_joystick(window.is_key_down(Key::NumPad7), Key::NumPad7, cia1);
+        self.process_joystick(window.is_key_down(Key::NumPad8), Key::NumPad8, cia1);
+        self.process_joystick(window.is_key_down(Key::NumPad9), Key::NumPad9, cia1);
+        self.process_joystick(window.is_key_down(Key::RightCtrl), Key::RightCtrl, cia1);
+
+        /* helper keys */
+        // toggle between joystick ports 1 and 2
+        if window.is_key_pressed(Key::NumLock, KeyRepeat::No)
         {
-            match key {
-                minifb::Key::A => println!("a"),
-                minifb::Key::B => println!("b"),
-                _ => (), }
-        } */
+            self.joy_port1 = !self.joy_port1;
+
+            if self.joy_port1
+            {
+                cia1.borrow_mut().joystick_2 = 0xFF;
+            }
+            else
+            {
+                cia1.borrow_mut().joystick_1 = 0xFF;
+            }
+            
+            println!("Using joystick in port {}", if self.joy_port1 { "1" } else { "2" });
+        }
     }
 
     pub fn check_restore_key(&self, window: &Window) -> bool
     {
-        // End = Restore key
+        // End will serve as the Restore key
         window.is_key_down(Key::End)
     }
 
@@ -142,7 +165,7 @@ impl Keyboard
     {
         let c64_keycode = self.keycode_to_c64(keycode);
 
-        if self.pressed_keys[c64_keycode as usize] == true
+        if self.pressed_keys[c64_keycode as usize] == true || c64_keycode == 0xFF
         {
             return
         }
@@ -167,7 +190,7 @@ impl Keyboard
     {
         let c64_keycode = self.keycode_to_c64(keycode);
 
-        if self.pressed_keys[c64_keycode as usize] == false
+        if self.pressed_keys[c64_keycode as usize] == false || c64_keycode == 0xFF
         {
             return
         }
@@ -187,7 +210,102 @@ impl Keyboard
         cia1.borrow_mut().key_matrix[c64_byte as usize] |= 1 << c64_bit;
         cia1.borrow_mut().rev_matrix[c64_bit as usize]  |= 1 << c64_byte;
     }
-    
+
+    fn process_joystick(&mut self, key_pressed: bool, keycode: Key, cia1: &mut cia::CIAShared)
+    {
+        if key_pressed
+          {
+            self.on_joy_press(keycode, cia1);
+        }
+        else
+        {
+            self.on_joy_release(keycode, cia1);
+        }
+    }
+
+    fn on_joy_press(&mut self, keycode: Key, cia1: &mut cia::CIAShared)
+    {
+        let mut joystate = if self.joy_port1 { cia1.borrow_mut().joystick_1 } else { cia1.borrow_mut().joystick_2 };
+        
+        match keycode
+        {
+            // down-left
+            Key::NumPad1 => joystate = (joystate | 0x09) & !0x06,
+            // down
+            Key::NumPad2 => joystate = (joystate | 0x01) & !0x02,
+            // down-right
+            Key::NumPad3 => joystate = (joystate | 0x05) & !0x0A,
+            // left
+            Key::NumPad4 => joystate = (joystate | 0x08) & !0x04,
+            // center
+            Key::NumPad5 => joystate |= 0x0F,
+            // right
+            Key::NumPad6 => joystate = (joystate | 0x04) & !0x08,
+            // up-left
+            Key::NumPad7 => joystate = (joystate | 0x0A) & !0x05,
+            // up
+            Key::NumPad8 => joystate = (joystate | 0x02) & !0x01,
+            // up-right
+            Key::NumPad9 => joystate = (joystate | 0x06) & !0x09,
+            // fire button
+            Key::RightCtrl => joystate &= !0x10,
+            _ => (),
+        }
+
+        if self.joy_port1
+        {
+            cia1.borrow_mut().joystick_1 = joystate;
+        }
+        else
+        {
+            cia1.borrow_mut().joystick_2 = joystate;
+        }
+    }
+
+    fn on_joy_release(&mut self, keycode: Key, cia1: &mut cia::CIAShared)
+    {
+        let mut joystate = if self.joy_port1 { cia1.borrow_mut().joystick_1 } else { cia1.borrow_mut().joystick_2 };
+
+        if joystate == 0xFF
+        {
+            return
+        }
+        
+        match keycode
+        {
+            // down-left
+            Key::NumPad1 => joystate |= 0x06,
+            // down
+            Key::NumPad2 => joystate |= 0x02,
+            // down-right
+            Key::NumPad3 => joystate |= 0x0A,
+            // left
+            Key::NumPad4 => joystate |= 0x04,
+            // right
+            Key::NumPad6 => joystate |= 0x08,
+            // up-left
+            Key::NumPad7 => joystate |= 0x05,
+            // up
+            Key::NumPad8 => joystate |= 0x01,
+            // up-right
+            Key::NumPad9 => joystate |= 0x09,
+            // fire button
+            Key::RightCtrl => joystate |= 0x10,
+            _ => (),
+        }
+
+        if self.joy_port1
+        {
+            cia1.borrow_mut().joystick_1 = joystate;
+            cia1.borrow_mut().joystick_2 = 0xFF;
+        }
+        else
+        {
+            cia1.borrow_mut().joystick_1 = 0xFF;
+            cia1.borrow_mut().joystick_2 = joystate;
+        }
+    }
+
     fn keycode_to_c64(&self, keycode: Key) -> u8
     {
         // fetch key's bit combination as represented in C64 keyboard matrix
@@ -279,7 +397,8 @@ impl Keyboard
             Key::Tab => to_c64(7, 2),
             // Commodore key
             Key::LeftCtrl => to_c64(7, 5),
-            _ => panic!("Unsupported key")
+            // unknown
+            _ => 0xFF
         }
     }
 }
