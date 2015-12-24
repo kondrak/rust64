@@ -96,6 +96,11 @@ impl C64
             self.keyboard.update_keystates(&self.window, &mut self.cia1);
             self.cia1.borrow_mut().count_tod();
             self.cia2.borrow_mut().count_tod();
+
+            if self.keyboard.check_restore_key(&self.window)
+            {
+                self.cpu.borrow_mut().trigger_nmi();
+            }
         }
         
         self.cycle_count += 1;

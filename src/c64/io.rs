@@ -21,6 +21,7 @@ pub struct Keyboard
     pressed_keys: [bool; 256],
 }
 
+
 impl Keyboard
 {
     pub fn new() -> Keyboard
@@ -30,86 +31,85 @@ impl Keyboard
             pressed_keys: [false; 256]
         }
     }
-
+    
     pub fn update_keystates(&mut self, window: &Window, cia1: &mut cia::CIAShared)
     {
         // TODO: Restore and Run Stop keys
-        if window.is_key_down(Key::Key0) { self.on_key_press(Key::Key0, cia1); } else { self.on_key_release(Key::Key0, cia1); }
-        if window.is_key_down(Key::Key1) { self.on_key_press(Key::Key1, cia1); } else { self.on_key_release(Key::Key1, cia1); }
-        if window.is_key_down(Key::Key2) { self.on_key_press(Key::Key2, cia1); } else { self.on_key_release(Key::Key2, cia1); }
-        if window.is_key_down(Key::Key3) { self.on_key_press(Key::Key3, cia1); } else { self.on_key_release(Key::Key3, cia1); }
-        if window.is_key_down(Key::Key4) { self.on_key_press(Key::Key4, cia1); } else { self.on_key_release(Key::Key4, cia1); }
-        if window.is_key_down(Key::Key5) { self.on_key_press(Key::Key5, cia1); } else { self.on_key_release(Key::Key5, cia1); }
-        if window.is_key_down(Key::Key6) { self.on_key_press(Key::Key6, cia1); } else { self.on_key_release(Key::Key6, cia1); }
-        if window.is_key_down(Key::Key7) { self.on_key_press(Key::Key7, cia1); } else { self.on_key_release(Key::Key7, cia1); }
-        if window.is_key_down(Key::Key8) { self.on_key_press(Key::Key8, cia1); } else { self.on_key_release(Key::Key8, cia1); }
-        if window.is_key_down(Key::Key9) { self.on_key_press(Key::Key9, cia1); } else { self.on_key_release(Key::Key9, cia1); }
-        
-        if window.is_key_down(Key::A) { self.on_key_press(Key::A, cia1); } else { self.on_key_release(Key::A, cia1); }
-        if window.is_key_down(Key::B) { self.on_key_press(Key::B, cia1); } else { self.on_key_release(Key::B, cia1); }
-        if window.is_key_down(Key::C) { self.on_key_press(Key::C, cia1); } else { self.on_key_release(Key::C, cia1); }
-        if window.is_key_down(Key::D) { self.on_key_press(Key::D, cia1); } else { self.on_key_release(Key::D, cia1); }
-        if window.is_key_down(Key::E) { self.on_key_press(Key::E, cia1); } else { self.on_key_release(Key::E, cia1); }
-        if window.is_key_down(Key::F) { self.on_key_press(Key::F, cia1); } else { self.on_key_release(Key::F, cia1); }
-        if window.is_key_down(Key::G) { self.on_key_press(Key::G, cia1); } else { self.on_key_release(Key::G, cia1); }
-        if window.is_key_down(Key::H) { self.on_key_press(Key::H, cia1); } else { self.on_key_release(Key::H, cia1); }
-        if window.is_key_down(Key::I) { self.on_key_press(Key::I, cia1); } else { self.on_key_release(Key::I, cia1); }
-        if window.is_key_down(Key::J) { self.on_key_press(Key::J, cia1); } else { self.on_key_release(Key::J, cia1); }
-        if window.is_key_down(Key::K) { self.on_key_press(Key::K, cia1); } else { self.on_key_release(Key::K, cia1); }
-        if window.is_key_down(Key::L) { self.on_key_press(Key::L, cia1); } else { self.on_key_release(Key::L, cia1); }
-        if window.is_key_down(Key::M) { self.on_key_press(Key::M, cia1); } else { self.on_key_release(Key::M, cia1); }
-        if window.is_key_down(Key::N) { self.on_key_press(Key::N, cia1); } else { self.on_key_release(Key::N, cia1); }
-        if window.is_key_down(Key::O) { self.on_key_press(Key::O, cia1); } else { self.on_key_release(Key::O, cia1); }
-        if window.is_key_down(Key::P) { self.on_key_press(Key::P, cia1); } else { self.on_key_release(Key::P, cia1); }
-        if window.is_key_down(Key::Q) { self.on_key_press(Key::Q, cia1); } else { self.on_key_release(Key::Q, cia1); }
-        if window.is_key_down(Key::R) { self.on_key_press(Key::R, cia1); } else { self.on_key_release(Key::R, cia1); }
-        if window.is_key_down(Key::S) { self.on_key_press(Key::S, cia1); } else { self.on_key_release(Key::S, cia1); }
-        if window.is_key_down(Key::T) { self.on_key_press(Key::T, cia1); } else { self.on_key_release(Key::T, cia1); }
-        if window.is_key_down(Key::U) { self.on_key_press(Key::U, cia1); } else { self.on_key_release(Key::U, cia1); }
-        if window.is_key_down(Key::V) { self.on_key_press(Key::V, cia1); } else { self.on_key_release(Key::V, cia1); }
-        if window.is_key_down(Key::W) { self.on_key_press(Key::W, cia1); } else { self.on_key_release(Key::W, cia1); }
-        if window.is_key_down(Key::X) { self.on_key_press(Key::X, cia1); } else { self.on_key_release(Key::X, cia1); }
-        if window.is_key_down(Key::Y) { self.on_key_press(Key::Y, cia1); } else { self.on_key_release(Key::Y, cia1); }
-        if window.is_key_down(Key::Z) { self.on_key_press(Key::Z, cia1); } else { self.on_key_release(Key::Z, cia1); }
+        self.process_key(window.is_key_down(Key::Key0), Key::Key0, cia1);
+        self.process_key(window.is_key_down(Key::Key1), Key::Key1, cia1);
+        self.process_key(window.is_key_down(Key::Key2), Key::Key2, cia1);
+        self.process_key(window.is_key_down(Key::Key3), Key::Key3, cia1);
+        self.process_key(window.is_key_down(Key::Key4), Key::Key4, cia1);
+        self.process_key(window.is_key_down(Key::Key5), Key::Key5, cia1);
+        self.process_key(window.is_key_down(Key::Key6), Key::Key6, cia1);
+        self.process_key(window.is_key_down(Key::Key7), Key::Key7, cia1);
+        self.process_key(window.is_key_down(Key::Key8), Key::Key8, cia1);
+        self.process_key(window.is_key_down(Key::Key9), Key::Key9, cia1);
 
-        if window.is_key_down(Key::F1) { self.on_key_press(Key::F1, cia1); } else { self.on_key_release(Key::F1, cia1); }
-        if window.is_key_down(Key::F2) { self.on_key_press(Key::F2, cia1); } else { self.on_key_release(Key::F2, cia1); }
-        if window.is_key_down(Key::F3) { self.on_key_press(Key::F3, cia1); } else { self.on_key_release(Key::F3, cia1); }
-        if window.is_key_down(Key::F4) { self.on_key_press(Key::F4, cia1); } else { self.on_key_release(Key::F4, cia1); }
-        if window.is_key_down(Key::F5) { self.on_key_press(Key::F5, cia1); } else { self.on_key_release(Key::F5, cia1); }
-        if window.is_key_down(Key::F6) { self.on_key_press(Key::F6, cia1); } else { self.on_key_release(Key::F6, cia1); }
-        if window.is_key_down(Key::F7) { self.on_key_press(Key::F7, cia1); } else { self.on_key_release(Key::F7, cia1); }
-        if window.is_key_down(Key::F8) { self.on_key_press(Key::F8, cia1); } else { self.on_key_release(Key::F8, cia1); }
-        
-        if window.is_key_down(Key::Down)   { self.on_key_press(Key::Down, cia1);  } else { self.on_key_release(Key::Down, cia1); }
-        if window.is_key_down(Key::Up)     { self.on_key_press(Key::Up, cia1);    } else { self.on_key_release(Key::Up, cia1); }
-        if window.is_key_down(Key::Right)  { self.on_key_press(Key::Right, cia1); } else { self.on_key_release(Key::Right, cia1); }
-        if window.is_key_down(Key::Left)   { self.on_key_press(Key::Left, cia1);  } else { self.on_key_release(Key::Left, cia1); }
-        if window.is_key_down(Key::Space)  { self.on_key_press(Key::Space, cia1); } else { self.on_key_release(Key::Space, cia1); }
-        if window.is_key_down(Key::Comma)  { self.on_key_press(Key::Comma, cia1); } else { self.on_key_release(Key::Comma, cia1); }
-        if window.is_key_down(Key::Period) { self.on_key_press(Key::Period, cia1); } else { self.on_key_release(Key::Period, cia1); }
-        if window.is_key_down(Key::Slash)  { self.on_key_press(Key::Slash, cia1);   } else { self.on_key_release(Key::Slash, cia1); }
-        if window.is_key_down(Key::NumPadAsterisk) { self.on_key_press(Key::NumPadAsterisk, cia1); } else { self.on_key_release(Key::NumPadAsterisk, cia1); }
-        if window.is_key_down(Key::Enter)      { self.on_key_press(Key::Enter, cia1);      } else { self.on_key_release(Key::Enter, cia1); }
-        if window.is_key_down(Key::Backspace)  { self.on_key_press(Key::Backspace, cia1);  } else { self.on_key_release(Key::Backspace, cia1); }
-        if window.is_key_down(Key::Backquote)  { self.on_key_press(Key::Backquote, cia1);  } else { self.on_key_release(Key::Backquote, cia1); }
-        if window.is_key_down(Key::LeftShift)  { self.on_key_press(Key::LeftShift, cia1);  } else { self.on_key_release(Key::LeftShift, cia1); }
-        if window.is_key_down(Key::RightShift) { self.on_key_press(Key::RightShift, cia1); } else { self.on_key_release(Key::RightShift, cia1); }
-        //if window.is_key_down(Key::Escape) { self.on_key_press(Key::Escape, cia1); } else { self.on_key_release(Key::Escape, cia1); }
-        if window.is_key_down(Key::Minus)  { self.on_key_press(Key::Minus, cia1);  } else { self.on_key_release(Key::Minus, cia1); }
-        if window.is_key_down(Key::Equal)  { self.on_key_press(Key::Equal, cia1);  } else { self.on_key_release(Key::Equal, cia1); }
-        if window.is_key_down(Key::Insert) { self.on_key_press(Key::Insert, cia1); } else { self.on_key_release(Key::Insert, cia1); }
-        if window.is_key_down(Key::Home)   { self.on_key_press(Key::Home, cia1);   } else { self.on_key_release(Key::Home, cia1); }
-        if window.is_key_down(Key::LeftBracket)  { self.on_key_press(Key::LeftBracket, cia1);    } else { self.on_key_release(Key::LeftBracket, cia1); }
-        if window.is_key_down(Key::RightBracket) { self.on_key_press(Key::NumPadAsterisk, cia1); } else { self.on_key_release(Key::NumPadAsterisk, cia1); }
-        if window.is_key_down(Key::Delete) { self.on_key_press(Key::Delete, cia1); } else { self.on_key_release(Key::Delete, cia1); }
+        self.process_key(window.is_key_down(Key::A), Key::A, cia1);
+        self.process_key(window.is_key_down(Key::B), Key::B, cia1);
+        self.process_key(window.is_key_down(Key::C), Key::C, cia1);
+        self.process_key(window.is_key_down(Key::D), Key::D, cia1);
+        self.process_key(window.is_key_down(Key::E), Key::E, cia1);
+        self.process_key(window.is_key_down(Key::F), Key::F, cia1);
+        self.process_key(window.is_key_down(Key::G), Key::G, cia1);
+        self.process_key(window.is_key_down(Key::H), Key::H, cia1);
+        self.process_key(window.is_key_down(Key::I), Key::I, cia1);
+        self.process_key(window.is_key_down(Key::J), Key::J, cia1);
+        self.process_key(window.is_key_down(Key::K), Key::K, cia1);
+        self.process_key(window.is_key_down(Key::L), Key::L, cia1);
+        self.process_key(window.is_key_down(Key::M), Key::M, cia1);
+        self.process_key(window.is_key_down(Key::N), Key::N, cia1);
+        self.process_key(window.is_key_down(Key::O), Key::O, cia1);
+        self.process_key(window.is_key_down(Key::P), Key::P, cia1);
+        self.process_key(window.is_key_down(Key::Q), Key::Q, cia1);
+        self.process_key(window.is_key_down(Key::R), Key::R, cia1);
+        self.process_key(window.is_key_down(Key::S), Key::S, cia1);
+        self.process_key(window.is_key_down(Key::T), Key::T, cia1);
+        self.process_key(window.is_key_down(Key::U), Key::U, cia1);
+        self.process_key(window.is_key_down(Key::V), Key::V, cia1);
+        self.process_key(window.is_key_down(Key::W), Key::W, cia1);
+        self.process_key(window.is_key_down(Key::X), Key::X, cia1);
+        self.process_key(window.is_key_down(Key::Y), Key::Y, cia1);
+        self.process_key(window.is_key_down(Key::Z), Key::Z, cia1);
 
-        if window.is_key_down(Key::Semicolon)  { self.on_key_press(Key::Semicolon, cia1);  } else { self.on_key_release(Key::Semicolon, cia1); }
-        if window.is_key_down(Key::Apostrophe) { self.on_key_press(Key::Apostrophe, cia1); } else { self.on_key_release(Key::Apostrophe, cia1); }
-        if window.is_key_down(Key::Backslash)  { self.on_key_press(Key::Backslash, cia1);  } else { self.on_key_release(Key::Backslash, cia1); }
-        if window.is_key_down(Key::Tab)        { self.on_key_press(Key::Tab, cia1);        } else { self.on_key_release(Key::Tab, cia1); }
-        if window.is_key_down(Key::LeftCtrl)   { self.on_key_press(Key::LeftCtrl, cia1);   } else { self.on_key_release(Key::LeftCtrl, cia1); }
-        
+        self.process_key(window.is_key_down(Key::F1), Key::F1, cia1);
+        self.process_key(window.is_key_down(Key::F2), Key::F2, cia1);
+        self.process_key(window.is_key_down(Key::F3), Key::F3, cia1);
+        self.process_key(window.is_key_down(Key::F4), Key::F4, cia1);
+        self.process_key(window.is_key_down(Key::F5), Key::F5, cia1);
+        self.process_key(window.is_key_down(Key::F6), Key::F6, cia1);
+        self.process_key(window.is_key_down(Key::F7), Key::F7, cia1);
+        self.process_key(window.is_key_down(Key::F8), Key::F8, cia1);
+
+        self.process_key(window.is_key_down(Key::Down),  Key::Down,  cia1);
+        self.process_key(window.is_key_down(Key::Up),    Key::Up,    cia1);
+        self.process_key(window.is_key_down(Key::Right), Key::Right, cia1);
+        self.process_key(window.is_key_down(Key::Left),  Key::Left,  cia1);
+
+        self.process_key(window.is_key_down(Key::Space),  Key::Space,  cia1);
+        self.process_key(window.is_key_down(Key::Comma),  Key::Comma,  cia1);
+        self.process_key(window.is_key_down(Key::Period), Key::Period, cia1);
+        self.process_key(window.is_key_down(Key::Slash),  Key::Slash,  cia1);
+        self.process_key(window.is_key_down(Key::Enter),  Key::Enter,  cia1);
+        self.process_key(window.is_key_down(Key::Backspace),  Key::Backspace,  cia1);
+        self.process_key(window.is_key_down(Key::Backquote),  Key::Backquote,  cia1);
+        self.process_key(window.is_key_down(Key::LeftShift),  Key::LeftShift,  cia1);
+        self.process_key(window.is_key_down(Key::RightShift), Key::RightShift, cia1);
+        self.process_key(window.is_key_down(Key::Escape),     Key::Escape,     cia1);
+        self.process_key(window.is_key_down(Key::Minus),  Key::Minus,  cia1);
+        self.process_key(window.is_key_down(Key::Equal),  Key::Equal,  cia1);
+        self.process_key(window.is_key_down(Key::Insert), Key::Insert, cia1);
+        self.process_key(window.is_key_down(Key::Home),   Key::Home,   cia1);
+        self.process_key(window.is_key_down(Key::LeftBracket),  Key::LeftBracket,  cia1);
+        self.process_key(window.is_key_down(Key::RightBracket), Key::RightBracket, cia1);
+        self.process_key(window.is_key_down(Key::Delete),     Key::Delete,     cia1);
+        self.process_key(window.is_key_down(Key::Semicolon),  Key::Semicolon,  cia1);
+        self.process_key(window.is_key_down(Key::Apostrophe), Key::Apostrophe, cia1);
+        self.process_key(window.is_key_down(Key::Backslash),  Key::Backslash,  cia1);
+        self.process_key(window.is_key_down(Key::Tab),        Key::Tab,        cia1);
+        self.process_key(window.is_key_down(Key::LeftCtrl),   Key::LeftCtrl,   cia1);
+
         // iterating over all keys is crawling-slow for some reason...
        /* for key in window.get_keys().unwrap()
         {
@@ -120,6 +120,24 @@ impl Keyboard
         } */
     }
 
+    pub fn check_restore_key(&self, window: &Window) -> bool
+    {
+        // End = Restore key
+        window.is_key_down(Key::End)
+    }
+
+    fn process_key(&mut self, key_pressed: bool, keycode: Key, cia1: &mut cia::CIAShared)
+    {   
+        if key_pressed
+        {
+            self.on_key_press(keycode, cia1);
+        }
+        else
+        {
+            self.on_key_release(keycode, cia1);
+        }
+    }    
+    
     fn on_key_press(&mut self, keycode: Key, cia1: &mut cia::CIAShared)
     {
         let c64_keycode = self.keycode_to_c64(keycode);
@@ -128,7 +146,7 @@ impl Keyboard
         {
             return
         }
-        
+
         self.pressed_keys[c64_keycode as usize] = true;
 
         let c64_bit  = c64_keycode & 7;
@@ -229,7 +247,6 @@ impl Keyboard
             Key::Comma  => to_c64(5, 7),
             Key::Period => to_c64(5, 4),
             Key::Slash  => to_c64(6, 7),
-            Key::NumPadAsterisk  => to_c64(6, 1),
             Key::Enter     => to_c64(0, 1),
             Key::Backspace => to_c64(0, 0),
             // Left arrow key
@@ -237,7 +254,7 @@ impl Keyboard
             Key::LeftShift  => to_c64(1, 7),
             Key::RightShift => to_c64(6, 4),
             // Run Stop key
-            //Key::Escape => to_c64(7, 7),
+            Key::Escape => to_c64(7, 7),
             // Plus key
             Key::Minus  => to_c64(5, 0),
             // Minus key
@@ -248,6 +265,8 @@ impl Keyboard
             Key::Home => to_c64(6, 3),
             // @ key
             Key::LeftBracket  => to_c64(5, 6),
+            // * key
+            Key::RightBracket => to_c64(6, 1),
             // Home key
             Key::Delete => to_c64(6, 6),
             // Colon key

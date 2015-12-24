@@ -255,7 +255,6 @@ impl CPU
         // 7 cycles
         if self.nmi
         {
-            println!("NMI");
             let curr_pc = self.PC;
             let curr_p = self.P;
             self.push_word(curr_pc);
@@ -297,7 +296,7 @@ impl CPU
     pub fn trigger_vic_irq(&mut self)
     {
         // TODO:
-        println!("VIC irq");
+        //println!("VIC irq");
         self.vic_irq = true;
     }
 
@@ -310,7 +309,7 @@ impl CPU
     pub fn trigger_nmi(&mut self)
     {
         // TODO
-        println!("NMI irq");
+        //println!("NMI irq");
         self.nmi = true;
     }
 

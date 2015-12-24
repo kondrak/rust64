@@ -26,7 +26,7 @@ fn main()
     let mut c64 = c64::C64::new();
     c64.reset();
 
-    while c64.window.is_open() && !c64.window.is_key_down(Key::Escape)
+    while c64.window.is_open()
     {
         //renderer.copy(&texture, None, Some(Rect::new_unwrap(0, 0, 256, 64)));
         //renderer.copy_ex(&texture, None, Some(Rect::new_unwrap(450, 100, 256, 256)), 30.0, None, (false, false));
