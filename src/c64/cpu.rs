@@ -1,5 +1,4 @@
 // The CPU
-#![allow(dead_code)]
 #![allow(non_snake_case)]
 extern crate sdl2;
 use c64::opcodes;

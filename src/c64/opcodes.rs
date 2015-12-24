@@ -11,7 +11,6 @@
 // ind = ($0000)              // indirect
 // rel = $0000                // relative to PC/IP
 
-#![allow(dead_code)]
 #![allow(non_camel_case_types)]
 use c64::cpu;
 use std::fmt;

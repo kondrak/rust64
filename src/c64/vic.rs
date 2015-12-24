@@ -1,5 +1,4 @@
 // VIC-II
-#![allow(dead_code)]
 extern crate sdl2;
 use c64::memory;
 use c64::cpu;
@@ -165,25 +164,6 @@ impl VIC
             last_char_data: 0,
             first_ba_cycle: 0,
         }))
-    }
-
-    // debug
-    pub fn render(&mut self)
-    {
-        // dump screen memory
-        let mut start = 0x0400;
-
-        for y in 0..25
-        {
-            for x in 0..40
-            {
-                let d = as_mut!(self.mem_ref).read_byte(start);
-                //self.font.draw_char(renderer, x, y, d);
-                //let muti = self.window_buffer[0];
-                self.window_buffer[x + y * c64::SCREEN_WIDTH] = if d != 32 { 0x00FFFFFF } else { 0x000088FF };
-                start += 1;
-            }
-        }
     }
     
     pub fn set_references(&mut self, memref: memory::MemShared, cpuref: cpu::CPUShared)

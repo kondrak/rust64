@@ -18,7 +18,8 @@ use c64::cia;
 */
 pub struct IO
 {
-    pressed_keys: [bool; 256],
+    keyboard_state: [bool; 0xFF], // key states, including shift presses
+    joystick_state: [bool; 0x0A], // 9 directions (num-pad) + 1 fire button
     joy_port1: bool,
 }
 
@@ -28,7 +29,8 @@ impl IO
     {
         IO
         {
-            pressed_keys: [false; 256],
+            keyboard_state: [false; 0xFF],
+            joystick_state: [false; 0x0A],
             joy_port1: true
         }
     }
@@ -165,12 +167,12 @@ impl IO
     {
         let c64_keycode = self.keycode_to_c64(keycode);
 
-        if self.pressed_keys[c64_keycode as usize] == true || c64_keycode == 0xFF
+        if self.keyboard_state[c64_keycode as usize] || c64_keycode == 0xFF
         {
             return
         }
 
-        self.pressed_keys[c64_keycode as usize] = true;
+        self.keyboard_state[c64_keycode as usize] = true;
 
         let c64_bit  = c64_keycode & 7;
         let c64_byte = (c64_keycode >> 3) & 7;
@@ -190,12 +192,12 @@ impl IO
     {
         let c64_keycode = self.keycode_to_c64(keycode);
 
-        if self.pressed_keys[c64_keycode as usize] == false || c64_keycode == 0xFF
+        if !self.keyboard_state[c64_keycode as usize] || c64_keycode == 0xFF
         {
             return
         }
         
-        self.pressed_keys[c64_keycode as usize] = false;
+        self.keyboard_state[c64_keycode as usize] = false;
 
         let c64_bit  = c64_keycode & 7;
         let c64_byte = (c64_keycode >> 3) & 7;
@@ -230,25 +232,25 @@ impl IO
         match keycode
         {
             // down-left
-            Key::NumPad1 => joystate = (joystate | 0x09) & !0x06,
+            Key::NumPad1 => { self.joystick_state[0] = true; joystate = (joystate | 0x09) & !0x06; },
             // down
-            Key::NumPad2 => joystate = (joystate | 0x01) & !0x02,
+            Key::NumPad2 => { self.joystick_state[1] = true; joystate = (joystate | 0x01) & !0x02; },
             // down-right
-            Key::NumPad3 => joystate = (joystate | 0x05) & !0x0A,
+            Key::NumPad3 => { self.joystick_state[2] = true; joystate = (joystate | 0x05) & !0x0A; },
             // left
-            Key::NumPad4 => joystate = (joystate | 0x08) & !0x04,
+            Key::NumPad4 => { self.joystick_state[3] = true; joystate = (joystate | 0x08) & !0x04; },
             // center
-            Key::NumPad5 => joystate |= 0x0F,
+            Key::NumPad5 => { self.joystick_state[4] = true; joystate |= 0x0F; },
             // right
-            Key::NumPad6 => joystate = (joystate | 0x04) & !0x08,
+            Key::NumPad6 => { self.joystick_state[5] = true; joystate = (joystate | 0x04) & !0x08; },
             // up-left
-            Key::NumPad7 => joystate = (joystate | 0x0A) & !0x05,
+            Key::NumPad7 => { self.joystick_state[6] = true; joystate = (joystate | 0x0A) & !0x05; },
             // up
-            Key::NumPad8 => joystate = (joystate | 0x02) & !0x01,
+            Key::NumPad8 => { self.joystick_state[7] = true; joystate = (joystate | 0x02) & !0x01; },
             // up-right
-            Key::NumPad9 => joystate = (joystate | 0x06) & !0x09,
+            Key::NumPad9 => { self.joystick_state[8] = true; joystate = (joystate | 0x06) & !0x09; },
             // fire button
-            Key::RightCtrl => joystate &= !0x10,
+            Key::RightCtrl => { self.joystick_state[9] = true; joystate &= !0x10; },
             _ => (),
         }
 
@@ -274,23 +276,25 @@ impl IO
         match keycode
         {
             // down-left
-            Key::NumPad1 => joystate |= 0x06,
+            Key::NumPad1 => if self.joystick_state[0] { joystate |= 0x06; self.joystick_state[0] = false; },
             // down
-            Key::NumPad2 => joystate |= 0x02,
+            Key::NumPad2 => if self.joystick_state[1] { joystate |= 0x02; self.joystick_state[1] = false; },
             // down-right
-            Key::NumPad3 => joystate |= 0x0A,
+            Key::NumPad3 => if self.joystick_state[2] { joystate |= 0x0A; self.joystick_state[2] = false; },
             // left
-            Key::NumPad4 => joystate |= 0x04,
+            Key::NumPad4 => if self.joystick_state[3] { joystate |= 0x04; self.joystick_state[3] = false; },
+            // center
+            Key::NumPad5 => self.joystick_state[4] = false,
             // right
-            Key::NumPad6 => joystate |= 0x08,
+            Key::NumPad6 => if self.joystick_state[5] { joystate |= 0x08; self.joystick_state[5] = false; },
             // up-left
-            Key::NumPad7 => joystate |= 0x05,
+            Key::NumPad7 => if self.joystick_state[6] { joystate |= 0x05; self.joystick_state[6] = false; },
             // up
-            Key::NumPad8 => joystate |= 0x01,
+            Key::NumPad8 => if self.joystick_state[7] { joystate |= 0x01; self.joystick_state[7] = false; },
             // up-right
-            Key::NumPad9 => joystate |= 0x09,
+            Key::NumPad9 => if self.joystick_state[8] { joystate |= 0x09; self.joystick_state[8] = false; },
             // fire button
-            Key::RightCtrl => joystate |= 0x10,
+            Key::RightCtrl => if self.joystick_state[9] { joystate |= 0x10; self.joystick_state[9] = false; },
             _ => (),
         }
 

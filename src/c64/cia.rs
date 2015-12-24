@@ -1,5 +1,4 @@
 // CIA
-#![allow(dead_code)]
 #![allow(non_camel_case_types)]
 use c64::cpu;
 use c64::vic;
