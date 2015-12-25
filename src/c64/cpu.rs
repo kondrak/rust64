@@ -16,14 +16,14 @@ pub type CPUShared = Rc<RefCell<CPU>>;
 // status flags for P register
 pub enum StatusFlag
 {
-    Negative         = 1 << 0,
-    Overflow         = 1 << 1,
-    Unused           = 1 << 2,
-    Break            = 1 << 3,
-    DecimalMode      = 1 << 4,
-    InterruptDisable = 1 << 5,
-    Zero             = 1 << 6,
-    Carry            = 1 << 7 
+    Carry            = 1 << 0,
+    Zero             = 1 << 1,
+    InterruptDisable = 1 << 2,
+    DecimalMode      = 1 << 3,
+    Break            = 1 << 4,
+    Unused           = 1 << 5,
+    Overflow         = 1 << 6,
+    Negative         = 1 << 7,
 }
 
 pub static NMI_VECTOR:   u16 = 0xFFFA;

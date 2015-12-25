@@ -144,7 +144,7 @@ pub fn debug_instruction(opcode: u8, instruction: Option<(&opcodes::Op, u8, &opc
 
             let byte0 = cpu.read_byte(0x0000);
             let byte1 = cpu.read_byte(0x0001);
-            println!("${:04X}: {:02X}{} {} {}    <- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} CZIDB-VN: [{:08b}] ({} cycles)", cpu.prev_PC - 1, opcode, operand_hex, instruction, operand, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P, num_cycles);
+            println!("${:04X}: {:02X}{} {} {}    <- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}] ({} cycles)", cpu.prev_PC - 1, opcode, operand_hex, instruction, operand, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P, num_cycles);
 
             // JSR? push on queue to supress logging
             match *instruction

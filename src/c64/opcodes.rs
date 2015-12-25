@@ -84,7 +84,7 @@ impl AddrMode
                 {
                     let byte0 = cpu.read_byte(0x0000);
                     let byte1 = cpu.read_byte(0x0001);
-                    println!("${:04X}: ROM write (0x{:02X} -> ${:04X})   A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} CZIDB-VN: [{:08b}]", cpu.prev_PC - 1, value, addr, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P);
+                    println!("${:04X}: ROM write (0x{:02X} -> ${:04X})   A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}]", cpu.prev_PC - 1, value, addr, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P);
                 }
             }
         }
@@ -107,7 +107,7 @@ pub enum Op {
     // Arithmetic
     ADC, SBC, CMP,
     CPX, CPY,
-    // Inc/dec
+    // Inc/Dec
     INC, INX, INY,
     DEC, DEX, DEY,
     // Shifts
