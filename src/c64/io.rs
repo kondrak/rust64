@@ -148,7 +148,7 @@ impl IO
     pub fn check_restore_key(&self, window: &Window) -> bool
     {
         // End will serve as the Restore key
-        window.is_key_down(Key::End)
+        window.is_key_pressed(Key::End, KeyRepeat::No)
     }
 
     fn process_key(&mut self, key_pressed: bool, keycode: Key, cia1: &mut cia::CIAShared)

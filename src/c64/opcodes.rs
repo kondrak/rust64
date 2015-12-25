@@ -450,7 +450,8 @@ impl Op
             },
             Op::BRK => {
                 cpu.set_status_flag(cpu::StatusFlag::Break, true);
-                let pc = cpu.PC + 0x0002;
+                // BRK increases PC by 2, however we already do it once after op is fetched
+                let pc = cpu.PC + 0x0001;
                 let p  = cpu.P;
                 cpu.push_word(pc);
                 cpu.push_byte(p);
