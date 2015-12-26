@@ -88,7 +88,7 @@ impl C64
         let prg_data = utils::open_file(filename, 0);
         let start_address: u16 = ((prg_data[1] as u16) << 8) | (prg_data[0] as u16);
         let end_addr = start_address + (prg_data.len() as u16) - 2;
-        println!("Loading {} to start location at ${:04x} (SYS {})", filename, start_address, start_address);
+        println!("Loading {} to start location at ${:04x} (start_address)", filename, start_address, start_address);
 
         for i in 2..(prg_data.len())
         {
@@ -107,7 +107,7 @@ impl C64
         if !self.boot_complete
         {
             // $A480 is the BASIC warm start sequence - safe to assume we can load a cmdline program now
-            self.boot_complete = self.cpu.borrow_mut().PC == 0xa480;
+            self.boot_complete = self.cpu.borrow_mut().PC == 0xA480;
 
             if self.boot_complete
             {
