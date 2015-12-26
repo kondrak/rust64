@@ -250,24 +250,22 @@ impl Memory
         self.io_on      = ((latch & 0x04) != 0) && ((latch & 0x03) != 0); // %1xx except %100
         self.basic_on   = (latch & 0x03) == 0x03;
         self.kernal_on  = self.basic_on || ((latch & 0x03) == 0x02);
-
-        if self.io_on == false { panic!("oops"); }
     }
     
     // Write a byte to memory - returns whether RAM was written (true) or RAM under ROM (false)
     pub fn write_byte(&mut self, addr: u16, value: u8) -> bool
     {
-            // RAM under ROM written? Return false to let us know about it
-            if self.get_bank(addr).read_only
-            {
-                self.ram.write(addr, value);
-                return false;
-            }
-            else
-            {
-                self.get_bank(addr).write(addr, value);
-            }
-
+        // RAM under ROM written? Return false to let us know about it
+        if self.get_bank(addr).read_only
+        {
+            self.ram.write(addr, value);
+            return false;
+        }
+        else
+        {
+            self.get_bank(addr).write(addr, value);
+        }
+        
         // update the bank switching flags here, since they can only change on memory write
         // latch byte changed - update bank switching flags
         if addr == 0x0001 { self.update_bank_flags(); }

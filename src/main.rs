@@ -1,5 +1,6 @@
 extern crate sdl2;
 extern crate minifb;
+use std::env;
 //use sdl2::keyboard::Keycode;
 
 #[macro_use]
@@ -10,6 +11,8 @@ mod video;
 
 fn main()
 {
+    let args: Vec<String>  = env::args().collect();
+    
     //let sdl_context = sdl2::init().unwrap();
     /*let video_subsystem = sdl_context.video().unwrap();
 
@@ -24,6 +27,11 @@ fn main()
 
     let mut c64 = c64::C64::new();
     c64.reset();
+
+    if args.len() > 1
+    {
+        c64.file_to_load = args[1].clone();
+    }
 
     while c64.window.is_open()
     {

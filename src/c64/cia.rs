@@ -589,7 +589,7 @@ impl CIA
             0xDC02 => { self.ddra = value; true },
             0xDC03 => { self.ddrb = value; self.check_lp(); true },
             0xDC04 => { self.timer_a.latch = (self.timer_a.latch & 0xFF00) | value as u16; true },
-            0xDC10...0xDCFF => self.write_cia1_register(0xDC00 + addr & 0x10, value, on_cia_write),
+            0xDC10...0xDCFF => self.write_cia1_register(0xDC00 + (addr % 0x0010), value, on_cia_write),
             _ => as_mut!(self.mem_ref).write_byte(addr, value)
         }
     }
@@ -611,7 +611,7 @@ impl CIA
             },
             0xDD03 => { self.ddrb = value; true },
             0xDD04 => { self.timer_a.latch = (self.timer_a.latch & 0xFF00) | value as u16; true },
-            0xDD10...0xDDFF => self.write_cia2_register(0xDD00 + addr & 0x10, value, on_cia_write),
+            0xDD10...0xDDFF => self.write_cia2_register(0xDD00 + (addr % 0x0010), value, on_cia_write),
             _ => as_mut!(self.mem_ref).write_byte(addr, value)
         }
     }
@@ -620,7 +620,7 @@ impl CIA
     {
         if ((self.prb | !self.ddrb) & 0x10) != self.prev_lp
         {
-            as_mut!(self.vic_ref).trigger_lp_irq();            
+            as_mut!(self.vic_ref).trigger_lp_irq();
         }
 
         self.prev_lp = (self.prb | !self.ddrb) & 0x10;

@@ -1,6 +1,7 @@
 extern crate sdl2;
 extern crate minifb;
 use minifb::*;
+use utils;
 pub mod cpu;
 pub mod opcodes;
 mod clock;
@@ -27,6 +28,8 @@ pub struct C64
     cia2: cia::CIAShared,
     vic: vic::VICShared,
 
+    boot_complete: bool,
+    pub file_to_load: String,
     cycle_count: u32,
 }
 
@@ -50,6 +53,8 @@ impl C64
             cia1: cia1.clone(),
             cia2: cia2.clone(),
             vic: vic.clone(),
+            boot_complete: false,
+            file_to_load: String::new(),
             cycle_count: 0,
         };
 
@@ -77,9 +82,43 @@ impl C64
         self.cia2.borrow_mut().reset();
     }
     
+
+    pub fn load_prg(&mut self, filename: &str)
+    {
+        let prg_data = utils::open_file(filename, 0);
+        let start_address: u16 = ((prg_data[1] as u16) << 8) | (prg_data[0] as u16);
+        let end_addr = start_address + (prg_data.len() as u16) - 2;
+        println!("Loading {} to start location at ${:04x} (SYS {})", filename, start_address, start_address);
+
+        for i in 2..(prg_data.len())
+        {
+            self.memory.borrow_mut().write_byte(start_address + (i as u16) - 2, prg_data[i]);
+        }
+
+        //self.memory.borrow_mut().write_word_le(0x02b, start_address);
+        //self.memory.borrow_mut().write_word_le(0x02d, end_addr);
+        //self.memory.borrow_mut().write_word_le(0x02f, end_addr);
+        //self.memory.borrow_mut().write_word_le(0x031, end_addr);
+    }
+
     
     pub fn run(&mut self)
     {
+        if !self.boot_complete
+        {
+            // $A480 is the BASIC warm start sequence - safe to assume we can load a cmdline program now
+            self.boot_complete = self.cpu.borrow_mut().PC == 0xa480;
+
+            if self.boot_complete
+            {
+                if self.file_to_load.len() > 0
+                {
+                    let prg_file = &self.file_to_load.to_owned()[..];
+                    self.load_prg(prg_file);
+                }
+            }
+        }
+        
         if self.clock.tick() { 
             let mut should_trigger_vblank = false;
 
