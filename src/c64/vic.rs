@@ -51,7 +51,7 @@ pub struct VIC
     matrix_line: [u8; 40], // video line buffer, read in bad lines
     color_line: [u8; 40],  // color line buffer, read in bad lines
     
-    last_byte: u8,       // last byte read by VIC
+    pub last_byte: u8,       // last byte read by VIC
     screen_chunk_offset: usize, // current offset from screen start
     line_start_offset: usize,   // offset to the next line start on screen
     fg_mask_offset: usize,      // offset in fg mask for sprite-gfx collisions and prios

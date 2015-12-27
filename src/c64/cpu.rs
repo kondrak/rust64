@@ -188,10 +188,21 @@ impl CPU
         match addr
         {
             // VIC-II address space
-            0xD000...0xD400 => {
+            0xD000...0xD3FF => {
                 if io_enabled
                 {
                     mem_write_ok = as_mut!(self.vic_ref).write_register(addr, value, &mut on_vic_write);
+                }
+                else
+                {
+                    mem_write_ok = as_mut!(self.mem_ref).write_byte(addr, value);
+                }
+            },
+            // color RAM address space
+            0xD800...0xDBFF => {
+                if io_enabled
+                {
+                    mem_write_ok = as_mut!(self.mem_ref).write_byte(addr, value & 0x0F);
                 }
                 else
                 {
@@ -210,7 +221,7 @@ impl CPU
                 }
             },
             // CIA2 address space
-            0xDD00...0xDD0F => {
+            0xDD00...0xDDFF => {
                 if io_enabled
                 {
                     mem_write_ok = as_mut!(self.cia2_ref).write_register(addr, value, &mut on_cia_write);
@@ -251,10 +262,21 @@ impl CPU
         match addr
         {
             // VIC-II address space
-            0xD000...0xD400 => {
+            0xD000...0xD3FF => {
                 if io_enabled
                 {
                     byte = as_mut!(self.vic_ref).read_register(addr);
+                }
+                else
+                {
+                    byte = as_mut!(self.mem_ref).read_byte(addr);
+                }
+            },
+            // color RAM address space
+            0xD800...0xDBFF => {
+                if io_enabled
+                {
+                    byte = (as_ref!(self.mem_ref).read_byte(addr) & 0x0F) | (as_ref!(self.vic_ref).last_byte & 0xF0);
                 }
                 else
                 {
@@ -273,7 +295,7 @@ impl CPU
                 }
             },
             // CIA2 address space
-            0xDD00...0xDD0F => {
+            0xDD00...0xDDFF => {
                 if io_enabled
                 {
                     byte = as_mut!(self.cia2_ref).read_register(addr, &mut on_cia_read);
@@ -283,6 +305,8 @@ impl CPU
                     byte = as_mut!(self.mem_ref).read_byte(addr);
                 }
             },
+            0xDF00...0xDF9F => byte = as_ref!(self.vic_ref).last_byte,
+            0xDFFF => panic!("$dfff"),
             _ => byte = as_mut!(self.mem_ref).read_byte(addr)
         }
 
