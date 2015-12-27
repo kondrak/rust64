@@ -244,6 +244,10 @@ impl Op
             },
             Op::ADC => {
                 // TODO: support decimal mode
+                if cpu.get_status_flag(cpu::StatusFlag::DecimalMode)
+                {
+                    panic!("Decimal mode not supported in ADC yet!");
+                }
                 // TODO: should operation wrap automatically here?
                 let v = operand.get_value(cpu);
                 let mut res: u16 = (Wrapping(cpu.A as u16) + Wrapping(v as u16)).0;
@@ -260,6 +264,10 @@ impl Op
             },
             Op::SBC => {
                 // TODO: support decimal mode
+                if cpu.get_status_flag(cpu::StatusFlag::DecimalMode)
+                {
+                    panic!("Decimal mode not supported in SBC yet!");
+                }
                 // TODO: should operation wrap automatically here?
                 let v = operand.get_value(cpu);
                 let mut res: u16 = (Wrapping(cpu.A as u16) - Wrapping(v as u16)).0;
@@ -449,8 +457,8 @@ impl Op
                 cpu.set_status_flag(cpu::StatusFlag::InterruptDisable, true);
             },
             Op::BRK => {
+                println!("Received BRK instruction at ${:04X}", cpu.PC-1);
                 cpu.set_status_flag(cpu::StatusFlag::Break, true);
-                println!("BRK {:04x}", cpu.PC-1);
                 // BRK increases PC by 2, however we already do it once after op is fetched
                 let pc = cpu.PC + 0x0001;
                 let p  = cpu.P;
