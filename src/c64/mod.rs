@@ -111,9 +111,9 @@ impl C64
 
             if self.boot_complete
             {
-                if self.file_to_load.len() > 0
+                let prg_file = &self.file_to_load.to_owned()[..];
+                if prg_file.len() > 0
                 {
-                    let prg_file = &self.file_to_load.to_owned()[..];
                     self.load_prg(prg_file);
                 }
             }
