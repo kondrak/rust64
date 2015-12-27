@@ -168,7 +168,7 @@ pub struct Memory
     // bank switching flags
     basic_on:   bool,
     chargen_on: bool,
-    io_on:      bool,
+    pub io_on:  bool,
     kernal_on:  bool,
     cart_lo_on: bool, // cart flag - unused for now
     cart_hi_on: bool  // cart flag - unused for now
