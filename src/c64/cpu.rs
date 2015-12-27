@@ -48,6 +48,7 @@ pub struct CPU
     wait_cycles: u8,
     nmi: bool,
     pub prev_PC: u16, // previous program counter - for debugging
+    dfff_byte: u8,
     pub op_debugger: utils::OpDebugger
 }
 
@@ -73,6 +74,7 @@ impl CPU
             wait_cycles: 0,
             nmi: false,
             prev_PC: 0,
+            dfff_byte: 0x55,
             op_debugger: utils::OpDebugger::new()
         }))
     }
@@ -305,8 +307,27 @@ impl CPU
                     byte = as_mut!(self.mem_ref).read_byte(addr);
                 }
             },
-            0xDF00...0xDF9F => byte = as_ref!(self.vic_ref).last_byte,
-            0xDFFF => panic!("$dfff"),
+            0xDF00...0xDF9F => {
+                if io_enabled
+                {
+                    byte = as_ref!(self.vic_ref).last_byte;
+                }
+                else
+                {
+                    byte = as_mut!(self.mem_ref).read_byte(addr);
+                }
+            },
+            0xDFFF => {
+                if io_enabled
+                {
+                    self.dfff_byte = !self.dfff_byte;
+                    byte = self.dfff_byte;
+                }
+                else
+                {
+                    byte = as_mut!(self.mem_ref).read_byte(addr);
+                }
+            }, 
             _ => byte = as_mut!(self.mem_ref).read_byte(addr)
         }
 
