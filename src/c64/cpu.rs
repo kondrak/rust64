@@ -183,14 +183,43 @@ impl CPU
         let mut on_vic_write: vic::VICCallbackAction = vic::VICCallbackAction::None;
         let mut on_cia_write: cia::CIACallbackAction = cia::CIACallbackAction::None;
         let mem_write_ok: bool;
+        let io_enabled = as_ref!(self.mem_ref).io_on;
+
         match addr
         {
             // VIC-II address space
-            0xD000...0xD400 => mem_write_ok = as_mut!(self.vic_ref).write_register(addr, value, &mut on_vic_write),
+            0xD000...0xD400 => {
+                if io_enabled
+                {
+                    mem_write_ok = as_mut!(self.vic_ref).write_register(addr, value, &mut on_vic_write);
+                }
+                else
+                {
+                    mem_write_ok = as_mut!(self.mem_ref).write_byte(addr, value);
+                }
+            },
             // CIA1 address space
-            0xDC00...0xDCFF => mem_write_ok = as_mut!(self.cia1_ref).write_register(addr, value, &mut on_cia_write),
+            0xDC00...0xDCFF => {
+                if io_enabled
+                {
+                    mem_write_ok = as_mut!(self.cia1_ref).write_register(addr, value, &mut on_cia_write);
+                }
+                else
+                {
+                    mem_write_ok = as_mut!(self.mem_ref).write_byte(addr, value);
+                }
+            },
             // CIA2 address space
-            0xDD00...0xDD0F => mem_write_ok = as_mut!(self.cia2_ref).write_register(addr, value, &mut on_cia_write),            
+            0xDD00...0xDD0F => {
+                if io_enabled
+                {
+                    mem_write_ok = as_mut!(self.cia2_ref).write_register(addr, value, &mut on_cia_write);
+                }
+                else
+                {
+                    mem_write_ok = as_mut!(self.mem_ref).write_byte(addr, value);
+                }
+            },
             _ => mem_write_ok = as_mut!(self.mem_ref).write_byte(addr, value),
         }
 
@@ -218,15 +247,42 @@ impl CPU
     {
         let byte: u8;
         let mut on_cia_read: cia::CIACallbackAction = cia::CIACallbackAction::None;
-        
+        let io_enabled = as_ref!(self.mem_ref).io_on;
         match addr
         {
             // VIC-II address space
-            0xD000...0xD400 => byte = as_mut!(self.vic_ref).read_register(addr),
+            0xD000...0xD400 => {
+                if io_enabled
+                {
+                    byte = as_mut!(self.vic_ref).read_register(addr);
+                }
+                else
+                {
+                    byte = as_mut!(self.mem_ref).read_byte(addr);
+                }
+            },
             // CIA1 address space
-            0xDC00...0xDCFF => byte = as_mut!(self.cia1_ref).read_register(addr, &mut on_cia_read),
+            0xDC00...0xDCFF => {
+                if io_enabled
+                {
+                    byte = as_mut!(self.cia1_ref).read_register(addr, &mut on_cia_read);
+                }
+                else
+                {
+                    byte = as_mut!(self.mem_ref).read_byte(addr);
+                }
+            },
             // CIA2 address space
-            0xDD00...0xDD0F => byte = as_mut!(self.cia2_ref).read_register(addr, &mut on_cia_read),
+            0xDD00...0xDD0F => {
+                if io_enabled
+                {
+                    byte = as_mut!(self.cia2_ref).read_register(addr, &mut on_cia_read);
+                }
+                else
+                {
+                    byte = as_mut!(self.mem_ref).read_byte(addr);
+                }
+            },
             _ => byte = as_mut!(self.mem_ref).read_byte(addr)
         }
 
@@ -235,7 +291,7 @@ impl CPU
             cia::CIACallbackAction::TriggerCIAIRQ => self.trigger_cia_irq(),
             cia::CIACallbackAction::ClearCIAIRQ   => self.clear_cia_irq(),
             cia::CIACallbackAction::TriggerNMI    => self.trigger_nmi(),
-            cia::CIACallbackAction::ClearNMI      => self.clear_nmi(),            
+            cia::CIACallbackAction::ClearNMI      => self.clear_nmi(),
             _ => (),
         }
 

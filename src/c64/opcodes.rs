@@ -79,7 +79,7 @@ impl AddrMode
             AddrMode::Relative(..)    => panic!("Can't set operand value, PC ${:04X} ", cpu.prev_PC - 1),
             _ => {
                 let addr = self.get_address(cpu);
-                let byte_written = cpu.write_byte(addr, value);
+                let _ = cpu.write_byte(addr, value);
                 /*if !byte_written
                 {
                     let byte0 = cpu.read_byte(0x0000);
