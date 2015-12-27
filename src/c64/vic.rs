@@ -457,11 +457,11 @@ impl VIC
 
             if (ctrl1 & 0x20) != 0 // bitmap
             {
-                addr = (self.video_cnt & 0x03FF) << 3 | self.bitmap_base | self.row_cnt;
+                addr = ((self.video_cnt & 0x03FF) << 3) | self.bitmap_base | self.row_cnt;
             }
             else // text
             {
-                addr = (self.matrix_line[self.ml_idx] as u16) << 3 | self.char_base | self.row_cnt;
+                addr = ((self.matrix_line[self.ml_idx] as u16) << 3) | self.char_base | self.row_cnt;
             }
 
             if (ctrl1 & 0x40) != 0 // ECM

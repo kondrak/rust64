@@ -84,7 +84,7 @@ impl AddrMode
                 {
                     let byte0 = cpu.read_byte(0x0000);
                     let byte1 = cpu.read_byte(0x0001);
-                    println!("${:04X}: ROM write (0x{:02X} -> ${:04X})   A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}]", cpu.prev_PC - 1, value, addr, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P);
+                    //println!("${:04X}: ROM write (0x{:02X} -> ${:04X})   A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}]", cpu.prev_PC - 1, value, addr, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P);
                 }
             }
         }
@@ -450,6 +450,7 @@ impl Op
             },
             Op::BRK => {
                 cpu.set_status_flag(cpu::StatusFlag::Break, true);
+                println!("BRK {:04x}", cpu.PC-1);
                 // BRK increases PC by 2, however we already do it once after op is fetched
                 let pc = cpu.PC + 0x0001;
                 let p  = cpu.P;
@@ -465,8 +466,10 @@ impl Op
                 cpu.P = p;
                 cpu.PC = pc;
             },
-            Op::HLT => panic!("Received HLT instruction at ${:04X}", cpu.PC),
+            // TODO: perform a reset if HLT occurs?
+            Op::HLT => panic!("Received HLT instruction at ${:04X}", cpu.PC - 1),
             // TODO: handle undocumented ops
+            // TODO: PC value is incorrect here for debugging (will become irrelevant once illegal ops are done)
             _       => panic!("Unsupported op: {} at ${:04X}", self, cpu.PC)
         }
     } 
