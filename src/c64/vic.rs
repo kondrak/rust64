@@ -490,11 +490,6 @@ impl VIC
         let dst_color: u8;
 
         if !self.draw_this_line { return }
-
-        
-        //if self.read_register(0xD021) & 0x0f == 0 { println!("cycle {}", self.curr_cycle); }
-        
-        //println!("cycle {}", self.curr_cycle);
         
         match self.display_mode
         {
@@ -769,7 +764,7 @@ impl VIC
     pub fn update(&mut self, c64_cycle_cnt: u32, should_trigger_vblank: &mut bool) -> bool
     {
         let mut mask: u8;
-        let mut frame_finished = false;
+        let mut line_finished = false;
 
         //println!("raster-cycle: {}", self.curr_cycle);
         
@@ -1387,16 +1382,16 @@ impl VIC
 
                 //r = (Wrapping(r) + Wrapping(1)).0;
                 //self.write_register(0xD021, r, &mut x);
-                frame_finished = true;
+                line_finished = true;
             },
             _ => (),
         }
 
         // next cycle
         self.raster_x = (Wrapping(self.raster_x) + Wrapping(8)).0;
-        if frame_finished { self.curr_cycle = 1; } else { self.curr_cycle += 1; }
+        if line_finished { self.curr_cycle = 1; } else { self.curr_cycle += 1; }
 
-        frame_finished
+        line_finished
     }
     
 }
