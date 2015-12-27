@@ -441,7 +441,7 @@ impl CIA
 
                 (retval | (self.prb & self.ddrb)) & self.joystick_1
             },
-            0xDC10...0xDCFF => self.read_cia1_register(0xDC00 + addr % 0x10),
+            0xDC10...0xDCFF => self.read_cia1_register(0xDC00 + (addr % 0x0010)),
             _ => as_mut!(self.mem_ref).read_byte(addr)
         }
     }
@@ -456,7 +456,7 @@ impl CIA
                 (self.pra | !self.ddra) & 0x3f | self.iec_lines
             },
             0xDD01 => self.prb | !self.ddrb,
-            0xDD10...0xDDFF => self.read_cia2_register(0xDD00 + addr % 0x10),
+            0xDD10...0xDDFF => self.read_cia2_register(0xDD00 + (addr % 0x0010)),
             _ => as_mut!(self.mem_ref).read_byte(addr)
         }
     }
