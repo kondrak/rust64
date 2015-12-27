@@ -45,6 +45,7 @@ pub struct CPU
     pub ba_low: bool,  // is BA low?
     pub cia_irq: bool,
     pub vic_irq: bool,
+    wait_cycles: u8,
     nmi: bool,
     pub prev_PC: u16, // previous program counter - for debugging
     pub op_debugger: utils::OpDebugger
@@ -69,6 +70,7 @@ impl CPU
             ba_low: false,
             cia_irq: false,
             vic_irq: false,
+            wait_cycles: 0,
             nmi: false,
             prev_PC: 0,
             op_debugger: utils::OpDebugger::new()
@@ -117,11 +119,17 @@ impl CPU
     {
         if self.ba_low { return }
         if self.process_nmi() { return }
-        
         if self.process_irq() { return }
-        let op = self.next_byte();
-        //println!("${:04X}", self.PC);
-        self.process_op(op);
+
+        if self.wait_cycles == 0
+        {
+            let op = self.next_byte();
+            self.wait_cycles += self.process_op(op);
+        }
+        else
+        {
+            self.wait_cycles -= 1;
+        }
     }
 
     pub fn next_byte(&mut self) -> u8
@@ -338,7 +346,7 @@ impl CPU
         match opcodes::get_instruction(opcode, self)
         {
             Some((instruction, num_cycles, addr_mode)) => {
-                utils::debug_instruction(opcode, Some((&instruction, num_cycles, &addr_mode)), self);
+                //utils::debug_instruction(opcode, Some((&instruction, num_cycles, &addr_mode)), self);
                 instruction.run(&addr_mode, self);
                 num_cycles
             },
