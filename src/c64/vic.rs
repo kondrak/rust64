@@ -664,15 +664,15 @@ impl VIC
         let screen_pos = self.screen_chunk_offset + self.x_scroll as usize;
 
         self.fg_mask_buffer[self.fg_mask_offset  ] |= ((self.gfx_data & 0xAA) | (self.gfx_data & 0xAA) >> 1) >> self.x_scroll;
-        self.fg_mask_buffer[self.fg_mask_offset+1] |= ((self.gfx_data & 0xAA) | (self.gfx_data & 0xAA) >> 1) << (8 - self.x_scroll);
+        self.fg_mask_buffer[self.fg_mask_offset+1] |= ((((self.gfx_data & 0xAA) | (self.gfx_data & 0xAA) >> 1) as u16) << (8 - self.x_scroll)) as u8;
 
         let mut data = self.gfx_data;
-        self.window_buffer[screen_pos + 7] = self.fetch_c64_color_rgba(color[(data & 3) as usize]); data >>= 2;
-        self.window_buffer[screen_pos + 6] = self.window_buffer[screen_pos + 7];
-        self.window_buffer[screen_pos + 5] = self.fetch_c64_color_rgba(color[(data & 3) as usize]); data >>= 2;
-        self.window_buffer[screen_pos + 4] = self.window_buffer[screen_pos + 5];
-        self.window_buffer[screen_pos + 3] = self.fetch_c64_color_rgba(color[(data & 3) as usize]); data >>= 2;
-        self.window_buffer[screen_pos + 2] = self.window_buffer[screen_pos + 3];
+        self.window_buffer[screen_pos + 7] = self.fetch_c64_color_rgba(color[(data & 3) as usize]);
+        self.window_buffer[screen_pos + 6] = self.window_buffer[screen_pos + 7]; data >>= 2;
+        self.window_buffer[screen_pos + 5] = self.fetch_c64_color_rgba(color[(data & 3) as usize]);
+        self.window_buffer[screen_pos + 4] = self.window_buffer[screen_pos + 5]; data >>= 2;
+        self.window_buffer[screen_pos + 3] = self.fetch_c64_color_rgba(color[(data & 3) as usize]);
+        self.window_buffer[screen_pos + 2] = self.window_buffer[screen_pos + 3]; data >>= 2;
         self.window_buffer[screen_pos + 1] = self.fetch_c64_color_rgba(color[(data as usize)]);
         self.window_buffer[screen_pos    ] = self.window_buffer[screen_pos + 1];
     }
