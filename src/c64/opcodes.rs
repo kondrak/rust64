@@ -51,7 +51,7 @@ impl AddrMode
             AddrMode::Relative(next_byte)         => (cpu.PC as i16 + next_byte as i16) as u16,
             AddrMode::Indirect(next_word)         => cpu.read_word_le(next_word),
             AddrMode::IndexedIndirectX(next_byte) => cpu.read_word_le((Wrapping(next_byte) + Wrapping(cpu.X)).0 as u16),
-            AddrMode::IndirectIndexedY(next_byte) => cpu.read_word_le(next_byte as u16) + cpu.Y as u16
+            AddrMode::IndirectIndexedY(next_byte) => (Wrapping(cpu.read_word_le(next_byte as u16)) + Wrapping(cpu.Y as u16)).0 as u16
         }
     }
     
@@ -80,12 +80,12 @@ impl AddrMode
             _ => {
                 let addr = self.get_address(cpu);
                 let byte_written = cpu.write_byte(addr, value);
-                if !byte_written
+                /*if !byte_written
                 {
                     let byte0 = cpu.read_byte(0x0000);
                     let byte1 = cpu.read_byte(0x0001);
-                    //println!("${:04X}: ROM write (0x{:02X} -> ${:04X})   A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}]", cpu.prev_PC - 1, value, addr, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P);
-                }
+                    println!("${:04X}: ROM write (0x{:02X} -> ${:04X})   A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}]", cpu.prev_PC - 1, value, addr, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P);
+                }*/
             }
         }
     }
