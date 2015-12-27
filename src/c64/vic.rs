@@ -1312,7 +1312,7 @@ impl VIC
                     {
                         for i in 44..c64::SCREEN_WIDTH/8
                         {
-                            let color_rgba = self.fetch_c64_color_rgba(self.border_color_sample[4]);
+                            let color_rgba = self.fetch_c64_color_rgba(self.border_color_sample[i]);
                             utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8, color_rgba);
                         }
                     }
