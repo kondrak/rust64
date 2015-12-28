@@ -120,9 +120,10 @@ impl CPU
     pub fn update(&mut self)
     {
         if self.ba_low { return }
-        if self.process_nmi() { return }
-        if self.process_irq() { return }
 
+        if self.process_nmi() { self.wait_cycles += 7; return }
+        if self.process_irq() { self.wait_cycles += 7; return }
+        
         if self.wait_cycles == 0
         {
             let op = self.next_byte();

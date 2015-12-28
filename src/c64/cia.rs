@@ -442,7 +442,7 @@ impl CIA
                 (retval | (self.prb & self.ddrb)) & self.joystick_1
             },
             0xDC10...0xDCFF => self.read_cia1_register(0xDC00 + (addr % 0x0010)),
-            _ => as_mut!(self.mem_ref).read_byte(addr)
+            _ => panic!("Address out of CIA1 memory range"),
         }
     }
 
@@ -457,7 +457,7 @@ impl CIA
             },
             0xDD01 => self.prb | !self.ddrb,
             0xDD10...0xDDFF => self.read_cia2_register(0xDD00 + (addr % 0x0010)),
-            _ => as_mut!(self.mem_ref).read_byte(addr)
+            _ => panic!("Address out of CIA2 memory range"),
         }
     }
 
@@ -590,7 +590,7 @@ impl CIA
             0xDC03 => { self.ddrb = value; self.check_lp(); true },
             0xDC04 => { self.timer_a.latch = (self.timer_a.latch & 0xFF00) | value as u16; true },
             0xDC10...0xDCFF => self.write_cia1_register(0xDC00 + (addr % 0x0010), value, on_cia_write),
-            _ => as_mut!(self.mem_ref).write_byte(addr, value)
+            _ => panic!("Address out of CIA1 memory range"),
         }
     }
 
@@ -612,7 +612,7 @@ impl CIA
             0xDD03 => { self.ddrb = value; true },
             0xDD04 => { self.timer_a.latch = (self.timer_a.latch & 0xFF00) | value as u16; true },
             0xDD10...0xDDFF => self.write_cia2_register(0xDD00 + (addr % 0x0010), value, on_cia_write),
-            _ => as_mut!(self.mem_ref).write_byte(addr, value)
+            _ => panic!("Address out of CIA2 memory range"),
         }
     }
 
