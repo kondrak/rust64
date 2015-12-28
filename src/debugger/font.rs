@@ -40,6 +40,15 @@ impl SysFont
         font
     }
 
+    pub fn draw_text_rgb(&self, window_buffer: &mut Vec<u32>, x: usize, y: usize, text: &str, color: u32)
+    {
+        let chars: Vec<char> = text.chars().collect();
+        for i in 0..text.len()
+        {
+            self.draw_char_rgb(window_buffer, x*8 + 8*i as usize, y*8 as usize, self.ascii_to_petscii(chars[i]), color);
+        }
+    }    
+    
     pub fn draw_text(&self, window_buffer: &mut Vec<u32>, x: usize, y: usize, text: &str, c64_color: u8)
     {
         let chars: Vec<char> = text.chars().collect();
@@ -50,6 +59,11 @@ impl SysFont
     }
     
     pub fn draw_char(&self, window_buffer: &mut Vec<u32>, x: usize, y: usize, charcode: u8, c64_color: u8)
+    {
+        self.draw_char_rgb(window_buffer, x, y, charcode, utils::fetch_c64_color_rgba(c64_color));
+    }
+
+    pub fn draw_char_rgb(&self, window_buffer: &mut Vec<u32>, x: usize, y: usize, charcode: u8, color: u32)
     {
         let char_w: i32 = 8;
         let char_h: i32 = 8;
@@ -64,7 +78,7 @@ impl SysFont
         {
             for j in data_x..data_w
             {
-                window_buffer[x + l + y*self.window_w + k*self.window_w] = self.data[j as usize + (i * 256) as usize] as u32 * utils::fetch_c64_color_rgba(c64_color);
+                window_buffer[x + l + y*self.window_w + k*self.window_w] = self.data[j as usize + (i * 256) as usize] as u32 * color;
                 l += 1;
             }
             l = 0;
