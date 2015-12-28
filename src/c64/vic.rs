@@ -203,7 +203,7 @@ impl VIC
         match addr
         {
             0xD011 => {
-                let curr_val = as_ref!(self.mem_ref).read_byte(addr);
+                let curr_val = as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).read(addr);
                 // bit 7 in $d011 is bit 8 of $d012
                 (curr_val & 0x7F) | ((self.raster_cnt & 0x100) >> 1) as u8
             },
@@ -211,11 +211,11 @@ impl VIC
             0xD019          => self.irq_flag | 0x70,
             0xD01A          => self.irq_mask | 0xF0,
             0xD040...0xD3FF => self.read_register(0xD000 + (addr % 0x0040)),
-            _               => as_ref!(self.mem_ref).read_byte(addr)
+            _               => as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).read(addr)
         }
     }
 
-    pub fn write_register(&mut self, addr: u16, value: u8, on_vic_write: &mut VICCallbackAction) -> bool
+    pub fn write_register(&mut self, addr: u16, value: u8, on_vic_write: &mut VICCallbackAction)
     {
         match addr
         {
@@ -225,11 +225,11 @@ impl VIC
                 {
                     let idx = ((addr % 0x000F) >> 1) as usize;
                     self.mx[idx] = (self.mx[idx] & 0xFF00) | value as u16;
-                    as_mut!(self.mem_ref).write_byte(addr, self.mx[idx] as u8)
+                    as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, self.mx[idx] as u8);
                 }
                 else
                 {
-                    as_mut!(self.mem_ref).write_byte(addr, value)
+                    as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
                 }
             },
             0xD010 =>
@@ -250,7 +250,7 @@ impl VIC
                     j <<= 1;
                 }
                 
-                as_mut!(self.mem_ref).write_byte(addr, value)
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0xD011 =>
             {
@@ -286,7 +286,7 @@ impl VIC
                 let ctrl2 = self.read_register(0xD016);
                 self.display_mode = (((value & 0x60) | (ctrl2 & 0x10)) >> 4) as u16;
                 
-                as_mut!(self.mem_ref).write_byte(addr, value)
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0xD012 =>
             {
@@ -300,7 +300,7 @@ impl VIC
                 self.raster_irq = new_raster_irq;
 
                 // TODO: is this correct?
-                as_mut!(self.mem_ref).write_byte(addr, value)
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0xD016 =>
             {
@@ -308,12 +308,12 @@ impl VIC
                 self.x_scroll = (value & 7) as u16;
                 self.display_mode = (((ctrl1 & 0x60) | (value & 0x10)) >> 4) as u16;
 
-                as_mut!(self.mem_ref).write_byte(addr, value)
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0xD017 =>
             {
                 self.sprite_y_exp |= !value; // TODO: check "!"
-                as_mut!(self.mem_ref).write_byte(addr, value)
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0xD018 =>
             {
@@ -321,7 +321,7 @@ impl VIC
                 self.char_base   = ((value & 0x0E) as u16) << 10;
                 self.bitmap_base = ((value & 0x08) as u16) << 10;
                 
-                as_mut!(self.mem_ref).write_byte(addr, value)
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0xD019 =>
             {
@@ -337,7 +337,6 @@ impl VIC
                     // it's not possible due to RefCell already being borrowed (call by CPU)
                     *on_vic_write = VICCallbackAction::TriggerVICIrq;
                 }
-                true
             },
             0xD01A =>
             {
@@ -353,10 +352,9 @@ impl VIC
                     self.irq_flag &= 0x7F;
                     *on_vic_write = VICCallbackAction::ClearVICIrq;
                 }
-                true
             },
-            0xD040...0xD3FF => self.write_register(0xD000 + (addr % 0x0040), value, on_vic_write),
-            _ => as_mut!(self.mem_ref).write_byte(addr, value)
+            0xD040...0xD3FF => { self.write_register(0xD000 + (addr % 0x0040), value, on_vic_write); },
+            _ => as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value),
         }
     }
     
