@@ -193,7 +193,8 @@ impl CPU
             0xD000...0xD3FF => {
                 if io_enabled
                 {
-                    mem_write_ok = as_mut!(self.vic_ref).write_register(addr, value, &mut on_vic_write);
+                    mem_write_ok = true;
+                    as_mut!(self.vic_ref).write_register(addr, value, &mut on_vic_write);
                 }
                 else
                 {
