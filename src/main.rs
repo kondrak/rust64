@@ -7,7 +7,7 @@ use std::env;
 mod utils;
 
 mod c64;
-mod video;
+mod debugger;
 
 fn main()
 {

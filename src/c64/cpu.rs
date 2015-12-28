@@ -350,11 +350,6 @@ impl CPU
         as_ref!(self.mem_ref).read_word_le(addr)
     }
 
-    pub fn read_word_be(&self, addr: u16) -> u16
-    {
-        as_ref!(self.mem_ref).read_word_be(addr)
-    }
-
     pub fn write_word_le(&self, addr: u16, value: u16) -> bool
     {
         as_ref!(self.mem_ref).write_word_le(addr, value)

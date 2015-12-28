@@ -52,6 +52,32 @@ pub fn memset8(buffer: &mut [u32], start: usize, value: u32)
     buffer[start+7] = buffer[start];
 }
 
+// TODO: prepare for more palettes?
+pub fn fetch_c64_color_rgba(idx: u8) -> u32
+{
+    // palette RGB values copied from WinVICE
+    match idx & 0x0F
+    {
+        0x00  => 0x00000000,
+        0x01  => 0x00FFFFFF,
+        0x02  => 0x00894036,
+        0x03  => 0x007ABFC7,
+        0x04  => 0x008A46AE,
+        0x05  => 0x0068A941,
+        0x06  => 0x003E31A2,
+        0x07  => 0x00D0DC71,
+        0x08  => 0x00905F25,
+        0x09  => 0x005C4700,
+        0x0A  => 0x00BB776D,
+        0x0B  => 0x00555555,
+        0x0C  => 0x00808080,
+        0x0D  => 0x00ACEA88,
+        0x0E  => 0x007C70DA,
+        0x0F  => 0x00ABABAB,
+        _ => panic!("Unknown color!"),
+    }
+}
+
 // instruction debugging
 pub struct OpDebugger
 {

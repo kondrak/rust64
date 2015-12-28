@@ -7,7 +7,6 @@ use std::rc::Rc;
 use std::num::Wrapping;
 use c64;
 use utils;
-//use video;
 
 // preferences (to be modifiable)
 static SKIP_FRAMES: u16 = 2;
@@ -41,7 +40,6 @@ pub struct VIC
 {
     mem_ref: Option<memory::MemShared>,
     cpu_ref: Option<cpu::CPUShared>,
-    //font: video::font::SysFont,
 
     pub window_buffer: Vec<u32>,
     
@@ -170,32 +168,6 @@ impl VIC
     {
         self.mem_ref = Some(memref);
         self.cpu_ref = Some(cpuref);
-    }
-
-    // TODO: prepare for more palettes?
-    pub fn fetch_c64_color_rgba(&self, idx: u8) -> u32
-    {
-        // palette RGB values copied from WinVICE
-        match idx & 0x0F
-        {
-            0x00  => 0x00000000,
-            0x01  => 0x00FFFFFF,
-            0x02  => 0x00894036,
-            0x03  => 0x007ABFC7,
-            0x04  => 0x008A46AE,
-            0x05  => 0x0068A941,
-            0x06  => 0x003E31A2,
-            0x07  => 0x00D0DC71,
-            0x08  => 0x00905F25,
-            0x09  => 0x005C4700,
-            0x0A  => 0x00BB776D,
-            0x0B  => 0x00555555,
-            0x0C  => 0x00808080,
-            0x0D  => 0x00ACEA88,
-            0x0E  => 0x007C70DA,
-            0x0F  => 0x00ABABAB,
-            _ => panic!("Uknown color!"),
-        }
     }
     
     pub fn read_register(&self, addr: u16) -> u8
@@ -527,7 +499,7 @@ impl VIC
             _ => dst_color = 0,
         }
 
-        let color_rgba = self.fetch_c64_color_rgba(dst_color);
+        let color_rgba = utils::fetch_c64_color_rgba(dst_color);
         utils::memset8(&mut self.window_buffer, self.screen_chunk_offset, color_rgba);
     }
     
@@ -642,14 +614,14 @@ impl VIC
         self.fg_mask_buffer[self.fg_mask_offset + 1 ] |= self.gfx_data << (7 - self.x_scroll);
 
         let mut data = self.gfx_data;
-        self.window_buffer[screen_pos + 7] = self.fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
-        self.window_buffer[screen_pos + 6] = self.fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
-        self.window_buffer[screen_pos + 5] = self.fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
-        self.window_buffer[screen_pos + 4] = self.fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
-        self.window_buffer[screen_pos + 3] = self.fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
-        self.window_buffer[screen_pos + 2] = self.fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
-        self.window_buffer[screen_pos + 1] = self.fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
-        self.window_buffer[screen_pos    ] = self.fetch_c64_color_rgba(color[data as usize]);
+        self.window_buffer[screen_pos + 7] = utils::fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
+        self.window_buffer[screen_pos + 6] = utils::fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
+        self.window_buffer[screen_pos + 5] = utils::fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
+        self.window_buffer[screen_pos + 4] = utils::fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
+        self.window_buffer[screen_pos + 3] = utils::fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
+        self.window_buffer[screen_pos + 2] = utils::fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
+        self.window_buffer[screen_pos + 1] = utils::fetch_c64_color_rgba(color[(data & 1) as usize]); data >>= 1;
+        self.window_buffer[screen_pos    ] = utils::fetch_c64_color_rgba(color[data as usize]);
     }
 
     fn draw_multi(&mut self, color: &[u8])
@@ -660,13 +632,13 @@ impl VIC
         self.fg_mask_buffer[self.fg_mask_offset+1] |= ((((self.gfx_data & 0xAA) | (self.gfx_data & 0xAA) >> 1) as u16) << (8 - self.x_scroll)) as u8;
 
         let mut data = self.gfx_data;
-        self.window_buffer[screen_pos + 7] = self.fetch_c64_color_rgba(color[(data & 3) as usize]); data >>= 2;
+        self.window_buffer[screen_pos + 7] = utils::fetch_c64_color_rgba(color[(data & 3) as usize]); data >>= 2;
         self.window_buffer[screen_pos + 6] = self.window_buffer[screen_pos + 7];
-        self.window_buffer[screen_pos + 5] = self.fetch_c64_color_rgba(color[(data & 3) as usize]); data >>= 2;
+        self.window_buffer[screen_pos + 5] = utils::fetch_c64_color_rgba(color[(data & 3) as usize]); data >>= 2;
         self.window_buffer[screen_pos + 4] = self.window_buffer[screen_pos + 5];
-        self.window_buffer[screen_pos + 3] = self.fetch_c64_color_rgba(color[(data & 3) as usize]); data >>= 2;
+        self.window_buffer[screen_pos + 3] = utils::fetch_c64_color_rgba(color[(data & 3) as usize]); data >>= 2;
         self.window_buffer[screen_pos + 2] = self.window_buffer[screen_pos + 3];
-        self.window_buffer[screen_pos + 1] = self.fetch_c64_color_rgba(color[(data as usize)]);
+        self.window_buffer[screen_pos + 1] = utils::fetch_c64_color_rgba(color[(data as usize)]);
         self.window_buffer[screen_pos    ] = self.window_buffer[screen_pos + 1];
     }
     
@@ -1276,7 +1248,7 @@ impl VIC
                     {
                         for i in 0..4
                         {
-                            let color_rgba = self.fetch_c64_color_rgba(self.border_color_sample[i]);
+                            let color_rgba = utils::fetch_c64_color_rgba(self.border_color_sample[i]);
                             utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8 as usize, color_rgba);
                         }
                     }
@@ -1284,7 +1256,7 @@ impl VIC
                     // top and bottom - first 8 pixels
                     if self.border_on_sample[1]
                     {
-                        let color_rgba = self.fetch_c64_color_rgba(self.border_color_sample[4]);
+                        let color_rgba = utils::fetch_c64_color_rgba(self.border_color_sample[4]);
                         utils::memset8(&mut self.window_buffer, self.line_start_offset + 4*8, color_rgba);
                     }
 
@@ -1293,7 +1265,7 @@ impl VIC
                     {
                         for i in 5..43
                         {
-                            let color_rgba = self.fetch_c64_color_rgba(self.border_color_sample[i]);
+                            let color_rgba = utils::fetch_c64_color_rgba(self.border_color_sample[i]);
                             utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8, color_rgba);
                         }
                     }
@@ -1301,7 +1273,7 @@ impl VIC
                     // top and bottom - last 8 pixels
                     if self.border_on_sample[3]
                     {
-                        let color_rgba = self.fetch_c64_color_rgba(self.border_color_sample[43]);
+                        let color_rgba = utils::fetch_c64_color_rgba(self.border_color_sample[43]);
                         utils::memset8(&mut self.window_buffer, self.line_start_offset + 43*8, color_rgba);
                     }
 
@@ -1310,7 +1282,7 @@ impl VIC
                     {
                         for i in 44..c64::SCREEN_WIDTH/8
                         {
-                            let color_rgba = self.fetch_c64_color_rgba(self.border_color_sample[i]);
+                            let color_rgba = utils::fetch_c64_color_rgba(self.border_color_sample[i]);
                             utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8, color_rgba);
                         }
                     }

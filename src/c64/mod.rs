@@ -2,10 +2,11 @@ extern crate sdl2;
 extern crate minifb;
 use minifb::*;
 use utils;
+use debugger;
 pub mod cpu;
 pub mod opcodes;
 mod clock;
-mod memory;
+pub mod memory;
 mod io;
 mod cia;
 mod vic;
@@ -28,6 +29,7 @@ pub struct C64
     cia2: cia::CIAShared,
     vic: vic::VICShared,
 
+    debugger: debugger::Debugger,
     boot_complete: bool,
     pub file_to_load: String,
     cycle_count: u32,
@@ -53,6 +55,8 @@ impl C64
             cia1: cia1.clone(),
             cia2: cia2.clone(),
             vic: vic.clone(),
+
+            debugger: debugger::Debugger::new(),
             boot_complete: false,
             file_to_load: String::new(),
             cycle_count: 0,
@@ -104,22 +108,28 @@ impl C64
     
     pub fn run(&mut self)
     {
-        if !self.boot_complete
+       // if !self.boot_complete
         {
             // $A480 is the BASIC warm start sequence - safe to assume we can load a cmdline program now
-            self.boot_complete = self.cpu.borrow_mut().PC == 0xA480;
+            //self.boot_complete = self.cpu.borrow_mut().PC == 0xA480;
 
-            if self.boot_complete
+            if !self.boot_complete
             {
                 let prg_file = &self.file_to_load.to_owned()[..];
+                //let prg_file = "triad-01.prg";
+                //let prg_file = "flt-01.prg";
+                //let prg_file = "bcs-01.prg";
+                
                 if prg_file.len() > 0
                 {
-                    self.load_prg(prg_file);
+
+                    if self.window.is_key_pressed(Key::F11, KeyRepeat::No)
+                        { self.boot_complete = true; self.load_prg(prg_file); }
                 }
             }
-        }
+        }        
         
-        if self.clock.tick() { 
+        if self.clock.tick() {
             let mut should_trigger_vblank = false;
 
             self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank);
@@ -134,6 +144,7 @@ impl C64
 
             if should_trigger_vblank
             {
+                self.debugger.render(&mut self.memory);
                 self.window.update(&self.vic.borrow_mut().window_buffer);
                 self.io.update(&self.window, &mut self.cia1);
                 self.cia1.borrow_mut().count_tod();
