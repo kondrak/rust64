@@ -600,8 +600,9 @@ impl CIA
         {
             0xDD00 => {
                 // TODO
+                self.pra = value;
                 as_mut!(self.vic_ref).on_va_change(!(self.pra | !self.ddra) & 3);
-                self.pra = value; true
+                true
             },
             0xDD01 => { self.prb = value; true },
             0xDD02 => {
