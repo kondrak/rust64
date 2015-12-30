@@ -121,8 +121,8 @@ impl CPU
     {
         if self.ba_low { return }
 
-        if self.process_nmi() { self.wait_cycles += 7; return }
-        if self.process_irq() { self.wait_cycles += 7; return }
+        if self.process_nmi() { self.wait_cycles += 7; }
+        else if self.process_irq() { self.wait_cycles += 7; }
         
         if self.wait_cycles == 0
         {
