@@ -584,10 +584,10 @@ impl CIA
     {
         match addr
         {
-            0xDC00 => { self.pra = value; true },
-            0xDC01 => { self.prb = value; self.check_lp(); true },
-            0xDC02 => { self.ddra = value; true },
-            0xDC03 => { self.ddrb = value; self.check_lp(); true },
+            0xDC00 => { self.pra = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); true },
+            0xDC01 => { self.prb = value; self.check_lp(); as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); true },
+            0xDC02 => { self.ddra = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); true },
+            0xDC03 => { self.ddrb = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); self.check_lp(); true },
             0xDC04 => { self.timer_a.latch = (self.timer_a.latch & 0xFF00) | value as u16; true },
             0xDC10...0xDCFF => self.write_cia1_register(0xDC00 + (addr % 0x0010), value, on_cia_write),
             _ => panic!("Address out of CIA1 memory range"),
@@ -602,15 +602,21 @@ impl CIA
                 // TODO
                 self.pra = value;
                 as_mut!(self.vic_ref).on_va_change(!(self.pra | !self.ddra) & 3);
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
                 true
             },
-            0xDD01 => { self.prb = value; true },
+            0xDD01 => {
+                self.prb = value;
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
+                true
+            },
             0xDD02 => {
                 self.ddra = value;
                 as_mut!(self.vic_ref).on_va_change(!(self.pra | !self.ddra) & 3);
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
                 true
             },
-            0xDD03 => { self.ddrb = value; true },
+            0xDD03 => { self.ddrb = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); true },
             0xDD04 => { self.timer_a.latch = (self.timer_a.latch & 0xFF00) | value as u16; true },
             0xDD10...0xDDFF => self.write_cia2_register(0xDD00 + (addr % 0x0010), value, on_cia_write),
             _ => panic!("Address out of CIA2 memory range"),

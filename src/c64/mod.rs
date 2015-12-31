@@ -96,6 +96,7 @@ impl C64
 
         for i in 2..(prg_data.len())
         {
+            //println!("${:04x} -> {:02x}", start_address + (i as u16) - 2, prg_data[i]);
             self.memory.borrow_mut().write_byte(start_address + (i as u16) - 2, prg_data[i]);
         }
 
@@ -108,17 +109,29 @@ impl C64
     
     pub fn run(&mut self)
     {
-       // if !self.boot_complete
+        if !self.boot_complete
         {
             // $A480 is the BASIC warm start sequence - safe to assume we can load a cmdline program now
             //self.boot_complete = self.cpu.borrow_mut().PC == 0xA480;
-
-            if !self.boot_complete
+ 
+            //if self.boot_complete
             {
-                let prg_file = &self.file_to_load.to_owned()[..];
+                //let prg_file = &self.file_to_load.to_owned()[..];
+                let prg_file = "bcs-01.prg";     // ok
                 //let prg_file = "triad-01.prg";
-                //let prg_file = "flt-01.prg";
-                //let prg_file = "bcs-01.prg";
+                //let prg_file = "dd-01.prg";    // ok
+                let prg_file = "flt-01.prg";  // ok - blinking
+                //let prg_file = "esi-02.prg";   // ok - blinking
+                //let prg_file = "htl-03.prg";
+                //let prg_file = "ikari-02.prg"; // ok
+                //let prg_file = "img.prg";
+                //let prg_file = "flt-09.prg";    // bw?
+                //let prg_file = "newage-03.prg"; // ok
+                //let prg_file = "orion-26.prg";  // ok
+                //let prg_file = "energy-09.prg";
+                //let prg_file = "jam-10.prg";  // ok
+                //let prg_file = "tpi-01.prg";
+                //let prg_file = "711-01.prg";
                 
                 if prg_file.len() > 0
                 {
@@ -127,7 +140,7 @@ impl C64
                         { self.boot_complete = true; self.load_prg(prg_file); }
                 }
             }
-        }        
+        }
         
         if self.clock.tick() {
             let mut should_trigger_vblank = false;
@@ -144,7 +157,7 @@ impl C64
 
             if should_trigger_vblank
             {
-                self.debugger.render(&mut self.memory);
+                self.debugger.render(&mut self.cpu, &mut self.memory);
                 self.window.update(&self.vic.borrow_mut().window_buffer);
                 self.io.update(&self.window, &mut self.cia1);
                 self.cia1.borrow_mut().count_tod();

@@ -30,7 +30,7 @@ impl Debugger
         }
     }
 
-    pub fn render(&mut self, memory: &mut c64::memory::MemShared)
+    pub fn render(&mut self, cpu: &mut c64::cpu::CPUShared, memory: &mut c64::memory::MemShared)
     {
         if self.debug_window.is_key_pressed(Key::PageUp, KeyRepeat::Yes)
         {
@@ -71,6 +71,7 @@ impl Debugger
 
         self.draw_gfx_mode(memory);
         self.draw_data(memory);
+        self.draw_cpu(cpu);
         
         self.debug_window.update(&self.window_buffer);
     }
@@ -99,10 +100,10 @@ impl Debugger
         let mut char_txt = Vec::new();
         let mut bmp_txt = Vec::new();
         let mut bank_txt = Vec::new();
-        let _ = write!(&mut vmatrix_txt, "${:04X}", (((d018 >> 4) & 0xF) as u16) * 0x400);
-        let _ = write!(&mut char_txt, "${:04X}", (((d018 >> 1) & 0x07) as u16) * 0x800);
-        let _ = write!(&mut bmp_txt, "${:04X}", (((d018 >> 3) & 0x01) as u16) * 0x2000);
-        let _ = write!(&mut bank_txt, "${:04X}", dd00);
+        let _ = write!(&mut vmatrix_txt, "${:04X}", 0x400 * ((d018 >> 4) & 0xF) as u16);
+        let _ = write!(&mut char_txt, "${:04X}", 0x800 * ((d018 >> 1) & 0x07) as u16);
+        let _ = write!(&mut bmp_txt, "${:04X}", 0x2000 * ((d018 >> 3) & 0x01) as u16);
+        let _ = write!(&mut bank_txt, "${:04X}", 0xC000 - 0x4000 * (dd00 & 0x03) as u16);
         self.font.draw_text(&mut self.window_buffer, 43, 3, "Screen: ", 0x0F);
         self.font.draw_text(&mut self.window_buffer, 51, 3, &String::from_utf8(vmatrix_txt).unwrap().to_owned()[..], 0x0E);
         self.font.draw_text(&mut self.window_buffer, 45, 4, "Char: ", 0x0F);
@@ -115,10 +116,45 @@ impl Debugger
 
     fn draw_gfx_mode(&mut self, memory: &mut c64::memory::MemShared)
     {
-        self.font.draw_text(&mut self.window_buffer, 52, 1, "ECM", 0x0B);
-        self.font.draw_text(&mut self.window_buffer, 57, 1, "CHR", 0x0B);
-        self.font.draw_text(&mut self.window_buffer, 62, 1, "BMP", 0x0B);
-        self.font.draw_text(&mut self.window_buffer, 67, 1, "MCM", 0x0B);
+        let d011 = memory.borrow_mut().get_ram_bank(c64::memory::MemType::IO).read(0xD011);
+        let d016 = memory.borrow_mut().get_ram_bank(c64::memory::MemType::IO).read(0xD016);
+        let ecm_on = (d011 & 0x40) != 0;
+        let mcm_on = (d016 & 0x10) != 0;
+        let bmp_on = (d011 & 0x20) != 0;
+        
+        self.font.draw_text(&mut self.window_buffer, 52, 1, "ECM", if ecm_on { 0x0A } else { 0x0B });
+        self.font.draw_text(&mut self.window_buffer, 57, 1, "CHR", if !bmp_on & !ecm_on { 0x0A } else { 0x0B });
+        self.font.draw_text(&mut self.window_buffer, 62, 1, "BMP", if bmp_on { 0x0A } else { 0x0B });
+        self.font.draw_text(&mut self.window_buffer, 67, 1, "MCM", if mcm_on { 0x0A } else { 0x0B });
+    }
+
+    fn draw_cpu(&mut self, cpu: &mut c64::cpu::CPUShared)
+    {
+        let mut pc_txt = Vec::new();
+        let mut a_txt = Vec::new();
+        let mut x_txt = Vec::new();
+        let mut y_txt = Vec::new();
+        let mut sp_txt = Vec::new();
+        let mut p_txt = Vec::new();
+        let _ = write!(&mut pc_txt, "${:04X}", cpu.borrow_mut().PC);
+        let _ = write!(&mut a_txt, "${:02X}", cpu.borrow_mut().A);
+        let _ = write!(&mut x_txt, "${:02X}", cpu.borrow_mut().X);
+        let _ = write!(&mut y_txt, "${:02X}", cpu.borrow_mut().Y);
+        let _ = write!(&mut sp_txt, "${:02X}", cpu.borrow_mut().SP);
+        let _ = write!(&mut p_txt, "[{:08b}]", cpu.borrow_mut().P);
+        
+        self.font.draw_text(&mut self.window_buffer, 44, 23, "PC:", 0x0F);
+        self.font.draw_text(&mut self.window_buffer, 47, 23, &String::from_utf8(pc_txt).unwrap().to_owned()[..], 0x0E);
+        self.font.draw_text(&mut self.window_buffer, 53, 23, "A:", 0x0F);
+        self.font.draw_text(&mut self.window_buffer, 55, 23, &String::from_utf8(a_txt).unwrap().to_owned()[..], 0x0E);
+        self.font.draw_text(&mut self.window_buffer, 59, 23, "X:", 0x0F);
+        self.font.draw_text(&mut self.window_buffer, 61, 23, &String::from_utf8(x_txt).unwrap().to_owned()[..], 0x0E);
+        self.font.draw_text(&mut self.window_buffer, 65, 23, "Y:", 0x0F);
+        self.font.draw_text(&mut self.window_buffer, 67, 23, &String::from_utf8(y_txt).unwrap().to_owned()[..], 0x0E);
+        self.font.draw_text(&mut self.window_buffer, 71, 23, "SP:", 0x0F);
+        self.font.draw_text(&mut self.window_buffer, 74, 23, &String::from_utf8(sp_txt).unwrap().to_owned()[..], 0x0E);
+        self.font.draw_text(&mut self.window_buffer, 51, 24, "NV-BDIZC:", 0x0F);
+        self.font.draw_text(&mut self.window_buffer, 61, 24, &String::from_utf8(p_txt).unwrap().to_owned()[..], 0x0E);
     }
 
     fn draw_border(&mut self)
