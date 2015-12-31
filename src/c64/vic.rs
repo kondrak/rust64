@@ -73,7 +73,7 @@ pub struct VIC
     mc_base: [u16; 8],   // sprite data counter bases
     display_state: bool, // true: display state; false: idle state
     border_on: bool,     // upper/lower border on
-    ud_border_on: bool,  // TODO: check this again
+    ud_border_on: bool,
     frame_skipped: bool, // frame is being skipped
     is_bad_line: bool,
     draw_this_line: bool,
@@ -270,8 +270,6 @@ impl VIC
                 }
 
                 self.raster_irq = new_raster_irq;
-
-                // TODO: is this correct?
                 as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0xD016 =>
@@ -284,7 +282,7 @@ impl VIC
             },
             0xD017 =>
             {
-                self.sprite_y_exp |= !value; // TODO: check "!"
+                self.sprite_y_exp |= !value;
                 as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0xD018 =>
@@ -411,7 +409,6 @@ impl VIC
                 self.matrix_line[self.ml_idx] = self.read_byte(addr);
 
                 // assign value from color ram
-                // TODO: is this done correctly?
                 self.color_line[self.ml_idx] = as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).read(0xD800 + (addr & 0x03FF));
             }
         }
@@ -652,7 +649,7 @@ impl VIC
 
     fn set_ba_low(&mut self, c64_cycle_cnt: u32)
     {
-        if as_mut!(self.cpu_ref).ba_low == false
+        if !as_mut!(self.cpu_ref).ba_low
         {
             self.first_ba_cycle = c64_cycle_cnt;
             as_mut!(self.cpu_ref).ba_low = true;
@@ -695,7 +692,6 @@ impl VIC
     {
         let ref_cnt = self.refresh_cnt as u16;
         self.read_byte(0x3F00 | ref_cnt);
-        // TODO: wrapping?
         self.refresh_cnt = (Wrapping(self.refresh_cnt) - Wrapping(1)).0;
     }
 
@@ -736,8 +732,6 @@ impl VIC
         let mut mask: u8;
         let mut line_finished = false;
 
-        //println!("raster-cycle: {}", self.curr_cycle);
-        
         match self.curr_cycle
         {
             // fetch sprite pointer 3, inc raster counter, trigger raster irq,
@@ -1243,7 +1237,7 @@ impl VIC
                 {
                     if self.sprite_draw != 0 { self.draw_sprites(); }
 
-                    // left border
+                    // left border01
                     if self.border_on_sample[0]
                     {
                         for i in 0..4
@@ -1357,5 +1351,4 @@ impl VIC
 
         line_finished
     }
-    
 }
