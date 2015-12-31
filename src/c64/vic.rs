@@ -1345,13 +1345,7 @@ impl VIC
                 {
                     self.set_ba_low(c64_cycle_cnt);
                 }
-                
-                // last cycle
-                //let mut x = VICCallbackAction::None;
-                //let mut r = self.read_register(0xD021);
 
-                //r = (Wrapping(r) + Wrapping(1)).0;
-                //self.write_register(0xD021, r, &mut x);
                 line_finished = true;
             },
             _ => (),

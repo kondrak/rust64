@@ -463,8 +463,6 @@ impl CIA
 
     pub fn write_register(&mut self, addr: u16, value: u8, on_cia_write: &mut CIACallbackAction) -> bool
     {
-        //let base_addr = if self.is_cia1 { 0xDC00 } else { 0xDD00 };
-
         match addr & 0x00FF
         {
             0x05 => {
