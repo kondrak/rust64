@@ -23,7 +23,7 @@ impl Debugger
     pub fn new() -> Debugger
     {
         Debugger {
-            debug_window: Window::new("Debug window", DEBUG_W, DEBUG_H, Scale::X2, Vsync::No).unwrap(),
+            debug_window: Window::new("Debug window", DEBUG_W, DEBUG_H, Scale::X2).unwrap(),
             font: font::SysFont::new(DEBUG_W, DEBUG_H),
             window_buffer: vec![0; DEBUG_W * DEBUG_H],
             mempage_offset: 0,

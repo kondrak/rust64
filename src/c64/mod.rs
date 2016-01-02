@@ -47,7 +47,7 @@ impl C64
 
         let c64 = C64
         {
-            window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, Scale::X1, Vsync::No).unwrap(),
+            window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, Scale::X1).unwrap(),
             memory: memory.clone(), // shared system memory (RAM, ROM, IO registers)
             io:    io::IO::new(),
             clock: clock::Clock::new(CLOCK_FREQ),
