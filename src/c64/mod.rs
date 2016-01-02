@@ -118,20 +118,21 @@ impl C64
             {
                 //let prg_file = &self.file_to_load.to_owned()[..];
                 let prg_file = "bcs-01.prg";     // ok
-                //let prg_file = "triad-01.prg";
-                //let prg_file = "dd-01.prg";    // ok
+                let prg_file = "triad-01.prg";
+                //let prg_file = "dd-01.prg";    // ok - need sprites
                 let prg_file = "flt-01.prg";  // ok - blinking
                 //let prg_file = "esi-02.prg";   // ok - blinking
                 //let prg_file = "htl-03.prg";
-                //let prg_file = "ikari-02.prg"; // ok
+                //let prg_file = "ikari-02.prg"; // ok - need sprites
                 //let prg_file = "img.prg";
+                let prg_file ="tests/bgcolor.prg";
                 //let prg_file = "flt-09.prg";    // bw?
                 //let prg_file = "newage-03.prg"; // ok
                 //let prg_file = "orion-26.prg";  // ok
                 //let prg_file = "energy-09.prg";
                 //let prg_file = "jam-10.prg";  // ok
                 //let prg_file = "tpi-01.prg";
-                //let prg_file = "711-01.prg";
+                //let prg_file = "711-01.prg"; // ok - need sprites
                 
                 if prg_file.len() > 0
                 {
@@ -142,7 +143,8 @@ impl C64
             }
         }
         
-        if self.clock.tick() {
+        if self.clock.tick()
+        {
             let mut should_trigger_vblank = false;
 
             self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank);
@@ -168,7 +170,7 @@ impl C64
                     self.cpu.borrow_mut().trigger_nmi();
                 }
             }
-            
+
             self.cycle_count += 1;
         }
     }
