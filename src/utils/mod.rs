@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::error::Error;
 use std::io::prelude::*;
 use std::fs::File;

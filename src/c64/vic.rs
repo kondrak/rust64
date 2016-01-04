@@ -1,5 +1,4 @@
 // VIC-II
-extern crate sdl2;
 use c64::memory;
 use c64::cpu;
 use std::cell::RefCell;
@@ -8,7 +7,6 @@ use std::num::Wrapping;
 use c64;
 use utils;
 
-// preferences (to be modifiable)
 static SKIP_FRAMES: u16 = 2;
 
 pub type VICShared = Rc<RefCell<VIC>>;

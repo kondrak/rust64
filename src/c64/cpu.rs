@@ -424,7 +424,7 @@ impl CPU
     pub fn trigger_vic_irq(&mut self)
     {
         // TODO:
-        //println!("VIC irq");
+        //println!("VIC irq triggered");
         self.vic_irq = true;
     }
 
@@ -450,7 +450,7 @@ impl CPU
     pub fn trigger_cia_irq(&mut self)
     {
         // TODO
-        //println!("CIA irq");
+        //println!("CIA irq triggered");
         self.cia_irq = true;
     }
 
@@ -480,7 +480,7 @@ impl CPU
         let curr_pc = self.PC;
         match opcodes::get_instruction(opcode, self)
         {
-            Some((instruction, num_cycles, addr_mode)) => {
+            Some((_, num_cycles, _)) => {
                 self.PC = curr_pc;
                 num_cycles
             },

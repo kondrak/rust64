@@ -10,6 +10,7 @@ pub mod memory;
 mod io;
 mod cia;
 mod vic;
+mod sid;
 
 pub const SCREEN_WIDTH:  usize = 384; // extend 20 pixels left and right for the borders
 pub const SCREEN_HEIGHT: usize = 272; // extend 36 pixels top and down for the borders
@@ -28,6 +29,7 @@ pub struct C64
     cia1: cia::CIAShared,
     cia2: cia::CIAShared,
     vic: vic::VICShared,
+    sid: sid::SID,
 
     debugger: debugger::Debugger,
     boot_complete: bool,
@@ -45,7 +47,7 @@ impl C64
         let cia2   = cia::CIA::new_shared(false);
         let cpu    = cpu::CPU::new_shared();
 
-        let c64 = C64
+        let mut c64 = C64
         {
             window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, Scale::X1).unwrap(),
             memory: memory.clone(), // shared system memory (RAM, ROM, IO registers)
@@ -55,6 +57,7 @@ impl C64
             cia1: cia1.clone(),
             cia2: cia2.clone(),
             vic: vic.clone(),
+            sid: sid::SID::new(),
 
             debugger: debugger::Debugger::new(),
             boot_complete: false,
@@ -67,6 +70,7 @@ impl C64
         c64.cia1.borrow_mut().set_references(memory.clone(), cpu.clone(), vic.clone());
         c64.cia2.borrow_mut().set_references(memory.clone(), cpu.clone(), vic.clone());
         c64.vic.borrow_mut().set_references(memory.clone(), cpu.clone());
+        c64.sid.set_references(memory.clone());
         c64.cpu.borrow_mut().set_references(memory.clone(), vic.clone(), cia1.clone(), cia2.clone());
         
         drop(memory);
@@ -147,9 +151,11 @@ impl C64
         {
             let mut should_trigger_vblank = false;
 
-            self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank);
+            if self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank)
+            {
+                self.sid.update();
+            }
 
-            // TODO: update sid *HERE* when it's done
             self.cia1.borrow_mut().process_irq();
             self.cia2.borrow_mut().process_irq();
             self.cia1.borrow_mut().update();
