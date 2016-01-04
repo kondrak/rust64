@@ -5,7 +5,7 @@ Dependencies:
 - rust-sdl2 bindings, follow the readme here to compile: https://github.com/AngryLawyer/rust-sdl2
 - minifb: https://github.com/emoon/rust_minifb
 
-Requires Rust 1.5.0 to compile and run. Currently only supports Win32 due to dependency libraries being under development.
+Requires Rust 1.5.0 to compile and run.
 
 TODO:
 - sprites
