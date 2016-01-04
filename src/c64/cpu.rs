@@ -45,7 +45,9 @@ pub struct CPU
     pub ba_low: bool,  // is BA low?
     pub cia_irq: bool,
     pub vic_irq: bool,
-    wait_cycles: u8,
+    irq_cycles: u8,
+    op_cycles: u8,
+    curr_op: u8,
     nmi: bool,
     pub prev_PC: u16, // previous program counter - for debugging
     dfff_byte: u8,
@@ -71,7 +73,9 @@ impl CPU
             ba_low: false,
             cia_irq: false,
             vic_irq: false,
-            wait_cycles: 0,
+            irq_cycles: 0,
+            op_cycles: 0,
+            curr_op: 0,
             nmi: false,
             prev_PC: 0,
             dfff_byte: 0x55,
@@ -119,20 +123,34 @@ impl CPU
 
     pub fn update(&mut self)
     {
-        if self.process_nmi() { self.wait_cycles += 7; }
-        else if self.process_irq() { self.wait_cycles += 7; }
-
-        if !self.ba_low { 
-            if self.wait_cycles == 0
-            {
-                let op = self.next_byte();
-                self.wait_cycles += self.process_op(op);
-            }
-        }
+        if self.process_nmi() { self.irq_cycles = 7; }
+        else if self.process_irq() { self.irq_cycles = 7; }
         
-        if self.wait_cycles > 0
-        {
-            self.wait_cycles -= 1;
+        if !self.ba_low {
+
+            if self.irq_cycles > 0
+            {
+                self.irq_cycles -= 1;
+                return
+            }
+            
+            if self.op_cycles == 0
+            {
+                self.curr_op = self.next_byte();
+                let co = self.curr_op;
+                self.op_cycles = self.get_op_cycles(co);
+            }
+
+            if self.op_cycles > 0
+            {
+                self.op_cycles -= 1;
+            }
+
+            if self.op_cycles == 0
+            {
+                let co = self.curr_op;
+                self.process_op(co);
+            }
         }
     }
 
@@ -358,6 +376,8 @@ impl CPU
     
     fn process_nmi(&mut self) -> bool
     {
+        // only process irq if it's the "fetch op" stage
+        if self.op_cycles != 0 { return false }
         // 7 cycles
         if self.nmi
         {
@@ -378,6 +398,8 @@ impl CPU
     
     fn process_irq(&mut self) -> bool
     {
+        // only process irq if it's the "fetch op" stage
+        if self.op_cycles != 0 { return false }
         // 7 cycles
         if (self.cia_irq || self.vic_irq) && !self.get_status_flag(StatusFlag::InterruptDisable)
         {
@@ -447,6 +469,19 @@ impl CPU
             Some((instruction, num_cycles, addr_mode)) => {
                 //utils::debug_instruction(opcode, Some((&instruction, num_cycles, &addr_mode)), self);
                 instruction.run(&addr_mode, self);
+                num_cycles
+            },
+            None => panic!("No instruction - this should never happen! (0x{:02X} at ${:04X})", opcode, self.PC)
+        }
+    }
+
+    fn get_op_cycles(&mut self, opcode: u8) -> u8
+    {
+        let curr_pc = self.PC;
+        match opcodes::get_instruction(opcode, self)
+        {
+            Some((instruction, num_cycles, addr_mode)) => {
+                self.PC = curr_pc;
                 num_cycles
             },
             None => panic!("No instruction - this should never happen! (0x{:02X} at ${:04X})", opcode, self.PC)
