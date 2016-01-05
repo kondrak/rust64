@@ -305,6 +305,7 @@ impl VIC
                     // it's not possible due to RefCell already being borrowed (call by CPU)
                     *on_vic_write = VICCallbackAction::TriggerVICIrq;
                 }
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0xD01A =>
             {
@@ -320,6 +321,8 @@ impl VIC
                     self.irq_flag &= 0x7F;
                     *on_vic_write = VICCallbackAction::ClearVICIrq;
                 }
+
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0xD040...0xD3FF => { self.write_register(0xD000 + (addr % 0x0040), value, on_vic_write); },
             _ => as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value),

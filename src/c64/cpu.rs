@@ -204,7 +204,7 @@ impl CPU
     {
         let mut on_vic_write: vic::VICCallbackAction = vic::VICCallbackAction::None;
         let mut on_cia_write: cia::CIACallbackAction = cia::CIACallbackAction::None;
-        let mem_write_ok: bool;
+        let mut mem_write_ok = true;
         let io_enabled = as_ref!(self.mem_ref).io_on;
 
         match addr
@@ -213,7 +213,6 @@ impl CPU
             0xD000...0xD3FF => {
                 if io_enabled
                 {
-                    mem_write_ok = true;
                     as_mut!(self.vic_ref).write_register(addr, value, &mut on_vic_write);
                 }
                 else
@@ -236,7 +235,7 @@ impl CPU
             0xDC00...0xDCFF => {
                 if io_enabled
                 {
-                    mem_write_ok = as_mut!(self.cia1_ref).write_register(addr, value, &mut on_cia_write);
+                    as_mut!(self.cia1_ref).write_register(addr, value, &mut on_cia_write);
                 }
                 else
                 {
@@ -247,7 +246,7 @@ impl CPU
             0xDD00...0xDDFF => {
                 if io_enabled
                 {
-                    mem_write_ok = as_mut!(self.cia2_ref).write_register(addr, value, &mut on_cia_write);
+                    as_mut!(self.cia2_ref).write_register(addr, value, &mut on_cia_write);
                 }
                 else
                 {
@@ -270,7 +269,7 @@ impl CPU
             cia::CIACallbackAction::TriggerCIAIRQ => self.trigger_cia_irq(),
             cia::CIACallbackAction::ClearCIAIRQ   => self.clear_cia_irq(),
             cia::CIACallbackAction::TriggerNMI    => self.trigger_nmi(),
-            cia::CIACallbackAction::ClearNMI      => self.clear_nmi(),            
+            cia::CIACallbackAction::ClearNMI      => self.clear_nmi(),
             _ => (),
         }        
 

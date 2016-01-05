@@ -370,7 +370,7 @@ impl CIA
         {
             0x02 => self.ddra,
             0x03 => self.ddrb,
-            0x04 => self.timer_a.value as u8,
+            0x04 =>  self.timer_a.value as u8,
             0x05 => (self.timer_a.value >> 8) as u8,
             0x06 => self.timer_b.value as u8,
             0x07 => (self.timer_b.value >> 8) as u8,
@@ -461,27 +461,33 @@ impl CIA
         }
     }
 
-    pub fn write_register(&mut self, addr: u16, value: u8, on_cia_write: &mut CIACallbackAction) -> bool
+    pub fn write_register(&mut self, addr: u16, value: u8, on_cia_write: &mut CIACallbackAction)
     {
         match addr & 0x00FF
         {
-            0x04 => { self.timer_a.latch = (self.timer_a.latch & 0xFF00) | value as u16; true },
+            0x04 => {
+                self.timer_a.latch = (self.timer_a.latch & 0xFF00) | value as u16;
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
+            },
             0x05 => {
                 self.timer_a.latch = (self.timer_a.latch & 0x00FF) | ((value as u16) << 8);
                 if (self.timer_a.ctrl & 1) == 0
                 {
                     self.timer_a.value = self.timer_a.latch;
                 }
-                true
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
-            0x06 => { self.timer_b.latch = (self.timer_b.latch & 0xFF00) | value as u16; true },
+            0x06 => {
+                self.timer_b.latch = (self.timer_b.latch & 0xFF00) | value as u16;
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
+            },
             0x07 => {
                 self.timer_b.latch = (self.timer_b.latch & 0x00FF) | ((value as u16) << 8);
                 if (self.timer_b.ctrl & 1) == 0
                 {
                     self.timer_b.value = self.timer_b.latch;
                 }
-                true
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0x08 => {
                 if (self.timer_b.ctrl & 0x80) != 0
@@ -492,7 +498,7 @@ impl CIA
                 {
                     self.tod_dsec = value & 0x0F;
                 }
-                true
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0x09 => {
                 if (self.timer_b.ctrl & 0x80) != 0
@@ -503,7 +509,7 @@ impl CIA
                 {
                     self.tod_sec = value & 0x7F;
                 }
-                true
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0x0A => {
                 if (self.timer_b.ctrl & 0x80) != 0
@@ -514,7 +520,7 @@ impl CIA
                 {
                     self.tod_min = value & 0x7F;
                 }
-                true
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
              0x0B => {
                 if (self.timer_b.ctrl & 0x80) != 0
@@ -525,7 +531,7 @@ impl CIA
                 {
                     self.tod_hour = value & 0x9F;
                 }
-                true
+                 as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
              },
             0x0C => {
                 self.sdr = value;
@@ -534,7 +540,6 @@ impl CIA
                 {
                     *on_cia_write = if self.is_cia1 { CIACallbackAction::TriggerCIAIRQ } else { CIACallbackAction::TriggerNMI };
                 }
-                true
             },
             0x0D => {
                 if (value & 0x80) != 0
@@ -551,48 +556,48 @@ impl CIA
                     self.icr |= 0x80;
                     *on_cia_write = if self.is_cia1 { CIACallbackAction::TriggerCIAIRQ } else { CIACallbackAction::TriggerNMI };
                 }
-                true
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0x0E => {
                 self.timer_a.has_new_ctrl = true;
                 self.timer_a.new_ctrl = value;
                 self.timer_a.is_cnt_phi2 = (value & 0x20) == 0;
-                true
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             0x0F => {
                 self.timer_b.has_new_ctrl = true;
                 self.timer_b.new_ctrl = value;
                 self.timer_b.is_cnt_phi2 = (value & 0x60) == 0;
                 self.timer_b.cnt_ta_underflow = (value & 0x60) == 0x40;
-                true
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
             _ => {
                 if self.is_cia1
                 {
-                    self.write_cia1_register(addr, value, on_cia_write)
+                    self.write_cia1_register(addr, value, on_cia_write);
                 }
                 else
                 {
-                    self.write_cia2_register(addr, value, on_cia_write)
+                    self.write_cia2_register(addr, value, on_cia_write);
                 }
             }
         }
     }
 
-    fn write_cia1_register(&mut self, addr: u16, value: u8, on_cia_write: &mut CIACallbackAction) -> bool
+    fn write_cia1_register(&mut self, addr: u16, value: u8, on_cia_write: &mut CIACallbackAction)
     {
         match addr
         {
-            0xDC00 => { self.pra = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); true },
-            0xDC01 => { self.prb = value; self.check_lp(); as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); true },
-            0xDC02 => { self.ddra = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); true },
-            0xDC03 => { self.ddrb = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); self.check_lp(); true },
+            0xDC00 => { self.pra = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); },
+            0xDC01 => { self.prb = value; self.check_lp(); as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); },
+            0xDC02 => { self.ddra = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); },
+            0xDC03 => { self.ddrb = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); self.check_lp(); },
             0xDC10...0xDCFF => self.write_cia1_register(0xDC00 + (addr % 0x0010), value, on_cia_write),
             _ => panic!("Address out of CIA1 memory range"),
         }
     }
 
-    fn write_cia2_register(&mut self, addr: u16, value: u8, on_cia_write: &mut CIACallbackAction) -> bool
+    fn write_cia2_register(&mut self, addr: u16, value: u8, on_cia_write: &mut CIACallbackAction)
     {
         match addr
         {
@@ -601,20 +606,17 @@ impl CIA
                 self.pra = value;
                 as_mut!(self.vic_ref).on_va_change(!(self.pra | !self.ddra) & 3);
                 as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
-                true
             },
             0xDD01 => {
                 self.prb = value;
                 as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
-                true
             },
             0xDD02 => {
                 self.ddra = value;
                 as_mut!(self.vic_ref).on_va_change(!(self.pra | !self.ddra) & 3);
                 as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
-                true
             },
-            0xDD03 => { self.ddrb = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); true },
+            0xDD03 => { self.ddrb = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value); },
             0xDD10...0xDDFF => self.write_cia2_register(0xDD00 + (addr % 0x0010), value, on_cia_write),
             _ => panic!("Address out of CIA2 memory range"),
         }
@@ -752,7 +754,9 @@ impl CIA
                     self.tod_sec = (hi << 4) | lo;
                }
             }
-            
+
+            // TODO: update memory registers
+
             // trigger irq if alarm time reached
             if (self.tod_dsec == self.alarm_dsec) &&
                (self.tod_sec  == self.alarm_sec)  &&
