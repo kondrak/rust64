@@ -15,7 +15,8 @@ pub struct Debugger
     debug_window: minifb::Window,
     font: font::SysFont,
     window_buffer: Vec<u32>,
-    mempage_offset: u32,
+    mempage_offset: u32, // RAM preview memory page offset
+    draw_mode: u8,
 }
 
 impl Debugger
@@ -27,10 +28,54 @@ impl Debugger
             font: font::SysFont::new(DEBUG_W, DEBUG_H),
             window_buffer: vec![0; DEBUG_W * DEBUG_H],
             mempage_offset: 0,
+            draw_mode: 0,
         }
     }
 
     pub fn render(&mut self, cpu: &mut c64::cpu::CPUShared, memory: &mut c64::memory::MemShared)
+    {
+        self.draw_border();
+
+        if self.debug_window.is_key_pressed(Key::End, KeyRepeat::No)
+        {
+            self.draw_mode += 1;
+            if self.draw_mode > 3 { self.draw_mode = 0; }
+
+            // clear memdump
+            for y in 1..26
+            {
+                for x in 0..40
+                {
+                    self.clear_char(x, y);
+                }
+            }
+
+            // clear hex region
+            for y in 28..52
+            {
+                for x in 0..80
+                {
+                    self.clear_char(x, y);
+                }
+            }
+        }
+
+        match self.draw_mode {
+            0 => self.draw_ram(memory),
+            1 => self.draw_vic(memory),
+            2 => self.draw_cia(memory),
+            3 => self.draw_color_ram(memory),
+            _ => ()
+        }
+
+        self.draw_gfx_mode(memory);
+        self.draw_data(memory);
+        self.draw_cpu(cpu);
+
+        self.debug_window.update(&self.window_buffer);
+    }
+
+    fn draw_ram(&mut self, memory: &mut c64::memory::MemShared)
     {
         if self.debug_window.is_key_pressed(Key::PageUp, KeyRepeat::Yes)
         {
@@ -43,8 +88,6 @@ impl Debugger
             if self.mempage_offset == 0x0000 { self.mempage_offset = 0x10000; }
             self.mempage_offset -= 0x400;
         }
-
-        self.draw_border();
         
         // dump memory page to screen
         let mut start = 0x0000 + self.mempage_offset as u16;
@@ -52,6 +95,8 @@ impl Debugger
         let mut title = Vec::new();
         let _ = write!(&mut title, "Memory page ${:04x}-${:04x}", start, start + 0x3FF);
         self.font.draw_text(&mut self.window_buffer, 0, 0, &String::from_utf8(title).unwrap().to_owned()[..], 0x0A);
+        self.font.draw_text(&mut self.window_buffer, 34, 0, "*RAM*", 0x0E);
+
         let mut hex_offset_x = 0;
 
         for y in 0..25
@@ -68,12 +113,93 @@ impl Debugger
 
             hex_offset_x = 0;
         }
+    }
 
-        self.draw_gfx_mode(memory);
-        self.draw_data(memory);
-        self.draw_cpu(cpu);
+    fn draw_vic(&mut self, memory: &mut c64::memory::MemShared)
+    {
+        let mut start = 0xD000;
+
+        let mut title = Vec::new();
+        let _ = write!(&mut title, "VIC ${:04x}-${:04x}", start, start + 0x03F);
+        self.font.draw_text(&mut self.window_buffer, 0, 0, &String::from_utf8(title).unwrap().to_owned()[..], 0x0A);
+        self.font.draw_text(&mut self.window_buffer, 34, 0, "*VIC*", 0x0E);
         
-        self.debug_window.update(&self.window_buffer);
+        let mut hex_offset_x = 0;
+
+        for y in 0..25
+        {
+            for x in 0..40
+            {
+                let byte = memory.borrow_mut().get_ram_bank(c64::memory::MemType::IO).read(start);
+                self.font.draw_char(&mut self.window_buffer, 8*x as usize, 8 + 8*y as usize, byte, 0x05);
+
+                self.draw_hex(hex_offset_x + x as usize, 27 + y as usize, byte);
+                hex_offset_x += 1;
+                start += 1;
+
+                if start == 0xD040 { return; }
+            }
+
+            hex_offset_x = 0;
+        }
+    }
+
+    fn draw_cia(&mut self, memory: &mut c64::memory::MemShared)
+    {
+        let mut start = 0xDC00;
+
+        let mut title = Vec::new();
+        let _ = write!(&mut title, "CIA ${:04x}-${:04x}", start, start + 0x1FF);
+        self.font.draw_text(&mut self.window_buffer, 0, 0, &String::from_utf8(title).unwrap().to_owned()[..], 0x0A);
+        self.font.draw_text(&mut self.window_buffer, 34, 0, "*CIA*", 0x0E);
+        
+        let mut hex_offset_x = 0;
+
+        for y in 0..25
+        {
+            for x in 0..40
+            {
+                let byte = memory.borrow_mut().get_ram_bank(c64::memory::MemType::IO).read(start);
+                self.font.draw_char(&mut self.window_buffer, 8*x as usize, 8 + 8*y as usize, byte, 0x05);
+
+                self.draw_hex(hex_offset_x + x as usize, 27 + y as usize, byte);
+                hex_offset_x += 1;
+                start += 1;
+
+                if start == 0xDE00 { return; }
+            }
+
+            hex_offset_x = 0;
+        }
+    }
+
+    fn draw_color_ram(&mut self, memory: &mut c64::memory::MemShared)
+    {
+        let mut start = 0xD800;
+
+        let mut title = Vec::new();
+        let _ = write!(&mut title, "COLOR ${:04x}-${:04x}", start, start + 0x3FF);
+        self.font.draw_text(&mut self.window_buffer, 0, 0, &String::from_utf8(title).unwrap().to_owned()[..], 0x0A);
+        self.font.draw_text(&mut self.window_buffer, 28, 0, "*COLOR RAM*", 0x0E);
+        
+        let mut hex_offset_x = 0;
+
+        for y in 0..25
+        {
+            for x in 0..40
+            {
+                let byte = memory.borrow_mut().get_ram_bank(c64::memory::MemType::IO).read(start);
+                self.font.draw_char(&mut self.window_buffer, 8*x as usize, 8 + 8*y as usize, byte, 0x05);
+
+                self.draw_hex(hex_offset_x + x as usize, 27 + y as usize, byte);
+                hex_offset_x += 1;
+                start += 1;
+
+                if start == 0xDC00 { return; }
+            }
+
+            hex_offset_x = 0;
+        }
     }
 
     fn draw_hex(&mut self, x_pos: usize, y_pos: usize, byte: u8 )
@@ -172,6 +298,11 @@ impl Debugger
         
         self.font.draw_char(&mut self.window_buffer, 8*40, 0, 114, 0x0B);
         self.font.draw_char(&mut self.window_buffer, 8*40, 8*26, 113, 0x0B);
+    }
+
+    fn clear_char(&mut self, x_pos: usize, y_pos: usize)
+    {
+        self.font.draw_text(&mut self.window_buffer, x_pos, y_pos, " ", 0x00);
     }
     
    /* fn set_saturation(&self, color: &mut u32, change: f64)
