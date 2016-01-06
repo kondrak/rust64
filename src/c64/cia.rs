@@ -8,15 +8,6 @@ use std::cell::RefCell;
 
 pub type CIAShared = Rc<RefCell<CIA>>;
 
-pub enum CIACallbackAction
-{
-    None,
-    TriggerCIAIRQ,
-    ClearCIAIRQ,
-    TriggerNMI,
-    ClearNMI,
-}
-
 enum TimerState
 {
     STOP,
@@ -362,7 +353,7 @@ impl CIA
         self.iec_lines = 0xD0;
     }
 
-    pub fn read_register(&mut self, addr: u16, on_cia_read: &mut CIACallbackAction) -> u8
+    pub fn read_register(&mut self, addr: u16, on_cia_read: &mut cpu::CallbackAction) -> u8
     {
         //let base_addr = if self.is_cia1 { 0xDC00 } else { 0xDD00 };
         // CIA1 and CIA2 share behavior for certain addresses
@@ -388,7 +379,7 @@ impl CIA
             0x0D => {
                 let curr_icr = self.icr;
                 self.icr = 0;
-                *on_cia_read = if self.is_cia1 { CIACallbackAction::ClearCIAIRQ } else { CIACallbackAction::ClearNMI };
+                *on_cia_read = if self.is_cia1 { cpu::CallbackAction::ClearCIAIrq } else { cpu::CallbackAction::ClearNMI };
                 curr_icr
             },
             0x0E => self.timer_a.ctrl,
@@ -461,7 +452,14 @@ impl CIA
         }
     }
 
-    pub fn write_register(&mut self, addr: u16, value: u8, on_cia_write: &mut CIACallbackAction)
+    // write to register - ignore callback to CPU
+    pub fn write_register_nc(&mut self, addr: u16, value: u8)
+    {
+        let mut ca = cpu::CallbackAction::None;
+        self.write_register(addr, value, &mut ca);
+    }
+    
+    pub fn write_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::CallbackAction)
     {
         match addr & 0x00FF
         {
@@ -538,7 +536,7 @@ impl CIA
                 let irq_triggered = self.trigger_irq(8);
                 if irq_triggered
                 {
-                    *on_cia_write = if self.is_cia1 { CIACallbackAction::TriggerCIAIRQ } else { CIACallbackAction::TriggerNMI };
+                    *on_cia_write = if self.is_cia1 { cpu::CallbackAction::TriggerCIAIrq } else { cpu::CallbackAction::TriggerNMI };
                 }
             },
             0x0D => {
@@ -554,7 +552,7 @@ impl CIA
                 if (self.icr & self.irq_mask & 0x1F) != 0
                 {
                     self.icr |= 0x80;
-                    *on_cia_write = if self.is_cia1 { CIACallbackAction::TriggerCIAIRQ } else { CIACallbackAction::TriggerNMI };
+                    *on_cia_write = if self.is_cia1 { cpu::CallbackAction::TriggerCIAIrq } else { cpu::CallbackAction::TriggerNMI };
                 }
                 as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
@@ -584,7 +582,7 @@ impl CIA
         }
     }
 
-    fn write_cia1_register(&mut self, addr: u16, value: u8, on_cia_write: &mut CIACallbackAction)
+    fn write_cia1_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::CallbackAction)
     {
         match addr
         {
@@ -597,7 +595,7 @@ impl CIA
         }
     }
 
-    fn write_cia2_register(&mut self, addr: u16, value: u8, on_cia_write: &mut CIACallbackAction)
+    fn write_cia2_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::CallbackAction)
     {
         match addr
         {

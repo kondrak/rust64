@@ -26,6 +26,18 @@ pub enum StatusFlag
     Negative         = 1 << 7,
 }
 
+// action to perform on specific CIA and VIC events
+pub enum CallbackAction
+{
+    None,
+    TriggerVICIrq,
+    ClearVICIrq,
+    TriggerCIAIrq,
+    ClearCIAIrq,
+    TriggerNMI,
+    ClearNMI
+}
+
 pub static NMI_VECTOR:   u16 = 0xFFFA;
 pub static RESET_VECTOR: u16 = 0xFFFC;
 pub static IRQ_VECTOR:   u16 = 0xFFFE;
@@ -202,8 +214,7 @@ impl CPU
 
     pub fn write_byte(&mut self, addr: u16, value: u8) -> bool
     {
-        let mut on_vic_write: vic::VICCallbackAction = vic::VICCallbackAction::None;
-        let mut on_cia_write: cia::CIACallbackAction = cia::CIACallbackAction::None;
+        let mut write_callback = CallbackAction::None;
         let mut mem_write_ok = true;
         let io_enabled = as_ref!(self.mem_ref).io_on;
 
@@ -213,7 +224,7 @@ impl CPU
             0xD000...0xD3FF => {
                 if io_enabled
                 {
-                    as_mut!(self.vic_ref).write_register(addr, value, &mut on_vic_write);
+                    as_mut!(self.vic_ref).write_register(addr, value, &mut write_callback);
                 }
                 else
                 {
@@ -235,7 +246,7 @@ impl CPU
             0xDC00...0xDCFF => {
                 if io_enabled
                 {
-                    as_mut!(self.cia1_ref).write_register(addr, value, &mut on_cia_write);
+                    as_mut!(self.cia1_ref).write_register(addr, value, &mut write_callback);
                 }
                 else
                 {
@@ -246,7 +257,7 @@ impl CPU
             0xDD00...0xDDFF => {
                 if io_enabled
                 {
-                    as_mut!(self.cia2_ref).write_register(addr, value, &mut on_cia_write);
+                    as_mut!(self.cia2_ref).write_register(addr, value, &mut write_callback);
                 }
                 else
                 {
@@ -256,22 +267,17 @@ impl CPU
             _ => mem_write_ok = as_mut!(self.mem_ref).write_byte(addr, value),
         }
 
-        // on VIC register write perform necessary action on the CPU
-        match on_vic_write
+        // on VIC/CIA register write perform necessary action on the CPU
+        match write_callback
         {
-            vic::VICCallbackAction::TriggerVICIrq => self.trigger_vic_irq(),
-            vic::VICCallbackAction::ClearVICIrq   => self.clear_vic_irq(),
+            CallbackAction::TriggerVICIrq => self.trigger_vic_irq(),
+            CallbackAction::ClearVICIrq   => self.clear_vic_irq(),
+            CallbackAction::TriggerCIAIrq => self.trigger_cia_irq(),
+            CallbackAction::ClearCIAIrq   => self.clear_cia_irq(),
+            CallbackAction::TriggerNMI    => self.trigger_nmi(),
+            CallbackAction::ClearNMI      => self.clear_nmi(),
             _ => (),
         }
-
-        match on_cia_write
-        {
-            cia::CIACallbackAction::TriggerCIAIRQ => self.trigger_cia_irq(),
-            cia::CIACallbackAction::ClearCIAIRQ   => self.clear_cia_irq(),
-            cia::CIACallbackAction::TriggerNMI    => self.trigger_nmi(),
-            cia::CIACallbackAction::ClearNMI      => self.clear_nmi(),
-            _ => (),
-        }        
 
         mem_write_ok
     }
@@ -279,7 +285,7 @@ impl CPU
     pub fn read_byte(&mut self, addr: u16) -> u8
     {
         let byte: u8;
-        let mut on_cia_read: cia::CIACallbackAction = cia::CIACallbackAction::None;
+        let mut read_callback = CallbackAction::None;
         let io_enabled = as_ref!(self.mem_ref).io_on;
         match addr
         {
@@ -309,7 +315,7 @@ impl CPU
             0xDC00...0xDCFF => {
                 if io_enabled
                 {
-                    byte = as_mut!(self.cia1_ref).read_register(addr, &mut on_cia_read);
+                    byte = as_mut!(self.cia1_ref).read_register(addr, &mut read_callback);
                 }
                 else
                 {
@@ -320,7 +326,7 @@ impl CPU
             0xDD00...0xDDFF => {
                 if io_enabled
                 {
-                    byte = as_mut!(self.cia2_ref).read_register(addr, &mut on_cia_read);
+                    byte = as_mut!(self.cia2_ref).read_register(addr, &mut read_callback);
                 }
                 else
                 {
@@ -351,12 +357,12 @@ impl CPU
             _ => byte = as_mut!(self.mem_ref).read_byte(addr)
         }
 
-        match on_cia_read
+        match read_callback
         {
-            cia::CIACallbackAction::TriggerCIAIRQ => self.trigger_cia_irq(),
-            cia::CIACallbackAction::ClearCIAIRQ   => self.clear_cia_irq(),
-            cia::CIACallbackAction::TriggerNMI    => self.trigger_nmi(),
-            cia::CIACallbackAction::ClearNMI      => self.clear_nmi(),
+            CallbackAction::TriggerCIAIrq => self.trigger_cia_irq(),
+            CallbackAction::ClearCIAIrq   => self.clear_cia_irq(),
+            CallbackAction::TriggerNMI    => self.trigger_nmi(),
+            CallbackAction::ClearNMI      => self.clear_nmi(),
             _ => (),
         }
 

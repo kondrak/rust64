@@ -26,13 +26,6 @@ static ROW25_YSTOP:  u16 = 0xFB;
 static ROW24_YSTART: u16 = 0x37;
 static ROW24_YSTOP:  u16 = 0xF7;
 
-// action to perform on specific VIC events (write, raster irq...)
-pub enum VICCallbackAction
-{
-    None,
-    TriggerVICIrq,
-    ClearVICIrq,
-}
 
 pub struct VIC
 {
@@ -185,7 +178,15 @@ impl VIC
         }
     }
 
-    pub fn write_register(&mut self, addr: u16, value: u8, on_vic_write: &mut VICCallbackAction)
+    // write to register - ignore callback to CPU
+    pub fn write_register_nc(&mut self, addr: u16, value: u8)
+    {
+        let mut ca = cpu::CallbackAction::None;
+        self.write_register(addr, value, &mut ca);
+    }
+
+    // write to register - perform callback action on CPU
+    pub fn write_register(&mut self, addr: u16, value: u8, on_vic_write: &mut cpu::CallbackAction)
     {
         match addr
         {
@@ -303,7 +304,7 @@ impl VIC
                 {
                     // normally we'd dereference the cpu directly but in Rust
                     // it's not possible due to RefCell already being borrowed (call by CPU)
-                    *on_vic_write = VICCallbackAction::TriggerVICIrq;
+                    *on_vic_write = cpu::CallbackAction::TriggerVICIrq;
                 }
                 as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
@@ -314,12 +315,12 @@ impl VIC
                 if (self.irq_flag & self.irq_mask) != 0
                 {
                     self.irq_flag |= 0x80;
-                    *on_vic_write = VICCallbackAction::TriggerVICIrq;
+                    *on_vic_write = cpu::CallbackAction::TriggerVICIrq;
                 }
                 else
                 {
                     self.irq_flag &= 0x7F;
-                    *on_vic_write = VICCallbackAction::ClearVICIrq;
+                    *on_vic_write = cpu::CallbackAction::ClearVICIrq;
                 }
 
                 as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
@@ -346,9 +347,8 @@ impl VIC
                 as_mut!(self.cpu_ref).trigger_vic_irq();
             }
 
-            let mut vicwrite: VICCallbackAction = VICCallbackAction::None;
-            self.write_register(0xD013, lpx as u8, &mut vicwrite);
-            self.write_register(0xD014, lpy as u8, &mut vicwrite);
+            self.write_register_nc(0xD013, lpx as u8);
+            self.write_register_nc(0xD014, lpy as u8);
         }
     }
 
@@ -356,11 +356,10 @@ impl VIC
     {
         self.cia_vabase = (new_va as u16) << 14;
         let vbase = self.read_register(0xD018);
-        let mut vicwrite: VICCallbackAction = VICCallbackAction::None;
-        self.write_register(0xD018, vbase, &mut vicwrite);
+        self.write_register_nc(0xD018, vbase);
     }
 
-    pub fn raster_irq(&mut self) -> VICCallbackAction
+    pub fn raster_irq(&mut self) -> cpu::CallbackAction
     {
         self.irq_flag |= 0x01;
  
@@ -370,11 +369,11 @@ impl VIC
 
             // TODO: when the time is right check if this works correctly (irq should be triggered here)
             //as_mut!(self.cpu_ref).trigger_vic_irq();
-            VICCallbackAction::TriggerVICIrq
+            cpu::CallbackAction::TriggerVICIrq
         }
         else
         {
-            VICCallbackAction::None
+            cpu::CallbackAction::None
         }
     }
 
@@ -748,11 +747,8 @@ impl VIC
 
                     if self.raster_cnt == self.raster_irq
                     {
-                        let ri = self.raster_irq();
-
-                        match ri
-                        {
-                            VICCallbackAction::TriggerVICIrq => as_mut!(self.cpu_ref).trigger_vic_irq(),
+                        match self.raster_irq() {
+                            cpu::CallbackAction::TriggerVICIrq => as_mut!(self.cpu_ref).trigger_vic_irq(),
                             _ => (),
                         }
                     }
@@ -801,18 +797,15 @@ impl VIC
                         self.skip_cnt = SKIP_FRAMES;
                     }
                     
-                    // trigger VBlank here
+                    // trigger VBlank
                     *should_trigger_vblank = true;
                     
                     self.line_start_offset = 0;
                     
                     if self.raster_irq == 0
                     {
-                        let ri = self.raster_irq();
-                        
-                        match ri
-                        {
-                            VICCallbackAction::TriggerVICIrq => as_mut!(self.cpu_ref).trigger_vic_irq(),
+                        match self.raster_irq() {
+                            cpu::CallbackAction::TriggerVICIrq => as_mut!(self.cpu_ref).trigger_vic_irq(),
                             _ => (),
                         }
                     }
