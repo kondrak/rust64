@@ -49,7 +49,7 @@ impl Debugger
             {
                 dbg.font.draw_char_rgb(&mut dbg.window_buffer, DEBUG_W, 8*x as usize, 8 + 8*y as usize, 102, 0x00101010);
             }
-        }        
+        }
 
         dbg.draw_raster_window_txt();
         
