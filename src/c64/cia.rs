@@ -384,6 +384,7 @@ impl CIA
             },
             0x0E => self.timer_a.ctrl,
             0x0F => self.timer_b.ctrl,
+            0x10...0xFF => self.read_register((addr & 0xFF00) + (addr % 0x0010), on_cia_read),
             _ => {
                 // CIA1/2 specific read-values for 0x00 and 0x01
                 if self.is_cia1
@@ -433,7 +434,7 @@ impl CIA
                 (retval | (self.prb & self.ddrb)) & self.joystick_1
             },
             0xDC10...0xDCFF => self.read_cia1_register(0xDC00 + (addr % 0x0010)),
-            _ => panic!("Address out of CIA1 memory range"),
+            _ => panic!("Address out of CIA1 memory range: ${:04X}", addr),
         }
     }
 
@@ -448,16 +449,17 @@ impl CIA
             },
             0xDD01 => self.prb | !self.ddrb,
             0xDD10...0xDDFF => self.read_cia2_register(0xDD00 + (addr % 0x0010)),
-            _ => panic!("Address out of CIA2 memory range"),
+            _ => panic!("Address out of CIA2 memory range ${:04X}", addr),
         }
     }
 
     // write to register - ignore callback to CPU
-    pub fn write_register_nc(&mut self, addr: u16, value: u8)
+/*    pub fn write_register_nc(&mut self, addr: u16, value: u8)
     {
         let mut ca = cpu::CallbackAction::None;
         self.write_register(addr, value, &mut ca);
     }
+*/
     
     pub fn write_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::CallbackAction)
     {

@@ -63,7 +63,7 @@ impl Debugger
         match self.draw_mode {
             0 => self.draw_ram(memory),
             1 => self.draw_vic(memory),
-            2 => self.draw_cia(memory),
+            2 => self.draw_cia(cpu),
             3 => self.draw_color_ram(memory),
             _ => ()
         }
@@ -144,7 +144,7 @@ impl Debugger
         }
     }
 
-    fn draw_cia(&mut self, memory: &mut c64::memory::MemShared)
+    fn draw_cia(&mut self, cpu: &mut c64::cpu::CPUShared)
     {
         let mut start = 0xDC00;
 
@@ -159,7 +159,7 @@ impl Debugger
         {
             for x in 0..40
             {
-                let byte = memory.borrow_mut().get_ram_bank(c64::memory::MemType::IO).read(start);
+                let byte = cpu.borrow_mut().read_byte(start);
                 self.font.draw_char(&mut self.window_buffer, 8*x as usize, 8 + 8*y as usize, byte, 0x05);
 
                 self.draw_hex(hex_offset_x + x as usize, 27 + y as usize, byte);
