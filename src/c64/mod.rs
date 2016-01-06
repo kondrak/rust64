@@ -9,7 +9,7 @@ mod clock;
 pub mod memory;
 mod io;
 mod cia;
-mod vic;
+pub mod vic;
 mod sid;
 
 pub const SCREEN_WIDTH:  usize = 384; // extend 20 pixels left and right for the borders
@@ -162,6 +162,8 @@ impl C64
             self.cia2.borrow_mut().update();
         
             self.cpu.borrow_mut().update();
+
+            self.debugger.update_raster_window(&mut self.vic);
 
             if should_trigger_vblank
             {

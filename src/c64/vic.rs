@@ -45,8 +45,8 @@ pub struct VIC
     line_start_offset: usize,   // offset to the next line start on screen
     fg_mask_offset: usize,      // offset in fg mask for sprite-gfx collisions and prios
     raster_x: u16,       // raster x position
-    raster_cnt: u16,     // raster line counter (current raster line)
-    raster_irq: u16,     // raster interrupt line
+    pub raster_cnt: u16,     // raster line counter (current raster line)
+    pub raster_irq: u16,     // raster interrupt line
     dy_start: u16,       // border logic helper values
     dy_stop: u16,
     row_cnt: u16,        // row counter
@@ -56,17 +56,17 @@ pub struct VIC
     y_scroll: u16,
     cia_vabase: u16,
 
-    curr_cycle: u16,     // current cycle
+    pub curr_cycle: u8,     // current cycle
     display_mode: u16,   // current display mode
     bad_lines_on: bool,
     lp_triggered: bool,  // lightpen irq triggered
     mc: [u16; 8],        // sprite data counters
     mc_base: [u16; 8],   // sprite data counter bases
     display_state: bool, // true: display state; false: idle state
-    border_on: bool,     // upper/lower border on
+    pub border_on: bool,     // upper/lower border on
     ud_border_on: bool,
     frame_skipped: bool, // frame is being skipped
-    is_bad_line: bool,
+    pub is_bad_line: bool,
     draw_this_line: bool,
     ml_idx: usize,         // matrix/color line index
     skip_cnt: u16,      // frame skipping counter
@@ -89,6 +89,7 @@ pub struct VIC
     color_data: u8,
     last_char_data: u8,
     first_ba_cycle: u32,
+    pub dbg_reg_written: bool,
 }
 
 impl VIC
@@ -152,6 +153,7 @@ impl VIC
             color_data: 0,
             last_char_data: 0,
             first_ba_cycle: 0,
+            dbg_reg_written: false,
         }))
     }
     
@@ -188,6 +190,8 @@ impl VIC
     // write to register - perform callback action on CPU
     pub fn write_register(&mut self, addr: u16, value: u8, on_vic_write: &mut cpu::CallbackAction)
     {
+        self.dbg_reg_written = true;
+        
         match addr
         {
             0xD000...0xD00E =>
@@ -731,6 +735,7 @@ impl VIC
     {
         let mut mask: u8;
         let mut line_finished = false;
+        self.dbg_reg_written = false;
 
         match self.curr_cycle
         {

@@ -13,9 +13,12 @@ const DEBUG_H: usize = 416;
 pub struct Debugger
 {
     debug_window: minifb::Window,
+    raster_window: minifb::Window,
     font: font::SysFont,
     window_buffer: Vec<u32>,
+    raster_buffer: Vec<u32>,
     mempage_offset: u32, // RAM preview memory page offset
+    vic_display_state: bool,
     draw_mode: u8,
 }
 
@@ -25,9 +28,12 @@ impl Debugger
     {
         Debugger {
             debug_window: Window::new("Debug window", DEBUG_W, DEBUG_H, Scale::X2).unwrap(),
+            raster_window: Window::new("Raster", 63, 312, Scale::X1).unwrap(),
             font: font::SysFont::new(DEBUG_W, DEBUG_H),
             window_buffer: vec![0; DEBUG_W * DEBUG_H],
+            raster_buffer: vec![0; 63 * 312],
             mempage_offset: 0,
+            vic_display_state: false,
             draw_mode: 0,
         }
     }
@@ -73,6 +79,7 @@ impl Debugger
         self.draw_cpu(cpu);
 
         self.debug_window.update(&self.window_buffer);
+        self.raster_window.update(&self.raster_buffer);
     }
 
     fn draw_ram(&mut self, memory: &mut c64::memory::MemShared)
@@ -300,9 +307,54 @@ impl Debugger
         self.font.draw_char(&mut self.window_buffer, 8*40, 8*26, 113, 0x0B);
     }
 
+    pub fn update_raster_window(&mut self, vic: &mut c64::vic::VICShared)
+    {
+        let x = vic.borrow_mut().curr_cycle as u16;
+        let y = vic.borrow_mut().raster_cnt;
+        let is_bad_line = vic.borrow_mut().is_bad_line;
+        let is_raster_irq = vic.borrow_mut().raster_irq == y;
+        let is_border = vic.borrow_mut().border_on;
+        let is_state_changed = self.vic_display_state != vic.borrow_mut().dbg_reg_written;
+        self.vic_display_state = vic.borrow_mut().dbg_reg_written;
+        let border_color = 0x00404040;
+        let bg_color = 0x00000000;
+        let state_color = 0x00FF0000;
+        let raster_color = 0x000000FF;
+        let badline_color = 0x0000FF00;
+        
+        let mut dst_color = if is_border { border_color } else { bg_color };
+        dst_color = if is_state_changed { self.mix_colors(state_color, dst_color, 0.8) } else { dst_color };
+        dst_color = if is_raster_irq { self.mix_colors(raster_color, dst_color, 0.8) } else { dst_color };
+        dst_color = if is_bad_line { self.mix_colors(badline_color, dst_color, 0.5) } else { dst_color };
+        
+        self.raster_buffer[(x - 1 + y * 63) as usize] = dst_color
+    }
+    
     fn clear_char(&mut self, x_pos: usize, y_pos: usize)
     {
         self.font.draw_text(&mut self.window_buffer, x_pos, y_pos, " ", 0x00);
+    }
+
+
+    fn mix_colors(&self, new: u32, old: u32, alpha: f32) -> u32
+    {
+        let rn = ((new >> 16) & 0xFF) as f32;
+        let gn = ((new >> 8) & 0xFF) as f32;
+        let bn = (new & 0xFF) as f32;
+
+        let ro = ((old >> 16) & 0xFF) as f32;
+        let go = ((old >> 8) & 0xFF) as f32;
+        let bo = (old & 0xFF) as f32;
+
+        let rd = alpha * rn + (1.0 - alpha) * ro;
+        let gd = alpha * gn + (1.0 - alpha) * go;
+        let bd = alpha * bn + (1.0 - alpha) * bo;
+
+        let mut dst_color = (rd as u32) << 16;
+        dst_color |= (gd as u32) << 8;
+        dst_color |= bd as u32;
+
+        dst_color
     }
     
    /* fn set_saturation(&self, color: &mut u32, change: f64)
