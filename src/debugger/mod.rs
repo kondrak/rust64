@@ -18,7 +18,6 @@ pub struct Debugger
     window_buffer: Vec<u32>,
     raster_buffer: Vec<u32>,
     mempage_offset: u32, // RAM preview memory page offset
-    vic_display_state: bool,
     draw_mode: u8,
 }
 
@@ -33,7 +32,6 @@ impl Debugger
             window_buffer: vec![0; DEBUG_W * DEBUG_H],
             raster_buffer: vec![0; 63 * 312],
             mempage_offset: 0,
-            vic_display_state: false,
             draw_mode: 0,
         }
     }
@@ -314,8 +312,7 @@ impl Debugger
         let is_bad_line = vic.borrow_mut().is_bad_line;
         let is_raster_irq = vic.borrow_mut().raster_irq == y;
         let is_border = vic.borrow_mut().border_on;
-        let is_state_changed = self.vic_display_state != vic.borrow_mut().dbg_reg_written;
-        self.vic_display_state = vic.borrow_mut().dbg_reg_written;
+        let is_state_changed = vic.borrow_mut().dbg_reg_written;
         let border_color = 0x00404040;
         let bg_color = 0x00000000;
         let state_color = 0x00FF0000;
