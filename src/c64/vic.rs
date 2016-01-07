@@ -160,6 +160,7 @@ pub struct VIC
     char_data: u8,
     color_data: u8,
     last_char_data: u8,
+    sprite_coll_buffer: [u8; c64::SCREEN_WIDTH],
     sprite_data: [[u8; 8]; 4],      // sprite data read
     sprite_draw_data: [[u8; 8]; 4], // sprite data for drawing
     first_ba_cycle: u32,
@@ -228,6 +229,7 @@ impl VIC
             char_data: 0,
             color_data: 0,
             last_char_data: 0,
+            sprite_coll_buffer: [0; c64::SCREEN_WIDTH],
             sprite_data: [[0; 8]; 4],
             sprite_draw_data: [[0; 8]; 4],
             first_ba_cycle: 0,
