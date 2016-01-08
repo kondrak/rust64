@@ -164,7 +164,7 @@ pub struct VIC
     sprite_data: [[u8; 8]; 4],      // sprite data read
     sprite_draw_data: [[u8; 8]; 4], // sprite data for drawing
     first_ba_cycle: u32,
-    pub dbg_reg_written: bool,
+    pub dbg_reg_changed: bool,
 }
 
 impl VIC
@@ -233,7 +233,7 @@ impl VIC
             sprite_data: [[0; 8]; 4],
             sprite_draw_data: [[0; 8]; 4],
             first_ba_cycle: 0,
-            dbg_reg_written: false,
+            dbg_reg_changed: false,
         }))
     }
     
@@ -279,10 +279,16 @@ impl VIC
         self.write_register(addr, value, &mut ca);
     }
 
+    // check if register status has changed - used for visual debugger
+    fn dbg_check_regs(&mut self, addr: u16, value: u8)
+    {
+        self.dbg_reg_changed = as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).read(addr) != value;
+    }
+    
     // write to register - perform callback action on CPU
     pub fn write_register(&mut self, addr: u16, value: u8, on_vic_write: &mut cpu::CallbackAction)
     {
-        self.dbg_reg_written = true;
+        self.dbg_check_regs(addr, value);
         
         match addr
         {
@@ -848,7 +854,7 @@ impl VIC
     {
         let mut mask: u8;
         let mut line_finished = false;
-        self.dbg_reg_written = false;
+        self.dbg_reg_changed = false;
 
         match self.curr_cycle
         {

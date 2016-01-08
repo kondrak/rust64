@@ -342,7 +342,7 @@ impl Debugger
         let is_bad_line = vic.borrow_mut().is_bad_line;
         let is_raster_irq = vic.borrow_mut().raster_irq == y;
         let is_border = vic.borrow_mut().border_on;
-        let is_state_changed = vic.borrow_mut().dbg_reg_written;
+        let is_state_changed = vic.borrow_mut().dbg_reg_changed;
         
         let mut dst_color = if is_border { BORDER_COLOR } else { BG_COLOR };
         dst_color = if is_state_changed { self.mix_colors(VIC_WRITE_COLOR, dst_color, 0.8) } else { dst_color };
