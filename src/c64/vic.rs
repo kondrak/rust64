@@ -161,8 +161,8 @@ pub struct VIC
     color_data: u8,
     last_char_data: u8,
     sprite_coll_buffer: [u8; c64::SCREEN_WIDTH],
-    sprite_data: [[u8; 8]; 4],      // sprite data read
-    sprite_draw_data: [[u8; 8]; 4], // sprite data for drawing
+    sprite_data: [[u8; 4]; 8],      // sprite data read
+    sprite_draw_data: [[u8; 4]; 8], // sprite data for drawing
     first_ba_cycle: u32,
     pub dbg_reg_changed: bool,
 }
@@ -230,8 +230,8 @@ impl VIC
             color_data: 0,
             last_char_data: 0,
             sprite_coll_buffer: [0; c64::SCREEN_WIDTH],
-            sprite_data: [[0; 8]; 4],
-            sprite_draw_data: [[0; 8]; 4],
+            sprite_data: [[0; 4]; 8],
+            sprite_draw_data: [[0; 4]; 8],
             first_ba_cycle: 0,
             dbg_reg_changed: false,
         }))
@@ -742,9 +742,282 @@ impl VIC
         self.window_buffer[screen_pos    ] = self.window_buffer[screen_pos + 1];
     }
     
-    pub fn draw_sprites(&self)
+    pub fn draw_sprites(&mut self)
     {
-        // TODO
+        let mut sbit = 1;
+        let mut spr_coll = 0;
+        let mut gfx_coll = 0;
+        // clear collision buffer
+        for i in 0..c64::SCREEN_WIDTH {
+            self.sprite_coll_buffer[i] = 0;
+        }
+
+        for snum in 0..8 {
+            // is sprite visible?
+            if ((self.sprite_draw & sbit) != 0) && (self.mx[snum] <= (c64::SCREEN_WIDTH as u16)-32) {
+                let p = self.line_start_offset as u16 + self.mx[snum] + 8;
+                let q = self.mx[snum] + 8;
+                let color = self.read_register(0xD027 + snum as u16);
+
+                // fetch sprite data and mask
+                let mut sdata: u32 = ((self.sprite_draw_data[snum][0] as u32) << 24) | ((self.sprite_draw_data[snum][1] as u32) << 16) | ((self.sprite_draw_data[snum][2] as u32) << 8);
+
+                let spr_mask_pos = self.mx[snum] + 8; // sprite bit position in fg_mask_buf
+                let fmbp = (spr_mask_pos / 8) as usize;
+                let sshift = spr_mask_pos & 7;
+                let mut fg_mask: u32 = ((self.fg_mask_buffer[fmbp  ] as u32) << 24) |
+                                       ((self.fg_mask_buffer[fmbp+1] as u32) << 16) |
+                                       ((self.fg_mask_buffer[fmbp+2] as u32) <<  8) |
+                                       ((self.fg_mask_buffer[fmbp+3] as u32));
+                fg_mask <<= sshift;
+                fg_mask |= (self.fg_mask_buffer[fmbp+4] as u32) >> (8-sshift);
+
+                // is sprite X-expanded?
+                let mxe = self.read_register(0xD01D);
+                if (mxe & sbit) != 0 {
+                    if self.mx[snum] > ((c64::SCREEN_WIDTH as u16)-56) {
+                        continue;
+                    }
+                    let mut sdata_l: u32;
+                    let mut sdata_r: u32;
+                    let mut fg_mask_r: u32 = ((self.fg_mask_buffer[fmbp+4] as u32) << 24) |
+                                             ((self.fg_mask_buffer[fmbp+5] as u32) << 16) |
+                                             ((self.fg_mask_buffer[fmbp+6] as u32) <<  8) |
+                                             ((self.fg_mask_buffer[fmbp+7] as u32));
+                    fg_mask_r <<= sshift;
+                    fg_mask_r |= (self.fg_mask_buffer[fmbp+8] as u32) >> (8-sshift);
+
+                    // multicolor?
+                    let mmc = self.read_register(0xD01C);
+                    if (mmc & sbit) != 0 {
+                        // expand sprite data
+                        sdata_l = ((MULTI_EXP_TABLE[((sdata >> 24) & 0xFF) as usize] as u32) << 16) |
+                                    MULTI_EXP_TABLE[((sdata >> 16) & 0xFF) as usize] as u32;
+                        sdata_r = (MULTI_EXP_TABLE[((sdata >> 8) & 0xFF) as usize] as u32) << 16;
+
+                        // convert sprite chunky pixels to bitplanes
+                        let mut plane0_l: u32 = (sdata_l & 0x55555555) | ((sdata_l & 0x55555555) << 1);
+                        let mut plane1_l: u32 = (sdata_l & 0xAAAAAAAA) | ((sdata_l & 0xAAAAAAAA) >> 1);
+                        let mut plane0_r: u32 = (sdata_r & 0x55555555) | ((sdata_r & 0x55555555) << 1);
+                        let mut plane1_r: u32 = (sdata_r & 0xAAAAAAAA) | ((sdata_r & 0xAAAAAAAA) >> 1);
+
+                        // collision with graphics?
+                        if ((fg_mask & (plane0_l | plane1_l)) != 0) || ((fg_mask_r & (plane0_r | plane1_r)) != 0) {
+                            gfx_coll |= sbit;
+
+                            let mdp = self.read_register(0xD01B);
+                            if (mdp & sbit) != 0 {
+                                plane0_l &= !fg_mask; // mask sprite if in background
+                                plane1_l &= !fg_mask;
+                                plane0_r &= !fg_mask_r;
+                                plane1_r &= !fg_mask_r;
+                            }
+                        }
+
+                        // paint sprite
+                        let mut i = 0;
+                        while i < 32 {
+                            let col: u8;
+
+                            if (plane1_l & 0x80000000) != 0 {
+                                if (plane0_l & 0x80000000) != 0 {
+                                    col = self.read_register(0xD026);
+                                }
+                                else {
+                                    col = color;
+                                }
+                            }
+                            else {
+                                if (plane0_l & 0x80000000) != 0 {
+                                   col = self.read_register(0xD025);
+                                }
+                                else {
+                                    continue;
+                                }
+                            }
+                            if self.sprite_coll_buffer[(q + i) as usize] != 0 {
+                                spr_coll |= self.sprite_coll_buffer[(q + i) as usize] | sbit;
+                            }
+                            else {
+                                self.window_buffer[(p + i) as usize] = utils::fetch_c64_color_rgba(col);
+                                self.sprite_coll_buffer[(q + i) as usize] = sbit;
+                            }
+
+                            i += 1;
+                            plane0_l <<= 1;
+                            plane1_l <<= 1;
+                        }
+
+                        while i < 48 {
+                            let col: u8;
+                            
+                            if (plane1_r & 0x80000000) != 0 {
+                                if (plane0_r & 0x80000000) != 0 {
+                                    col = self.read_register(0xD026);
+                                }
+                                else {
+                                    col = color;
+                                }
+                            }
+                            else {
+                                if (plane0_r & 0x80000000) != 0 {
+                                   col = self.read_register(0xD025);
+                                }
+                                else {
+                                    continue;
+                                }
+                            }
+                            if self.sprite_coll_buffer[(q + i) as usize] != 0 {
+                                spr_coll |= self.sprite_coll_buffer[(q + i) as usize] | sbit;
+                            }
+                            else {
+                                self.window_buffer[(p + i) as usize] = utils::fetch_c64_color_rgba(col);
+                                self.sprite_coll_buffer[(q + i) as usize] = sbit;
+                            }
+
+                            i += 1;
+                            plane0_r <<= 1;
+                            plane1_r <<= 1;
+                        }
+                    }
+                    else {
+                        // standard mode
+                        // expand sprite data
+                        sdata_l = ((EXP_TABLE[((sdata >> 24) & 0xFF) as usize] as u32) << 16) |
+                                    EXP_TABLE[((sdata >> 16) & 0xFF) as usize] as u32;
+                        sdata_r = (EXP_TABLE[((sdata >> 8) & 0xFF) as usize] as u32) << 16;
+
+                        // collision with graphics?
+                        if ((fg_mask & sdata_l) != 0) || ((fg_mask_r & sdata_r) != 0) {
+                            gfx_coll |= sbit;
+
+                            let mdp = self.read_register(0xD01B);
+                            if (mdp & sbit) != 0 {
+                                sdata_l &= !fg_mask; // mask sprite if in background
+                            }
+                            else {
+                                sdata_r &= !fg_mask_r;
+                            }
+                        }
+
+                        // paint sprite
+                        let mut i = 0;
+                        while i < 32 {
+                            if (sdata_l & 0x80000000) != 0 {
+                                // collision with sprite?
+                                if self.sprite_coll_buffer[(q + i) as usize] != 0 {
+                                    spr_coll |= self.sprite_coll_buffer[(q + i) as usize] | sbit;
+                                }
+                                else { // draw pixel if no collision
+                                    self.window_buffer[(p + i) as usize] = utils::fetch_c64_color_rgba(color);
+                                    self.sprite_coll_buffer[(q + i) as usize] = sbit;
+                                }
+                            }
+
+                            i += 1;
+                            sdata_l <<= 1;
+                        }
+
+                        while i < 48 {
+                            if (sdata_r & 0x80000000) != 0 {
+                                // collision with sprite?
+                                if self.sprite_coll_buffer[(q + i) as usize] != 0 {
+                                    spr_coll |= self.sprite_coll_buffer[(q + i) as usize] | sbit;
+                                }
+                                else { // draw pixel if no collision
+                                    self.window_buffer[(p + i) as usize] = utils::fetch_c64_color_rgba(color);
+                                    self.sprite_coll_buffer[(q + i) as usize] = sbit;
+                                }
+                            }
+                            i += 1;
+                            sdata_r <<= 1;
+                        }
+                    }
+                }
+                else {
+                    // unexpanded
+                    // multicolor?
+                    let mmc = self.read_register(0xD01C);
+                    if (mmc & sbit) != 0 {
+                        // convert sprite chunky pixels to bitplanes
+                        let mut plane0: u32 = (sdata & 0x55555555) | ((sdata & 0x55555555) << 1);
+                        let mut plane1: u32 = (sdata & 0xAAAAAAAA) | ((sdata & 0xAAAAAAAA) >> 1);
+
+                        //collision with graphics?
+                        if (fg_mask & (plane0 | plane1)) != 0 {
+                            gfx_coll |= sbit;
+                            
+                            let mdp = self.read_register(0xD01B);
+                            if (mdp & sbit) != 0 {
+                                plane0 &= !fg_mask; // mask sprite if in background
+                                plane1 &= !fg_mask;
+                            }
+                        }
+
+                        // paint sprite
+                        for i in 0..24 {
+                            let col: u8;
+                            if (plane1 & 0x80000000) != 0 {
+                                if (plane0 & 0x80000000) != 0 {
+                                    col = self.read_register(0xD026);
+                                }
+                                else {
+                                    col = color;
+                                }
+                            }
+                            else {
+                                if (plane0 & 0x80000000) != 0 {
+                                    col = self.read_register(0xD025);
+                                }
+                                else {
+                                    continue;
+                                }
+                            }
+
+                            if self.sprite_coll_buffer[(q + i) as usize] != 0 {
+                                spr_coll |= self.sprite_coll_buffer[(q + i) as usize] | sbit;
+                            }
+                            else {
+                                self.window_buffer[(p + i) as usize] = utils::fetch_c64_color_rgba(col);
+                                self.sprite_coll_buffer[(q + i) as usize] = sbit;
+                            }
+
+                            plane0 <<= 1;
+                            plane1 <<= 1;
+                        }
+                    }
+                    else {
+                        // standard mode
+                        // collision with graphics?
+                        if (fg_mask & sdata) != 0 {
+                            gfx_coll |= sbit;
+
+                            let mdp = self.read_register(0xD01B);
+                            if (mdp & sbit) != 0 {
+                                sdata &= !fg_mask; // mask sprite if in background
+                            }
+                        }
+
+                        // paint sprite
+                        for i in 0..24 {
+                            if (sdata & 0x80000000) != 0 {
+                                if self.sprite_coll_buffer[(q + i) as usize] != 0 { // collision with sprite?
+                                    spr_coll |= self.sprite_coll_buffer[(q + i) as usize] | sbit;
+                                }
+                                else { // draw pixel if no collision
+                                    self.window_buffer[(p + i) as usize] = utils::fetch_c64_color_rgba(color);
+                                    self.sprite_coll_buffer[(q + i) as usize] = sbit;
+                                }
+                            }
+                            sdata <<= 1;
+                        }
+                    }
+                }
+            }
+            sbit <<= 1;
+        }
+
+        // TODO: check sprite-sprite collisions
     }
 
 
@@ -836,9 +1109,9 @@ impl VIC
 
     fn sample_border(&mut self)
     {
-        if self.draw_this_line == true
+        if self.draw_this_line
         {
-            if self.border_on == true
+            if self.border_on
             {
                 self.border_color_sample[(self.curr_cycle-13) as usize] = self.read_register(0xD020);
             }
@@ -1064,7 +1337,7 @@ impl VIC
                 {
                     if (self.sprite_y_exp & (1 << i)) != 0
                     {
-                        self.mc_base[i] += 2;
+                        self.mc_base[i] = (Wrapping(self.mc_base[i]) + Wrapping(2)).0;
                     }
                 }
                 
@@ -1084,7 +1357,7 @@ impl VIC
                 {
                     if (self.sprite_y_exp & mask) != 0
                     {
-                        self.mc_base[i] += 1;
+                        self.mc_base[i] = (Wrapping(self.mc_base[i]) + Wrapping(1)).0;
                     }
 
                     if (self.mc_base[i] & 0x3F) == 0x3F
@@ -1267,7 +1540,8 @@ impl VIC
 
                 self.border_on_sample[4] = self.border_on;
 
-                if self.sprite_draw == self.sprite_display_on
+                self.sprite_draw = self.sprite_display_on;
+                if self.sprite_draw != 0
                 {
                     // TODO: check if this really works?
                     self.sprite_draw_data = self.sprite_data;
