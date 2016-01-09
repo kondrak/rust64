@@ -776,6 +776,7 @@ impl VIC
                 let mxe = self.read_register(0xD01D);
                 if (mxe & sbit) != 0 {
                     if self.mx[snum] > ((c64::SCREEN_WIDTH as u16)-56) {
+                        sbit <<= 1;
                         continue;
                     }
                     let mut sdata_l: u32;
@@ -832,6 +833,9 @@ impl VIC
                                    col = self.read_register(0xD025);
                                 }
                                 else {
+                                    i += 1;
+                                    plane0_l <<= 1;
+                                    plane1_l <<= 1;
                                     continue;
                                 }
                             }
@@ -864,6 +868,9 @@ impl VIC
                                    col = self.read_register(0xD025);
                                 }
                                 else {
+                                    i += 1;
+                                    plane0_r <<= 1;
+                                    plane1_r <<= 1;
                                     continue;
                                 }
                             }
@@ -970,6 +977,8 @@ impl VIC
                                     col = self.read_register(0xD025);
                                 }
                                 else {
+                                    plane0 <<= 1;
+                                    plane1 <<= 1;
                                     continue;
                                 }
                             }
