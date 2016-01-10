@@ -1,5 +1,5 @@
 // SID
-extern crate sdl2;
+//extern crate sdl2;
 use c64::memory;
 
 pub struct SID

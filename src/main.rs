@@ -1,4 +1,4 @@
-extern crate sdl2;
+//extern crate sdl2;
 extern crate minifb;
 use std::env;
 //use sdl2::keyboard::Keycode;

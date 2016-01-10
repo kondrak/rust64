@@ -1,6 +1,6 @@
 // The CPU
 #![allow(non_snake_case)]
-extern crate sdl2;
+//extern crate sdl2;
 use c64::opcodes;
 use c64::memory;
 use c64::vic;
