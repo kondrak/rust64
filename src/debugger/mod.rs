@@ -43,6 +43,9 @@ impl Debugger
             draw_mode: 0,
         };
 
+        dbg.debug_window.set_position(480, 20);
+        dbg.raster_window.set_position(270, 340);
+
         for y in 1..26
         {
             for x in 0..40

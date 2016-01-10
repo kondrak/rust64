@@ -65,6 +65,8 @@ impl C64
             cycle_count: 0,
         };
 
+        c64.window.set_position(75, 20);
+
         // cyclic dependencies are not possible in Rust (yet?), so we have
         // to resort to setting references manually
         c64.cia1.borrow_mut().set_references(memory.clone(), cpu.clone(), vic.clone());
@@ -124,12 +126,15 @@ impl C64
                 let prg_file = "bcs-01.prg";     // ok
                 let prg_file = "triad-01.prg";
                 //let prg_file = "dd-01.prg";    // ok - need sprites
-                let prg_file = "flt-01.prg";  // ok - blinking
+               // let prg_file = "flt-01.prg";  // ok - blinking
                 //let prg_file = "esi-02.prg";   // ok - blinking
                 //let prg_file = "htl-03.prg";
                 //let prg_file = "ikari-02.prg"; // ok - need sprites
                 //let prg_file = "img.prg";
                 let prg_file ="tests/bgcolor.prg";
+                //let prg_file ="spritedemo.prg";
+                //let prg_file ="flapper.prg";
+                //let prg_file ="superball.prg";
                 //let prg_file = "flt-09.prg";    // bw?
                 //let prg_file = "newage-03.prg"; // ok
                 //let prg_file = "orion-26.prg";  // ok
