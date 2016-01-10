@@ -8,6 +8,10 @@ Dependencies
 
 Requires Rust 1.5.0 to compile and run.
 
+![Screenshot](http://kondrak.info/images/rust64_github.png?raw=true)
+
+The emulator comes with a memory debugger - press PgUp/PgDwn to flip between memory pages and End to change memory banks (Ram, VIC registers, CIA registers, Color Ram). The VIC window is a ICU64-style raster debugger, each pixel representing one VIC cycle and events associated with it.
+
 Build instructions
 ------------------
 ```
@@ -15,12 +19,19 @@ cargo build
 cargo run --release
 ```
 
+You can pass a .prg file to load it into memory once the emulators boots (type RUN to start the program).
+
 TODO
 ------------------
 - SID emulation
 - serial bus/disk drives (d64, t64)
 
 This is an on-off WIP project, so update frequency may vary.
+
+Known Issues
+------------------
+- CPU and timing bugs
+- no Reset button
 
 Resources used to create this emulator:
 
@@ -32,3 +43,4 @@ Resources used to create this emulator:
 - http://www.pagetable.com/c64rom/c64rom_en.html
 - http://archive.6502.org/datasheets/mos_6526_cia.pdf
 - https://www.yoyogames.com/tech_blog/95
+- http://code.google.com/p/hmc-6502/source/browse/trunk/emu/testvectors/AllSuiteA.asm
