@@ -755,7 +755,7 @@ impl VIC
         for snum in 0..8 {
             // is sprite visible?
             if ((self.sprite_draw & sbit) != 0) && (self.mx[snum] <= (c64::SCREEN_WIDTH as u16)-32) {
-                let p = self.line_start_offset as u16 + self.mx[snum] + 8;
+                let p = self.line_start_offset as u32 + (self.mx[snum] + 8) as u32;
                 let q = self.mx[snum] + 8;
                 let color = self.read_register(0xD027 + snum as u16);
 
@@ -843,7 +843,7 @@ impl VIC
                                 spr_coll |= self.sprite_coll_buffer[(q + i) as usize] | sbit;
                             }
                             else {
-                                self.window_buffer[(p + i) as usize] = utils::fetch_c64_color_rgba(col);
+                                self.window_buffer[(p + i as u32) as usize] = utils::fetch_c64_color_rgba(col);
                                 self.sprite_coll_buffer[(q + i) as usize] = sbit;
                             }
 
@@ -878,7 +878,7 @@ impl VIC
                                 spr_coll |= self.sprite_coll_buffer[(q + i) as usize] | sbit;
                             }
                             else {
-                                self.window_buffer[(p + i) as usize] = utils::fetch_c64_color_rgba(col);
+                                self.window_buffer[(p + i as u32) as usize] = utils::fetch_c64_color_rgba(col);
                                 self.sprite_coll_buffer[(q + i) as usize] = sbit;
                             }
 
@@ -916,7 +916,7 @@ impl VIC
                                     spr_coll |= self.sprite_coll_buffer[(q + i) as usize] | sbit;
                                 }
                                 else { // draw pixel if no collision
-                                    self.window_buffer[(p + i) as usize] = utils::fetch_c64_color_rgba(color);
+                                    self.window_buffer[(p + i as u32) as usize] = utils::fetch_c64_color_rgba(color);
                                     self.sprite_coll_buffer[(q + i) as usize] = sbit;
                                 }
                             }
@@ -932,7 +932,7 @@ impl VIC
                                     spr_coll |= self.sprite_coll_buffer[(q + i) as usize] | sbit;
                                 }
                                 else { // draw pixel if no collision
-                                    self.window_buffer[(p + i) as usize] = utils::fetch_c64_color_rgba(color);
+                                    self.window_buffer[(p + i as u32) as usize] = utils::fetch_c64_color_rgba(color);
                                     self.sprite_coll_buffer[(q + i) as usize] = sbit;
                                 }
                             }
@@ -987,7 +987,7 @@ impl VIC
                                 spr_coll |= self.sprite_coll_buffer[(q + i) as usize] | sbit;
                             }
                             else {
-                                self.window_buffer[(p + i) as usize] = utils::fetch_c64_color_rgba(col);
+                                self.window_buffer[(p + i as u32) as usize] = utils::fetch_c64_color_rgba(col);
                                 self.sprite_coll_buffer[(q + i) as usize] = sbit;
                             }
 
@@ -1014,7 +1014,7 @@ impl VIC
                                     spr_coll |= self.sprite_coll_buffer[(q + i) as usize] | sbit;
                                 }
                                 else { // draw pixel if no collision
-                                    self.window_buffer[(p + i) as usize] = utils::fetch_c64_color_rgba(color);
+                                    self.window_buffer[(p + i as u32) as usize] = utils::fetch_c64_color_rgba(color);
                                     self.sprite_coll_buffer[(q + i) as usize] = sbit;
                                 }
                             }
