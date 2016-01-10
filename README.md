@@ -1,13 +1,22 @@
 # Rust64 - a C64 emulator written in Rust
 Some people learn a new language with "Hello world". I decided to write a C64 emulator. This is my attempt to learn the Rust programming language and have fun at the same time.
 
-Dependencies:
-- rust-sdl2 bindings, follow the readme here to compile: https://github.com/AngryLawyer/rust-sdl2
+Dependencies
+------------------
+- rust-sdl2 bindings, follow the readme: https://github.com/AngryLawyer/rust-sdl2
 - minifb: https://github.com/emoon/rust_minifb
 
 Requires Rust 1.5.0 to compile and run.
 
-TODO:
+Build instructions
+------------------
+```
+cargo build
+cargo run --release
+```
+
+TODO
+------------------
 - SID emulation
 - serial bus/disk drives (d64, t64)
 
