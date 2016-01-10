@@ -754,7 +754,7 @@ impl VIC
 
         for snum in 0..8 {
             // is sprite visible?
-            if ((self.sprite_draw & sbit) != 0) && (self.mx[snum] <= (c64::SCREEN_WIDTH as u16)-32) {
+            if ((self.sprite_draw & sbit) != 0) && (self.mx[snum] < (c64::SCREEN_WIDTH as u16)-32) {
                 let p = self.line_start_offset as u32 + (self.mx[snum] + 8) as u32;
                 let q = self.mx[snum] + 8;
                 let color = self.read_register(0xD027 + snum as u16);
@@ -770,7 +770,8 @@ impl VIC
                                        ((self.fg_mask_buffer[fmbp+2] as u32) <<  8) |
                                        ((self.fg_mask_buffer[fmbp+3] as u32));
                 fg_mask <<= sshift;
-                fg_mask |= (self.fg_mask_buffer[fmbp+4] as u32) >> (8-sshift);
+                // TODO: investigate this
+                //fg_mask |= (self.fg_mask_buffer[fmbp+4] as u32) >> (8-sshift);
 
                 // is sprite X-expanded?
                 let mxe = self.read_register(0xD01D);
@@ -786,7 +787,8 @@ impl VIC
                                              ((self.fg_mask_buffer[fmbp+6] as u32) <<  8) |
                                              ((self.fg_mask_buffer[fmbp+7] as u32));
                     fg_mask_r <<= sshift;
-                    fg_mask_r |= (self.fg_mask_buffer[fmbp+8] as u32) >> (8-sshift);
+                    // TODO: investigate this
+                    //fg_mask_r |= (self.fg_mask_buffer[fmbp+8] as u32) >> (8-sshift);
 
                     // multicolor?
                     let mmc = self.read_register(0xD01C);
@@ -1576,7 +1578,6 @@ impl VIC
                 self.sprite_draw = self.sprite_display_on;
                 if self.sprite_draw != 0
                 {
-                    // TODO: check if this really works?
                     self.sprite_draw_data = self.sprite_data;
                 }
 
