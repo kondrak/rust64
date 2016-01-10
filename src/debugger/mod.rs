@@ -361,7 +361,7 @@ impl Debugger
         self.font.draw_text_rgb(&mut self.raster_buffer, RASTER_DEBUG_W, 10, 3, "*VIC events*", utils::fetch_c64_color_rgba(0x0F));
         self.font.draw_text_rgb(&mut self.raster_buffer, RASTER_DEBUG_W, 11, 5, "Border on", BORDER_COLOR);
         self.font.draw_text_rgb(&mut self.raster_buffer, RASTER_DEBUG_W, 11, 6, "Bad line", BADLINE_COLOR);
-        self.font.draw_text_rgb(&mut self.raster_buffer, RASTER_DEBUG_W, 11, 7, "VIC write", VIC_WRITE_COLOR);
+        self.font.draw_text_rgb(&mut self.raster_buffer, RASTER_DEBUG_W, 11, 7, "Reg. change", VIC_WRITE_COLOR);
         self.font.draw_text_rgb(&mut self.raster_buffer, RASTER_DEBUG_W, 11, 8, "Raster IRQ", RASTER_COLOR);
     }
     
