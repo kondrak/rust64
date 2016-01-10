@@ -118,36 +118,36 @@ impl C64
         if !self.boot_complete
         {
             // $A480 is the BASIC warm start sequence - safe to assume we can load a cmdline program now
-            //self.boot_complete = self.cpu.borrow_mut().PC == 0xA480;
+            self.boot_complete = self.cpu.borrow_mut().PC == 0xA480;
  
-            //if self.boot_complete
+            if self.boot_complete
             {
                 //let prg_file = &self.file_to_load.to_owned()[..];
                 let prg_file = "bcs-01.prg";     // ok
                 let prg_file = "triad-01.prg";
-                //let prg_file = "dd-01.prg";    // ok - need sprites
-               // let prg_file = "flt-01.prg";  // ok - blinking
+                let prg_file = "dd-01.prg";    // sprites null
+                //let prg_file = "flt-01.prg";  // ok - blinking
                 //let prg_file = "esi-02.prg";   // ok - blinking
                 //let prg_file = "htl-03.prg";
-                //let prg_file = "ikari-02.prg"; // ok - need sprites
+                //let prg_file = "ikari-02.prg"; // ok
                 //let prg_file = "img.prg";
                 let prg_file ="tests/bgcolor.prg";
-                //let prg_file ="spritedemo.prg";
+                //let prg_file = "spritedemo.prg";
                 //let prg_file ="flapper.prg";
                 //let prg_file ="superball.prg";
-                //let prg_file = "flt-09.prg";    // bw?
+                //let prg_file = "flt-09.prg";    // bw - blinking
                 //let prg_file = "newage-03.prg"; // ok
                 //let prg_file = "orion-26.prg";  // ok
                 //let prg_file = "energy-09.prg";
                 //let prg_file = "jam-10.prg";  // ok
                 //let prg_file = "tpi-01.prg";
-                //let prg_file = "711-01.prg"; // ok - need sprites
+                //let prg_file = "711-01.prg"; // ok - blinking
                 
                 if prg_file.len() > 0
                 {
-
-                    if self.window.is_key_pressed(Key::F11, KeyRepeat::No)
-                        { self.boot_complete = true; self.load_prg(prg_file); }
+                    //if self.window.is_key_pressed(Key::F11, KeyRepeat::No) {
+                    self.boot_complete = true; self.load_prg(prg_file);
+                    //}
                 }
             }
         }
