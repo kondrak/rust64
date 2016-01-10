@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/kondrak/rust64.svg)](https://travis-ci.org/kondrak/rust64)
+[![Build status](https://ci.appveyor.com/api/projects/status/77otp2475g7v95mb?svg=true)](https://ci.appveyor.com/project/kondrak/rust64)
+
 # Rust64 - a C64 emulator written in Rust
 Some people learn a new language with "Hello world". I decided to write a C64 emulator. This is my attempt to learn the Rust programming language and have fun at the same time.
 
