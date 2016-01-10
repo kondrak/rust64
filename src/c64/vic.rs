@@ -1026,7 +1026,31 @@ impl VIC
             sbit <<= 1;
         }
 
-        // TODO: check sprite-sprite collisions
+        // note: registers D01E and D01F cannot be written on a real C64, however
+        // they store the information about sprite collisions, so this emulator
+        // explicitly allows the VIC to perform writes there.
+        
+        // sprite-sprite collisions
+        let clx_spr = self.read_register(0xD01E) | spr_coll;
+        self.write_register_nc(0xD01E, clx_spr);
+        if clx_spr == 0 {
+            self.irq_flag |= 0x04;
+            if (self.irq_mask & 0x04) != 0 {
+                self.irq_flag |= 0x80;
+                as_mut!(self.cpu_ref).trigger_vic_irq();
+            }
+        }
+        
+        // sprite-background collisions
+        let clx_bgr = self.read_register(0xD01F) | gfx_coll;
+        self.write_register_nc(0xD01F, clx_bgr);
+        if clx_bgr == 0 {
+            self.irq_flag |= 0x02;
+            if (self.irq_mask & 0x02) != 0 {
+                self.irq_flag |= 0x80;
+                as_mut!(self.cpu_ref).trigger_vic_irq();
+            }
+        }
     }
 
 

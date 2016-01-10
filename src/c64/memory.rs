@@ -86,7 +86,7 @@ impl MemBank
                     0xD016          => self.data[(addr - self.offset) as usize] = 0xC0 | val,
                     0xD019          => self.data[(addr - self.offset) as usize] = 0x70 | val,
                     0xD01A          => self.data[(addr - self.offset) as usize] = 0xF0 | val,
-                    0xD01E...0xD01F => (),                             // cannot be written - panic/fail on try?
+                    //0xD01E...0xD01F => (),  // cannot be written on real C64 but allow the VIC to do it anyway
                     0xD020...0xD02E => self.data[(addr - self.offset) as usize] = 0xF0 | val,
                     0xD02F...0xD03F => (),                             // write ignored
                     0xD040...0xD3FF => self.write(0xD000 + (addr % 0x0040), val), // same as 0xD000-0xD03F
