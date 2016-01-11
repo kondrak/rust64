@@ -122,16 +122,16 @@ impl C64
  
             if self.boot_complete
             {
-                //let prg_file = &self.file_to_load.to_owned()[..];
-                let prg_file = "bcs-01.prg";     // ok
-                let prg_file = "triad-01.prg";
-                let prg_file = "dd-01.prg";    // sprites null
+                let prg_file = &self.file_to_load.to_owned()[..];
+                //let prg_file = "bcs-01.prg";     // ok
+                //let prg_file = "triad-01.prg";
+                //let prg_file = "dd-01.prg";    // sprites null
                 //let prg_file = "flt-01.prg";  // ok - blinking
                 //let prg_file = "esi-02.prg";   // ok - blinking
                 //let prg_file = "htl-03.prg";
                 //let prg_file = "ikari-02.prg"; // ok
                 //let prg_file = "img.prg";
-                let prg_file ="tests/bgcolor.prg";
+                //let prg_file ="tests/bgcolor.prg";
                 //let prg_file = "spritedemo.prg";
                 //let prg_file ="flapper.prg";
                 //let prg_file ="superball.prg";

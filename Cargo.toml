@@ -7,4 +7,4 @@ authors = [ "Krzysztof Kondrak <krzysztof.kondrak@gmail.com>" ]
 [dependencies]
 
 time = "*"
-minifb = "0.2.6" 
+minifb = "*" 

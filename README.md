@@ -6,8 +6,7 @@ Some people learn a new language with "Hello world". I decided to write a C64 em
 
 Dependencies
 ------------------
-- rust-sdl2 bindings, follow the readme: https://github.com/AngryLawyer/rust-sdl2
-- minifb: https://github.com/emoon/rust_minifb
+- minifb: https://github.com/emoon/rust_minifb, https://crates.io/crates/minifb
 
 Requires Rust 1.5.0 to compile and run.
 
@@ -22,7 +21,10 @@ cargo build
 cargo run --release
 ```
 
-You can pass a .prg file to load it into memory once the emulators boots (type RUN to start the program).
+You can pass a .prg file as a command line parameter to load it into memory once the emulators boots (type RUN to start the program):
+```
+cargo run --release tests/bgcolor.prg
+```
 
 TODO
 ------------------
