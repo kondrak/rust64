@@ -34,8 +34,8 @@ impl Debugger
     pub fn new() -> Debugger
     {
         let mut dbg = Debugger {
-            debug_window: Window::new("Debug window", DEBUG_W, DEBUG_H, Scale::X2).unwrap(),
-            raster_window: Window::new("VIC", RASTER_DEBUG_W, RASTER_DEBUG_H, Scale::X1).unwrap(),
+            debug_window: Window::new("Debug window", DEBUG_W, DEBUG_H, WindowOptions { scale: Scale::X2, ..Default::default() }).unwrap(),
+            raster_window: Window::new("VIC", RASTER_DEBUG_W, RASTER_DEBUG_H, WindowOptions::default()).unwrap(),
             font: font::SysFont::new(),
             window_buffer: vec![0; DEBUG_W * DEBUG_H],
             raster_buffer: vec![0; RASTER_DEBUG_W * RASTER_DEBUG_H],
@@ -100,11 +100,11 @@ impl Debugger
             self.draw_data(memory);
             self.draw_cpu(cpu);
 
-            self.debug_window.update(&self.window_buffer);
+            self.debug_window.update_with_buffer(&self.window_buffer);
         }
 
         if self.raster_window.is_open() {
-            self.raster_window.update(&self.raster_buffer);
+            self.raster_window.update_with_buffer(&self.raster_buffer);
         }
     }
 
