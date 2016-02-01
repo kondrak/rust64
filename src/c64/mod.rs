@@ -49,7 +49,7 @@ impl C64
 
         let mut c64 = C64
         {
-            window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, Scale::X1).unwrap(),
+            window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, WindowOptions::default()).unwrap(),
             memory: memory.clone(), // shared system memory (RAM, ROM, IO registers)
             io:    io::IO::new(),
             clock: clock::Clock::new(CLOCK_FREQ),
@@ -173,7 +173,7 @@ impl C64
             if should_trigger_vblank
             {
                 self.debugger.render(&mut self.cpu, &mut self.memory);
-                self.window.update(&self.vic.borrow_mut().window_buffer);
+                self.window.update_with_buffer(&self.vic.borrow_mut().window_buffer);
                 self.io.update(&self.window, &mut self.cia1);
                 self.cia1.borrow_mut().count_tod();
                 self.cia2.borrow_mut().count_tod();
