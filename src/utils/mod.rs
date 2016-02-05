@@ -96,9 +96,9 @@ impl OpDebugger
     }
 }
 
-pub fn debug_instruction(opcode: u8, instruction: Option<(&opcodes::Op, u8, &opcodes::AddrMode)>, cpu: &mut cpu::CPU)
+/*pub fn debug_instruction(opcode: u8, instruction: Option<(&opcodes::Op, u8, &opcodes::AddrMode)>, cpu: &mut cpu::CPU)
 {
-    let prev_pc = cpu.prev_PC;
+   let prev_pc = cpu.prev_PC;
     match instruction
     {
         Some((instruction, num_cycles, addr_mode)) => {
@@ -181,5 +181,6 @@ pub fn debug_instruction(opcode: u8, instruction: Option<(&opcodes::Op, u8, &opc
             }
         },
         None => ()
-    }
+    } 
 }
+*/

@@ -1,7 +1,7 @@
 // The CPU
 #![allow(non_snake_case)]
 //extern crate sdl2;
-use c64::opcodes;
+use c64::opcodes::*;
 use c64::memory;
 use c64::vic;
 use c64::cia;
@@ -42,6 +42,13 @@ pub static NMI_VECTOR:   u16 = 0xFFFA;
 pub static RESET_VECTOR: u16 = 0xFFFC;
 pub static IRQ_VECTOR:   u16 = 0xFFFE;
 
+enum CPUState
+{
+    FetchOp,
+    FetchOperand,
+    ExecuteOp
+}
+
 pub struct CPU
 {
     pub PC: u16, // program counter
@@ -54,9 +61,11 @@ pub struct CPU
     pub vic_ref: Option<vic::VICShared>,
     pub cia1_ref: Option<cia::CIAShared>,
     pub cia2_ref: Option<cia::CIAShared>,
+    curr_instr: Instruction,
     pub ba_low: bool,  // is BA low?
     pub cia_irq: bool,
     pub vic_irq: bool,
+    state: CPUState,
     irq_cycles: u8,
     op_cycles: u8,
     curr_op: u8,
@@ -85,8 +94,10 @@ impl CPU
             ba_low: false,
             cia_irq: false,
             vic_irq: false,
+            state: CPUState::FetchOp,
             irq_cycles: 0,
             op_cycles: 0,
+            curr_instr: Instruction::new(Op::BRK, AddrMode::Implied),
             curr_op: 0,
             nmi: false,
             prev_PC: 0,
@@ -135,7 +146,30 @@ impl CPU
 
     pub fn update(&mut self)
     {
-        if self.process_nmi() { self.irq_cycles = 7; }
+        match self.state
+        {
+            CPUState::FetchOp => {
+                if self.ba_low { return; }
+                let next_op = self.next_byte();
+                //self.curr_instr = opcodes::Instruction::new(opcodes::AddrMode::Implied);
+                
+                // implied addressed mode instructions don't fetch operands
+                self.state = match self.curr_instr.addr_mode {
+                    AddrMode::Implied => CPUState::ExecuteOp,
+                    _ => CPUState::FetchOperand
+                };
+            },
+            CPUState::FetchOperand => {
+                self.fetch_operand();
+                self.state = CPUState::ExecuteOp;
+            }
+            CPUState::ExecuteOp => {
+                self.run_instruction();
+                
+                self.state = CPUState::FetchOp;
+            }
+        }
+        /*if self.process_nmi() { self.irq_cycles = 7; }
         else if self.process_irq() { self.irq_cycles = 7; }
         
         if !self.ba_low {
@@ -163,7 +197,7 @@ impl CPU
                 let co = self.curr_op;
                 self.process_op(co);
             }
-        }
+        }*/
     }
 
     pub fn next_byte(&mut self) -> u8
@@ -468,7 +502,7 @@ impl CPU
     fn process_op(&mut self, opcode: u8) -> u8
     {
         //utils::debug_instruction(opcode, self);
-        self.prev_PC = self.PC;
+      /*  self.prev_PC = self.PC;
         match opcodes::get_instruction(opcode, self)
         {
             Some((instruction, num_cycles, addr_mode)) => {
@@ -477,19 +511,36 @@ impl CPU
                 num_cycles
             },
             None => panic!("No instruction - this should never happen! (0x{:02X} at ${:04X})", opcode, self.PC)
-        }
+    } */
+        0
     }
 
-    fn get_op_cycles(&mut self, opcode: u8) -> u8
+    
+    fn fetch_operand(&mut self) -> bool
     {
-        let curr_pc = self.PC;
-        match opcodes::get_instruction(opcode, self)
+        match self.curr_instr.addr_mode
         {
-            Some((_, num_cycles, _)) => {
-                self.PC = curr_pc;
-                num_cycles
-            },
-            None => panic!("No instruction - this should never happen! (0x{:02X} at ${:04X})", opcode, self.PC)
+            _ => {}
         }
+
+        // fetch complete
+        true
+    }
+
+    fn run_instruction(&mut self) -> bool
+    {
+        match self.curr_instr.op
+        {
+            Op::LDA => {
+                if self.ba_low { return false; }
+                let na = self.curr_instr.operand_lo;
+                self.A = na;
+                self.set_zn_flags(na);
+            },
+            _ => { }
+        }
+
+        // instruction finished execution
+        true
     }
 }

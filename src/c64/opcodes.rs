@@ -135,12 +135,31 @@ pub enum Op {
     ISC
 }
 
-impl Op
+pub struct Instruction
 {
-    // TODO: forbidden opcodes
-    pub fn run(&self, operand: &AddrMode, cpu: &mut cpu::CPU)
+    pub addr_mode: AddrMode,
+    pub op: Op,
+    pub operand_lo: u8,
+    pub operand_hi: u8,
+}
+
+impl Instruction
+{
+    pub fn new(op: Op, addr_mode: AddrMode) -> Instruction
     {
-        match *self
+        Instruction
+        {
+            op: op,
+            addr_mode: addr_mode,
+            operand_lo: 0,
+            operand_hi: 0,
+        }
+    }
+
+    // TODO: forbidden opcodes
+    pub fn run(&mut self)
+    {
+    /*    match *self
         {
             Op::LDA => {
                 let na = operand.get_value(cpu);
@@ -479,15 +498,15 @@ impl Op
             // TODO: handle undocumented ops
             // TODO: PC value is incorrect here for debugging (will become irrelevant once illegal ops are done)
             _       => panic!("Unsupported op: {} at ${:04X}", self, cpu.PC)
-        }
+        } */
     } 
 }
 
 // debug display for opcodes
-impl fmt::Display for Op
+impl fmt::Display for Instruction
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let op_name = match *self {
+        let op_name = match self.op {
             Op::LDA => "LDA", Op::LDX => "LDX", Op::LDY => "LDY", Op::STA => "STA",
             Op::STX => "STX", Op::STY => "STY", Op::TAX => "TAX", Op::TAY => "TAY",
             Op::TXA => "TXA", Op::TYA => "TYA", Op::TSX => "TSX", Op::TXS => "TXS",
@@ -507,13 +526,14 @@ impl fmt::Display for Op
             Op::XAA => "XAA", Op::AHX => "AHX", Op::TAS => "TAS", Op::SHY => "SHY",
             Op::SHX => "SHX", Op::ARR => "ARR", Op::LAX => "LAX", Op::LAS => "LAS",
             Op::DCP => "DCP", Op::AXS => "AXS", Op::ISC => "ISC",
-        };        
+    }; 
         write!(f, "{}", op_name)
     }
 }
 
-pub fn get_instruction(opcode: u8, cpu: &mut cpu::CPU) -> Option<(Op, u8, AddrMode)>
+pub fn get_instruction(opcode: u8) // -> Option<(Op, u8, AddrMode)>
 {
+    /*
     Some(match opcode
          {
              /* ** documented instructions ** */
@@ -776,5 +796,5 @@ pub fn get_instruction(opcode: u8, cpu: &mut cpu::CPU) -> Option<(Op, u8, AddrMo
              /* ISC_abx */ 0xFF => (Op::ISC, 7, AddrMode::AbsoluteIndexedX(cpu.next_word())),
              
              _ => return None
-         })
+         }) */
 }
