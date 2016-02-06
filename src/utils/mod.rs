@@ -96,91 +96,94 @@ impl OpDebugger
     }
 }
 
-/*pub fn debug_instruction(opcode: u8, instruction: Option<(&opcodes::Op, u8, &opcodes::AddrMode)>, cpu: &mut cpu::CPU)
+pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
 {
-   let prev_pc = cpu.prev_PC;
-    match instruction
+    cpu.prev_PC = cpu.PC;
+    let prev_pc = cpu.prev_PC;
+    
+    let operand_hex: String;
+    let operand: String;
+    let debug_loops = false; // true;
+
+    // RTS? pop from queue to continue logging
+    if !debug_loops
     {
-        Some((instruction, num_cycles, addr_mode)) => {
-            let operand_hex: String;
-            let operand: String;
+        match cpu.curr_instr.op
+        {
+            opcodes::Op::RTS => { let _ = cpu.op_debugger.jump_queue.pop(); return; },
+            opcodes::Op::JSR => if !cpu.op_debugger.jump_queue.is_empty() { cpu.op_debugger.jump_queue.push(opcode); return; },
+            _ => if !cpu.op_debugger.jump_queue.is_empty() { return; }
+        }
+    }
 
-            // RTS? pop from queue to continue logging
-            match *instruction
-            {
-                opcodes::Op::RTS => { let _ = cpu.op_debugger.jump_queue.pop(); return; },
-                opcodes::Op::JSR => if !cpu.op_debugger.jump_queue.is_empty() { cpu.op_debugger.jump_queue.push(opcode); return; },
-                _ => if !cpu.op_debugger.jump_queue.is_empty() { return; }
-            }
-
-            match *addr_mode {
-                opcodes::AddrMode::Implied => {
-                    operand_hex = format!("       ");
-                    operand = format!("       ");
-                },
-                opcodes::AddrMode::Accumulator => {
-                    operand_hex = format!("       ");
-                    operand = format!("A      ");
-                },
-                opcodes::AddrMode::Immediate(..) => {
-                    operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
-                    operand = format!("#${:02X}   ", cpu.read_byte(prev_pc)); 
-                },
-                opcodes::AddrMode::Absolute(..) => {
-                    operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
-                    operand = format!("${:04X}  ", cpu.read_word_le(cpu.prev_PC));
-                },
-                opcodes::AddrMode::AbsoluteIndexedX(..) => {
-                    operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
-                    operand = format!("${:04X},X", cpu.read_word_le(cpu.prev_PC));
-                },
-                opcodes::AddrMode::AbsoluteIndexedY(..) => {
-                    operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
-                    operand = format!("${:04X},Y", cpu.read_word_le(cpu.prev_PC));
-                },
-                opcodes::AddrMode::Zeropage(..) => {
-                    operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
-                    operand = format!("${:02X}    ", cpu.read_byte(prev_pc));
-                }, 
-                opcodes::AddrMode::ZeropageIndexedX(..) => {
-                    operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
-                    operand = format!("${:02X},X", cpu.read_byte(prev_pc));
-                },
-                opcodes::AddrMode::ZeropageIndexedY(..) => {
-                    operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
-                    operand = format!("${:02X},Y", cpu.read_byte(prev_pc));
-                },
-                opcodes::AddrMode::Relative(..) => {
-                    operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
-                    let b: i8 = cpu.read_byte(prev_pc) as i8;
-                    operand = format!("${:04X}  ", ((cpu.prev_PC + 1) as i16 + b as i16) as u16);
-                },
-                opcodes::AddrMode::Indirect(..) => {
-                    operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
-                    operand = format!("(${:04X})", cpu.read_word_le(cpu.prev_PC));
-                },
-                opcodes::AddrMode::IndexedIndirectX(..) => {
-                    operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
-                    operand = format!("(${:02X},X)", cpu.read_byte(prev_pc));
-                },
-                opcodes::AddrMode::IndirectIndexedY(..) => {
-                    operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
-                    operand = format!("(${:02X}),Y", cpu.read_byte(prev_pc));
-                },
-            }
-
-            let byte0 = cpu.read_byte(0x0000);
-            let byte1 = cpu.read_byte(0x0001);
-            println!("${:04X}: {:02X}{} {} {}    <- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}] ({} cycles)", cpu.prev_PC - 1, opcode, operand_hex, instruction, operand, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P, num_cycles);
-
-            // JSR? push on queue to supress logging
-            match *instruction
-            {
-                opcodes::Op::JSR => cpu.op_debugger.jump_queue.push(opcode),
-                _ => ()
-            }
+    match cpu.curr_instr.addr_mode {
+        opcodes::AddrMode::Implied => {
+            operand_hex = format!("       ");
+            operand = format!("       ");
         },
-        None => ()
-    } 
+        opcodes::AddrMode::Accumulator => {
+            operand_hex = format!("       ");
+            operand = format!("A      ");
+        },
+        opcodes::AddrMode::Immediate => {
+            operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
+            operand = format!("#${:02X}   ", cpu.read_byte(prev_pc)); 
+        },
+        opcodes::AddrMode::Absolute => {
+            operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
+            operand = format!("${:04X}  ", cpu.read_word_le(cpu.prev_PC));
+        },
+        opcodes::AddrMode::AbsoluteIndexedX => {
+            operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
+            operand = format!("${:04X},X", cpu.read_word_le(cpu.prev_PC));
+        },
+        opcodes::AddrMode::AbsoluteIndexedY => {
+            operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
+            operand = format!("${:04X},Y", cpu.read_word_le(cpu.prev_PC));
+        },
+        opcodes::AddrMode::Zeropage => {
+            operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
+            operand = format!("${:02X}    ", cpu.read_byte(prev_pc));
+        }, 
+        opcodes::AddrMode::ZeropageIndexedX => {
+            operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
+            operand = format!("${:02X},X", cpu.read_byte(prev_pc));
+        },
+        opcodes::AddrMode::ZeropageIndexedY => {
+            operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
+            operand = format!("${:02X},Y", cpu.read_byte(prev_pc));
+        },
+        opcodes::AddrMode::Relative => {
+            operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
+            let b: i8 = cpu.read_byte(prev_pc) as i8;
+            operand = format!("${:04X}  ", ((cpu.prev_PC + 1) as i16 + b as i16) as u16);
+        },
+        opcodes::AddrMode::Indirect => {
+            operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
+            operand = format!("(${:04X})", cpu.read_word_le(cpu.prev_PC));
+        },
+        opcodes::AddrMode::IndexedIndirectX => {
+            operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
+            operand = format!("(${:02X},X)", cpu.read_byte(prev_pc));
+        },
+        opcodes::AddrMode::IndirectIndexedY => {
+            operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
+            operand = format!("(${:02X}),Y", cpu.read_byte(prev_pc));
+        },
+    }
+
+    let byte0 = cpu.read_byte(0x0000);
+    let byte1 = cpu.read_byte(0x0001);
+    println!("${:04X}: {:02X}{} {} {}  <- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}] ({} cycles, f: {}, r: {})", cpu.prev_PC - 1, opcode, operand_hex, cpu.curr_instr, operand, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P, cpu.curr_instr.cycles_to_fetch + cpu.curr_instr.cycles_to_run + 1, cpu.curr_instr.cycles_to_fetch + 1, cpu.curr_instr.cycles_to_run);
+
+    // JSR? push on queue to supress logging
+    if !debug_loops
+    {
+        match cpu.curr_instr.op
+        {
+            opcodes::Op::JSR => cpu.op_debugger.jump_queue.push(opcode),
+            _ => ()
+        }
+    }
 }
-*/
+

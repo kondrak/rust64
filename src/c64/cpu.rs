@@ -7,6 +7,7 @@ use c64::vic;
 use c64::cia;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::num::Wrapping;
 
 use utils;
 
@@ -61,7 +62,7 @@ pub struct CPU
     pub vic_ref: Option<vic::VICShared>,
     pub cia1_ref: Option<cia::CIAShared>,
     pub cia2_ref: Option<cia::CIAShared>,
-    curr_instr: Instruction,
+    pub curr_instr: Instruction,
     pub ba_low: bool,  // is BA low?
     pub cia_irq: bool,
     pub vic_irq: bool,
@@ -97,7 +98,7 @@ impl CPU
             state: CPUState::FetchOp,
             irq_cycles: 0,
             op_cycles: 0,
-            curr_instr: Instruction::new(Op::BRK, AddrMode::Implied),
+            curr_instr: Instruction::new(Op::BRK, 1, AddrMode::Implied),
             curr_op: 0,
             nmi: false,
             prev_PC: 0,
@@ -151,22 +152,65 @@ impl CPU
             CPUState::FetchOp => {
                 if self.ba_low { return; }
                 let next_op = self.next_byte();
-                //self.curr_instr = opcodes::Instruction::new(opcodes::AddrMode::Implied);
+                match get_instruction(next_op) {
+                    Some((op_name, total_cycles, addr_mode)) => {
+                        self.curr_instr = Instruction::new(op_name, total_cycles, addr_mode);
+                        utils::debug_instruction(next_op, self);
+                    }
+                    None => panic!("Can't fetch instruction")
+                }
                 
                 // implied addressed mode instructions don't fetch operands
-                self.state = match self.curr_instr.addr_mode {
-                    AddrMode::Implied => CPUState::ExecuteOp,
-                    _ => CPUState::FetchOperand
+                match self.curr_instr.addr_mode {
+                    AddrMode::Implied => self.state = CPUState::ExecuteOp,
+                    AddrMode::Accumulator => {
+                        //self.curr_instr.operand_value = self.A;
+                        self.state = CPUState::ExecuteOp;
+                    },
+                    AddrMode::Immediate => {
+                       // self.curr_instr.operand_value = self.next_byte() as u16;
+                        self.state = CPUState::ExecuteOp;
+                    },
+                    AddrMode::Relative => {
+                        // TODO: inc PC only during op execution?
+                        self.curr_instr.operand_addr = (self.PC as i16 + self.next_byte() as i16) as u16;
+                        self.state = CPUState::ExecuteOp;
+                    },
+                    AddrMode::Indirect => {
+                match self.curr_instr.cycles_to_fetch {
+                    2 => {
+                        self.curr_instr.operand_addr = self.next_byte() as u16;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    1 => {
+                        let addr = self.curr_instr.operand_addr | ((self.next_byte() as u16) << 8);
+                        self.curr_instr.operand_addr = self.read_word_le(addr);
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    _ => panic!("Too many cycles for operand address fetch! ({}) ", self.curr_instr.cycles_to_fetch)
+                }
+            },
+                    _ => self.state = CPUState::FetchOperand,
                 };
             },
             CPUState::FetchOperand => {
-                self.fetch_operand();
-                self.state = CPUState::ExecuteOp;
+                if self.fetch_operand()
+                {
+                    self.state = CPUState::ExecuteOp;
+                }
+
+                // TODO: odd case? Some instructions can be executed immediately after operand fetch
+                if self.curr_instr.cycles_to_run == 0
+                {
+                    self.run_instruction();
+                    self.state = CPUState::FetchOp;
+                }
             }
             CPUState::ExecuteOp => {
-                self.run_instruction();
-                
-                self.state = CPUState::FetchOp;
+                if self.run_instruction()
+                {
+                    self.state = CPUState::FetchOp;
+                }
             }
         }
         /*if self.process_nmi() { self.irq_cycles = 7; }
@@ -314,6 +358,11 @@ impl CPU
         }
 
         mem_write_ok
+    }
+
+    pub fn read_idle(&mut self, addr: u16)
+    {
+        let _ = self.read_byte(addr);
     }
     
     pub fn read_byte(&mut self, addr: u16) -> u8
@@ -518,13 +567,177 @@ impl CPU
     
     fn fetch_operand(&mut self) -> bool
     {
+        if self.ba_low { return false; }
+        
         match self.curr_instr.addr_mode
         {
+            AddrMode::Absolute => {
+                match self.curr_instr.cycles_to_fetch {
+                    2 => {
+                        self.curr_instr.operand_addr = self.next_byte() as u16;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    1 => {
+                        self.curr_instr.operand_addr = self.curr_instr.operand_addr | ((self.next_byte() as u16) << 8);
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    _ => panic!("Too many cycles for operand address fetch! ({}) ", self.curr_instr.cycles_to_fetch)
+                }
+            },
+            AddrMode::AbsoluteIndexedX => {
+                match self.curr_instr.cycles_to_fetch {
+                    3 => {
+                        self.curr_instr.operand_addr = self.next_byte() as u16;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    2 => {
+                        let addr_lo = self.curr_instr.operand_addr;
+                        self.curr_instr.index_addr = self.next_byte() as u16;
+                        self.curr_instr.operand_addr = ((addr_lo + self.X as u16) & 0xFF) | (self.curr_instr.index_addr << 8);
+                        // page crossed?
+                        self.curr_instr.zp_crossed = addr_lo + (self.X as u16) < 0x100;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    1 => { // if page crossed - add 0x100 to operand address
+                        let addr = self.curr_instr.operand_addr;
+                        self.read_idle(addr);                     
+                        if self.curr_instr.zp_crossed { self.curr_instr.operand_addr += 0x100; }
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    _ => panic!("Too many cycles for operand address fetch! ({}) ", self.curr_instr.cycles_to_fetch)
+                }
+            },
+            AddrMode::AbsoluteIndexedY => {
+                match self.curr_instr.cycles_to_fetch {
+                    3 => {
+                        self.curr_instr.operand_addr = self.next_byte() as u16;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    2 => {
+                        self.curr_instr.index_addr = self.next_byte() as u16;
+                        let addr_lo = self.curr_instr.operand_addr;
+                        self.curr_instr.operand_addr = ((addr_lo + self.Y as u16) & 0xFF) | (self.curr_instr.index_addr << 8);
+                        // page crossed?
+                        self.curr_instr.zp_crossed = addr_lo + (self.Y as u16) < 0x100;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    1 => { // if page crossed - add 0x100 to operand address
+                        let addr = self.curr_instr.operand_addr;
+                        self.read_idle(addr);
+                        if self.curr_instr.zp_crossed { self.curr_instr.operand_addr += 0x100; }
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    _ => panic!("Too many cycles for operand address fetch! ({}) ", self.curr_instr.cycles_to_fetch)
+                }
+            },
+            AddrMode::Zeropage => {
+                self.curr_instr.operand_addr = self.next_byte() as u16;
+                self.curr_instr.cycles_to_fetch -= 1;
+            },
+            AddrMode::ZeropageIndexedX => {
+                match self.curr_instr.cycles_to_fetch {
+                    2 => {
+                        self.curr_instr.operand_addr = self.next_byte() as u16;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    1 => {
+                        let x = self.X as u16;
+                        let base_addr = self.curr_instr.operand_addr;
+                        self.read_idle(base_addr);
+                        self.curr_instr.operand_addr = ((Wrapping(base_addr) + Wrapping(x)).0 as u16) & 0xFF;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    }
+                    _ => panic!("Too many cycles for operand address fetch! ({}) ", self.curr_instr.cycles_to_fetch)
+                }
+            },
+            AddrMode::ZeropageIndexedY => {
+                match self.curr_instr.cycles_to_fetch {
+                    2 => {
+                        self.curr_instr.operand_addr = self.next_byte() as u16;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    1 => {
+                        let y = self.Y as u16;
+                        let base_addr = self.curr_instr.operand_addr;
+                        self.read_idle(base_addr);
+                        self.curr_instr.operand_addr = ((Wrapping(base_addr) + Wrapping(y)).0 as u16) & 0xFF;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    }
+                    _ => panic!("Too many cycles for operand address fetch! ({}) ", self.curr_instr.cycles_to_fetch)
+                }
+            },
+            AddrMode::IndexedIndirectX => {
+                match self.curr_instr.cycles_to_fetch {
+                    4 => {
+                        self.curr_instr.index_addr = self.next_byte() as u16;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    3 => {
+                        let addr = self.curr_instr.index_addr;
+                        self.read_idle(addr);
+                        self.curr_instr.index_addr = (self.curr_instr.index_addr + self.X as u16) & 0xFF;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    2 => {
+                        let idx_addr = self.curr_instr.index_addr;
+                        self.curr_instr.operand_addr =  self.read_byte(idx_addr) as u16;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    1 => {
+                        let idx = self.curr_instr.index_addr;
+                        let hi = self.read_byte((idx + 1) & 0xFF) as u16;
+                        self.curr_instr.operand_addr = self.curr_instr.operand_addr | (hi << 8);
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    _ => panic!("Too many cycles for operand address fetch! ({}) ", self.curr_instr.cycles_to_fetch)
+                }
+            },
+            AddrMode::IndirectIndexedY => {
+                match self.curr_instr.cycles_to_fetch {
+                    4 => {
+                        self.curr_instr.index_addr = self.next_byte() as u16;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    3 => {
+                        let base_addr = self.curr_instr.index_addr;
+                        self.curr_instr.operand_addr = self.read_byte(base_addr) as u16;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    2 => {
+                        let idx = self.curr_instr.index_addr;
+                        let opaddr = self.curr_instr.operand_addr;
+                        self.curr_instr.index_addr =  self.read_byte((idx + 1) & 0xFF ) as u16;
+                        self.curr_instr.operand_addr = ((opaddr + self.Y as u16) & 0x0FF) | (self.curr_instr.index_addr << 8);
+                        // page crossed?
+                        self.curr_instr.zp_crossed = opaddr + (self.Y as u16) > 0x100;
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    1 => { // if page crossed - add 0x100 to operand address
+                        let addr = self.curr_instr.operand_addr;
+                        self.read_idle(addr);
+                        if self.curr_instr.zp_crossed { self.curr_instr.operand_addr += 0x100; }
+                        self.curr_instr.cycles_to_fetch -= 1;
+                    },
+                    _ => panic!("Too many cycles for operand address fetch! ({}) ", self.curr_instr.cycles_to_fetch)
+                }
+            },
             _ => {}
         }
 
         // fetch complete
-        true
+        self.curr_instr.cycles_to_fetch == 0
+    }
+
+    fn get_operand(&mut self) -> u8
+    {
+        let addr = self.curr_instr.operand_addr;
+        let val = match self.curr_instr.addr_mode {
+            AddrMode::Accumulator => self.A,
+            AddrMode::Immediate  => self.next_byte(),
+            _ => self.read_byte(addr)
+        };
+
+        val
     }
 
     fn run_instruction(&mut self) -> bool
@@ -533,14 +746,249 @@ impl CPU
         {
             Op::LDA => {
                 if self.ba_low { return false; }
-                let na = self.curr_instr.operand_lo;
+                let na = self.get_operand();
                 self.A = na;
                 self.set_zn_flags(na);
+            },
+            Op::LDX => {
+                if self.ba_low { return false; }
+                let nx = self.get_operand();
+                self.X = nx;
+                self.set_zn_flags(nx);
+            },
+            Op::LDY => {
+                if self.ba_low { return false; }
+                let ny = self.get_operand();
+                self.Y = ny;
+                self.set_zn_flags(ny);
+            },
+            Op::STA => {
+                let addr = self.curr_instr.operand_addr;
+                let val = self.A;
+                self.write_byte(addr, val);
+            },
+            Op::STX => {
+                let addr = self.curr_instr.operand_addr;
+                let val = self.X;
+                self.write_byte(addr, val);
+            },
+            Op::STY => {
+                let addr = self.curr_instr.operand_addr;
+                let val = self.Y;
+                self.write_byte(addr, val);
+            },
+            Op::TAX => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+                self.X = self.A;
+                let x = self.X;
+                self.set_zn_flags(x);
+            },
+            Op::TAY => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+                self.Y = self.A;
+                let y = self.Y;
+                self.set_zn_flags(y);
+            },
+            Op::TXA => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+                self.A = self.X;
+                let a = self.A;
+                self.set_zn_flags(a);
+            },
+            Op::TYA => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+                self.A = self.Y;
+                let a = self.A;
+                self.set_zn_flags(a);
+            },
+            Op::TSX => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+                self.X = self.SP;
+                let x = self.X;
+                self.set_zn_flags(x);
+            },
+            Op::TXS => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+                self.SP = self.X;
+            },
+            Op::PHA => {
+                match self.curr_instr.cycles_to_run
+                {
+                    2 => {
+                        if self.ba_low { return false; }
+                        let pc = self.PC;
+                        self.read_idle(pc);
+                    },
+                    1 => {
+                        let a = self.A;
+                        self.push_byte(a);
+                    },
+                    _ => panic!("Wrong number of cycles: {} {}", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
+            Op::PHP => {
+                match self.curr_instr.cycles_to_run
+                {
+                    2 => {
+                        if self.ba_low { return false; }
+                        let pc = self.PC;
+                        self.read_idle(pc);
+                    },
+                    1 => {
+                        let p = self.P;
+                        // TODO: break flag?
+                        self.push_byte(p);
+                    },
+                    _ => panic!("Wrong number of cycles: {} {}", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
+            Op::PLA => {
+                if self.ba_low { return false; }
+                match self.curr_instr.cycles_to_run
+                {
+                    3 => {
+                        let pc = self.PC;
+                        self.read_idle(pc);
+                    },
+                    2 => {
+                        let sp = self.SP as u16;
+                        self.read_idle(sp+1);
+                    },
+                    1 => {
+                        let a = self.pop_byte();
+                        self.A = a;
+                        self.set_zn_flags(a);
+                    },
+                    _ => panic!("Wrong number of cycles: {} {}", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
+            Op::PLP => {
+                if self.ba_low { return false; }
+                match self.curr_instr.cycles_to_run
+                {
+                    3 => {
+                        let pc = self.PC;
+                        self.read_idle(pc);
+                    },
+                    2 => {
+                        let sp = self.SP as u16;
+                        self.read_idle(sp+1);
+                    },
+                    1 => {
+                        let p = self.pop_byte();
+                        self.P = p;
+                        self.set_zn_flags(p);
+                    },
+                    _ => panic!("Wrong number of cycles: {} {}", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
+            Op::JMP => { // TODO: is this ok?
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                match self.curr_instr.cycles_to_run
+                {
+                    2 => {
+                        //self.curr_instr.cycles_to_run -= 1;
+                    },
+                    1 | 0 => {
+                        self.PC = self.curr_instr.operand_addr;
+                        self.curr_instr.cycles_to_run = 1;
+                    },
+                    _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
+            Op::CLC => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+                self.set_status_flag(StatusFlag::Carry, false);
+            },
+            Op::CLD => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+                self.set_status_flag(StatusFlag::DecimalMode, false);
+            },
+            Op::CLI => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+                self.set_status_flag(StatusFlag::InterruptDisable, false);
+            },
+            Op::CLV => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+                self.set_status_flag(StatusFlag::Overflow, false);
+            },
+            Op::SEC => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+                self.set_status_flag(StatusFlag::Carry, true);
+            },
+            Op::SED => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+                self.set_status_flag(StatusFlag::DecimalMode, true);
+            },
+            Op::SEI => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+                self.set_status_flag(StatusFlag::InterruptDisable, true);
+            },
+            Op::NOP => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+            },
+            Op::RTI => { // TODO is this ok?
+                if self.ba_low { return false; }
+
+                match self.curr_instr.cycles_to_run
+                {
+                    5 => {
+                        let pc = self.PC;
+                        self.read_idle(pc);
+                    },
+                    4 => {
+                        let sp = self.SP as u16;
+                        self.read_idle(sp + 1);
+                    },
+                    3 => {
+                        let p = self.pop_byte();
+                        self.P = p;
+                    },
+                    2 => {
+                        let pc_lo = self.pop_byte() as u16;
+                        self.PC = pc_lo;
+                    },
+                    1  => {
+                        let pc_hi = self.pop_byte() as u16;
+                        self.PC |= pc_hi << 8;
+                    },
+                    _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
             },
             _ => { }
         }
 
+        self.curr_instr.cycles_to_run -= 1;
         // instruction finished execution
-        true
+        self.curr_instr.cycles_to_run == 0
     }
 }
