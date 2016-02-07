@@ -103,6 +103,7 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
     
     let operand_hex: String;
     let operand: String;
+    let mut extra_cycle = false;
     let debug_loops = false; // true;
 
     // RTS? pop from queue to continue logging
@@ -133,11 +134,13 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
             operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
             operand = format!("${:04X}  ", cpu.read_word_le(cpu.prev_PC));
         },
-        opcodes::AddrMode::AbsoluteIndexedX => {
+        opcodes::AddrMode::AbsoluteIndexedX(ec) => {
+            extra_cycle = ec;
             operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
             operand = format!("${:04X},X", cpu.read_word_le(cpu.prev_PC));
         },
-        opcodes::AddrMode::AbsoluteIndexedY => {
+        opcodes::AddrMode::AbsoluteIndexedY(ec) => {
+            extra_cycle = ec;
             operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
             operand = format!("${:04X},Y", cpu.read_word_le(cpu.prev_PC));
         },
@@ -147,7 +150,7 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
         }, 
         opcodes::AddrMode::ZeropageIndexedX => {
             operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
-            operand = format!("${:02X},X", cpu.read_byte(prev_pc));
+            operand = format!("${:02X},X  ", cpu.read_byte(prev_pc));
         },
         opcodes::AddrMode::ZeropageIndexedY => {
             operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
@@ -166,7 +169,8 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
             operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
             operand = format!("(${:02X},X)", cpu.read_byte(prev_pc));
         },
-        opcodes::AddrMode::IndirectIndexedY => {
+        opcodes::AddrMode::IndirectIndexedY(ec) => {
+            extra_cycle = ec;
             operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
             operand = format!("(${:02X}),Y", cpu.read_byte(prev_pc));
         },
@@ -174,7 +178,10 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
 
     let byte0 = cpu.read_byte(0x0000);
     let byte1 = cpu.read_byte(0x0001);
-    println!("${:04X}: {:02X}{} {} {}  <- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}] ({} cycles, f: {}, r: {})", cpu.prev_PC - 1, opcode, operand_hex, cpu.curr_instr, operand, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P, cpu.curr_instr.cycles_to_fetch + cpu.curr_instr.cycles_to_run + 1, cpu.curr_instr.cycles_to_fetch + 1, cpu.curr_instr.cycles_to_run);
+
+    let extra_cycle_mark = if extra_cycle { "*" } else { " " };
+    
+    println!("${:04X}: {:02X}{}{}{} {}  <- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}] ({} cycles, f: {}, r: {})", cpu.prev_PC - 1, opcode, operand_hex, extra_cycle_mark, cpu.curr_instr, operand, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P, cpu.curr_instr.cycles_to_fetch + cpu.curr_instr.cycles_to_run + 1, cpu.curr_instr.cycles_to_fetch + 1, cpu.curr_instr.cycles_to_run);
 
     // JSR? push on queue to supress logging
     if !debug_loops

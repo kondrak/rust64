@@ -22,15 +22,15 @@ pub enum AddrMode
     Accumulator,
     Immediate,
     Absolute,
-    AbsoluteIndexedX,
-    AbsoluteIndexedY,
+    AbsoluteIndexedX(bool),
+    AbsoluteIndexedY(bool),
     Zeropage,
     ZeropageIndexedX,
     ZeropageIndexedY,
     Relative,
     Indirect,
     IndexedIndirectX,
-    IndirectIndexedY
+    IndirectIndexedY(bool)
 }
 
 /*impl AddrMode
@@ -143,7 +143,7 @@ pub struct Instruction
     pub index_addr: u16,    // additional address storage for indirect and indexed addressing modes
     pub cycles_to_fetch: u8, // how many cycles to fetch the operand?
     pub cycles_to_run: u8, // how many cycles to execute the operation?
-    pub zp_crossed: bool,
+    pub zp_crossed: bool, // zero page crossed?
 }
 
 impl Instruction
@@ -160,16 +160,18 @@ impl Instruction
             zp_crossed: false,
         };
 
+        let mut extra_cycle = false;
+        
         match i.addr_mode {
             AddrMode::Absolute => i.cycles_to_fetch = 2,
-            AddrMode::AbsoluteIndexedX => i.cycles_to_fetch = 3,
-            AddrMode::AbsoluteIndexedY => i.cycles_to_fetch = 3,
+            AddrMode::AbsoluteIndexedX(ec) => { i.cycles_to_fetch = 3; extra_cycle = ec; },
+            AddrMode::AbsoluteIndexedY(ec) => { i.cycles_to_fetch = 3; extra_cycle = ec; },
             AddrMode::Zeropage => i.cycles_to_fetch = 1,
             AddrMode::Indirect => i.cycles_to_fetch = 2,
             AddrMode::ZeropageIndexedX => i.cycles_to_fetch = 2,
             AddrMode::ZeropageIndexedY => i.cycles_to_fetch = 2,
             AddrMode::IndexedIndirectX => i.cycles_to_fetch = 4,
-            AddrMode::IndirectIndexedY => i.cycles_to_fetch = 4,
+            AddrMode::IndirectIndexedY(ec) => { i.cycles_to_fetch = 4; extra_cycle = ec; },
             _ => {}
         }
 
@@ -178,7 +180,12 @@ impl Instruction
         //println!("{}", i);
 
         // subtract 1 to account for op fetching which already took 1 cycle
-        i.cycles_to_run -= 1;
+        // if instruction has an extra cycle on page cross - retain it
+        if !extra_cycle
+        {
+            i.cycles_to_run -= 1;
+        }
+        
         i
     }
 
@@ -578,13 +585,13 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
              /* ORA_abs */ 0x0D => (Op::ORA, 4, AddrMode::Absolute),
              /* ASL_abs */ 0x0E => (Op::ASL, 6, AddrMode::Absolute),
              /* BPL_rel */ 0x10 => (Op::BPL, 2, AddrMode::Relative), // add 1 cycle if page boundary is crossed
-             /* ORA_izy */ 0x11 => (Op::ORA, 5, AddrMode::IndirectIndexedY), // add 1 cycle if page boundary is crossed
+             /* ORA_izy */ 0x11 => (Op::ORA, 5, AddrMode::IndirectIndexedY(true)), // add 1 cycle if page boundary is crossed
              /* ORA_zpx */ 0x15 => (Op::ORA, 4, AddrMode::ZeropageIndexedX),
              /* ASL_zpx */ 0x16 => (Op::ASL, 6, AddrMode::ZeropageIndexedX),
              /* CLC     */ 0x18 => (Op::CLC, 2, AddrMode::Implied),
-             /* ORA_aby */ 0x19 => (Op::ORA, 4, AddrMode::AbsoluteIndexedY), // add 1 cycle if page boundary is crossed
-             /* ORA_abx */ 0x1D => (Op::ORA, 4, AddrMode::AbsoluteIndexedX), // add 1 cycle if page boundary is crossed
-             /* ASL_abx */ 0x1E => (Op::ASL, 7, AddrMode::AbsoluteIndexedX),
+             /* ORA_aby */ 0x19 => (Op::ORA, 4, AddrMode::AbsoluteIndexedY(true)), // add 1 cycle if page boundary is crossed
+             /* ORA_abx */ 0x1D => (Op::ORA, 4, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
+             /* ASL_abx */ 0x1E => (Op::ASL, 7, AddrMode::AbsoluteIndexedX(false)),
              /* JSR_abs */ 0x20 => (Op::JSR, 6, AddrMode::Absolute),
              /* AND_izx */ 0x21 => (Op::AND, 6, AddrMode::IndexedIndirectX),
              /* BIT_zp  */ 0x24 => (Op::BIT, 3, AddrMode::Zeropage),
@@ -597,13 +604,13 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
              /* AND_abs */ 0x2D => (Op::AND, 4, AddrMode::Absolute),
              /* ROL_abs */ 0x2E => (Op::ROL, 6, AddrMode::Absolute),
              /* BMI_rel */ 0x30 => (Op::BMI, 2, AddrMode::Relative), // add 1 cycle if page boundary is crossed
-             /* AND_izy */ 0x31 => (Op::AND, 5, AddrMode::IndirectIndexedY), // add 1 cycle if page boundary is crossed
+             /* AND_izy */ 0x31 => (Op::AND, 5, AddrMode::IndirectIndexedY(true)), // add 1 cycle if page boundary is crossed
              /* AND_zpx */ 0x35 => (Op::AND, 4, AddrMode::ZeropageIndexedX),
              /* ROL_zpx */ 0x36 => (Op::ROL, 6, AddrMode::ZeropageIndexedX),
              /* SEC     */ 0x38 => (Op::SEC, 2, AddrMode::Implied),
-             /* AND_aby */ 0x39 => (Op::AND, 4, AddrMode::AbsoluteIndexedY), // add 1 cycle if page boundary is crossed
-             /* AND_abx */ 0x3D => (Op::AND, 4, AddrMode::AbsoluteIndexedX), // add 1 cycle if page boundary is crossed
-             /* ROL_abx */ 0x3E => (Op::ROL, 7, AddrMode::AbsoluteIndexedX),
+             /* AND_aby */ 0x39 => (Op::AND, 4, AddrMode::AbsoluteIndexedY(true)), // add 1 cycle if page boundary is crossed
+             /* AND_abx */ 0x3D => (Op::AND, 4, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
+             /* ROL_abx */ 0x3E => (Op::ROL, 7, AddrMode::AbsoluteIndexedX(false)),
              /* RTI     */ 0x40 => (Op::RTI, 6, AddrMode::Implied),
              /* EOR_izx */ 0x41 => (Op::EOR, 6, AddrMode::IndexedIndirectX),
              /* EOR_zp  */ 0x45 => (Op::EOR, 3, AddrMode::Zeropage),
@@ -615,13 +622,13 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
              /* EOR_abs */ 0x4D => (Op::EOR, 4, AddrMode::Absolute),
              /* LSR_abs */ 0x4E => (Op::LSR, 6, AddrMode::Absolute),
              /* BVC_rel */ 0x50 => (Op::BVC, 2, AddrMode::Relative), // add 1 cycle if page boundary is crossed
-             /* EOR_izy */ 0x51 => (Op::EOR, 5, AddrMode::IndirectIndexedY), // add 1 cycle if page boundary is crossed
+             /* EOR_izy */ 0x51 => (Op::EOR, 5, AddrMode::IndirectIndexedY(true)), // add 1 cycle if page boundary is crossed
              /* EOR_zpx */ 0x55 => (Op::EOR, 4, AddrMode::ZeropageIndexedX),
              /* LSR_zpx */ 0x56 => (Op::LSR, 6, AddrMode::ZeropageIndexedX),
              /* CLI     */ 0x58 => (Op::CLI, 2, AddrMode::Implied),
-             /* EOR_aby */ 0x59 => (Op::EOR, 4, AddrMode::AbsoluteIndexedY), // add 1 cycle if page boundary is crossed
-             /* EOR_abx */ 0x5D => (Op::EOR, 4, AddrMode::AbsoluteIndexedX), // add 1 cycle if page boundary is crossed
-             /* LSR_abx */ 0x5E => (Op::LSR, 7, AddrMode::AbsoluteIndexedX),
+             /* EOR_aby */ 0x59 => (Op::EOR, 4, AddrMode::AbsoluteIndexedY(true)), // add 1 cycle if page boundary is crossed
+             /* EOR_abx */ 0x5D => (Op::EOR, 4, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
+             /* LSR_abx */ 0x5E => (Op::LSR, 7, AddrMode::AbsoluteIndexedX(false)),
              /* RTS     */ 0x60 => (Op::RTS, 6, AddrMode::Implied),
              /* ADC_izx */ 0x61 => (Op::ADC, 6, AddrMode::IndexedIndirectX),
              /* ADC_zp  */ 0x65 => (Op::ADC, 3, AddrMode::Zeropage),
@@ -633,13 +640,13 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
              /* ADC_abs */ 0x6D => (Op::ADC, 4, AddrMode::Absolute),
              /* ROR_abs */ 0x6E => (Op::ROR, 6, AddrMode::Absolute),
              /* BVS_rel */ 0x70 => (Op::BVS, 2, AddrMode::Relative), // add 1 cycle if page boundary is crossed
-             /* ADC_izy */ 0x71 => (Op::ADC, 5, AddrMode::IndirectIndexedY), // add 1 cycle if page boundary is crossed
+             /* ADC_izy */ 0x71 => (Op::ADC, 5, AddrMode::IndirectIndexedY(true)), // add 1 cycle if page boundary is crossed
              /* ADC_zpx */ 0x75 => (Op::ADC, 4, AddrMode::ZeropageIndexedX),
              /* ROR_zpx */ 0x76 => (Op::ROR, 6, AddrMode::ZeropageIndexedX),
              /* SEI     */ 0x78 => (Op::SEI, 2, AddrMode::Implied),
-             /* ADC_aby */ 0x79 => (Op::ADC, 4, AddrMode::AbsoluteIndexedY), // add 1 cycle if page boundary is crossed
-             /* ADC_abx */ 0x7D => (Op::ADC, 4, AddrMode::AbsoluteIndexedX), // add 1 cycle if page boundary is crossed
-             /* ROR_abx */ 0x7E => (Op::ROR, 7, AddrMode::AbsoluteIndexedX),
+             /* ADC_aby */ 0x79 => (Op::ADC, 4, AddrMode::AbsoluteIndexedY(true)), // add 1 cycle if page boundary is crossed
+             /* ADC_abx */ 0x7D => (Op::ADC, 4, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
+             /* ROR_abx */ 0x7E => (Op::ROR, 7, AddrMode::AbsoluteIndexedX(false)),
              /* STA_izx */ 0x81 => (Op::STA, 6, AddrMode::IndexedIndirectX),
              /* STY_zp  */ 0x84 => (Op::STY, 3, AddrMode::Zeropage),
              /* STA_zp  */ 0x85 => (Op::STA, 3, AddrMode::Zeropage),
@@ -650,14 +657,14 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
              /* STA_abs */ 0x8D => (Op::STA, 4, AddrMode::Absolute),
              /* STX_abs */ 0x8E => (Op::STX, 4, AddrMode::Absolute),
              /* BCC_rel */ 0x90 => (Op::BCC, 2, AddrMode::Relative), // add 1 cycle if page boundary is crossed
-             /* STA_izy */ 0x91 => (Op::STA, 6, AddrMode::IndirectIndexedY),
+             /* STA_izy */ 0x91 => (Op::STA, 6, AddrMode::IndirectIndexedY(false)),
              /* STY_zpx */ 0x94 => (Op::STY, 4, AddrMode::ZeropageIndexedX),
              /* STA_zpx */ 0x95 => (Op::STA, 4, AddrMode::ZeropageIndexedX),
              /* STX_zpy */ 0x96 => (Op::STX, 4, AddrMode::ZeropageIndexedY),
              /* TYA     */ 0x98 => (Op::TYA, 2, AddrMode::Implied),
-             /* STA_aby */ 0x99 => (Op::STA, 5, AddrMode::AbsoluteIndexedY),
+             /* STA_aby */ 0x99 => (Op::STA, 5, AddrMode::AbsoluteIndexedY(false)),
              /* TXS     */ 0x9A => (Op::TXS, 2, AddrMode::Implied),
-             /* STA_abx */ 0x9D => (Op::STA, 5, AddrMode::AbsoluteIndexedX),
+             /* STA_abx */ 0x9D => (Op::STA, 5, AddrMode::AbsoluteIndexedX(false)),
              /* LDY_imm */ 0xA0 => (Op::LDY, 2, AddrMode::Immediate),
              /* LDA_izx */ 0xA1 => (Op::LDA, 6, AddrMode::IndexedIndirectX),
              /* LDX_imm */ 0xA2 => (Op::LDX, 2, AddrMode::Immediate),
@@ -671,16 +678,16 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
              /* LDA_abs */ 0xAD => (Op::LDA, 4, AddrMode::Absolute),
              /* LDX_abs */ 0xAE => (Op::LDX, 4, AddrMode::Absolute),
              /* BCS_rel */ 0xB0 => (Op::BCS, 2, AddrMode::Relative), // add 1 cycle if page boundary is crossed
-             /* LDA_izy */ 0xB1 => (Op::LDA, 5, AddrMode::IndirectIndexedY), // add 1 cycle if page boundary is crossed
+             /* LDA_izy */ 0xB1 => (Op::LDA, 5, AddrMode::IndirectIndexedY(true)), // add 1 cycle if page boundary is crossed
              /* LDY_zpx */ 0xB4 => (Op::LDY, 4, AddrMode::ZeropageIndexedX),
              /* LDA_zpx */ 0xB5 => (Op::LDA, 4, AddrMode::ZeropageIndexedX),
              /* LDX_zpy */ 0xB6 => (Op::LDX, 4, AddrMode::ZeropageIndexedY),
              /* CLV     */ 0xB8 => (Op::CLV, 2, AddrMode::Implied),
-             /* LDA_aby */ 0xB9 => (Op::LDA, 4, AddrMode::AbsoluteIndexedY), // add 1 cycle if page boundary is crossed
+             /* LDA_aby */ 0xB9 => (Op::LDA, 4, AddrMode::AbsoluteIndexedY(true)), // add 1 cycle if page boundary is crossed
              /* TSX     */ 0xBA => (Op::TSX, 2, AddrMode::Implied),
-             /* LDY_abx */ 0xBC => (Op::LDY, 4, AddrMode::AbsoluteIndexedX), // add 1 cycle if page boundary is crossed
-             /* LDA_abx */ 0xBD => (Op::LDA, 4, AddrMode::AbsoluteIndexedX), // add 1 cycle if page boundary is crossed
-             /* LDX_aby */ 0xBE => (Op::LDX, 4, AddrMode::AbsoluteIndexedY), // add 1 cycle if page boundary is crossed
+             /* LDY_abx */ 0xBC => (Op::LDY, 4, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
+             /* LDA_abx */ 0xBD => (Op::LDA, 4, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
+             /* LDX_aby */ 0xBE => (Op::LDX, 4, AddrMode::AbsoluteIndexedY(true)), // add 1 cycle if page boundary is crossed
              /* CPY_imm */ 0xC0 => (Op::CPY, 2, AddrMode::Immediate),
              /* CMP_izx */ 0xC1 => (Op::CMP, 6, AddrMode::IndexedIndirectX),
              /* CPY_zp  */ 0xC4 => (Op::CPY, 3, AddrMode::Zeropage),
@@ -693,13 +700,13 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
              /* CMP_abs */ 0xCD => (Op::CMP, 4, AddrMode::Absolute),
              /* DEC_abs */ 0xCE => (Op::DEC, 6, AddrMode::Absolute),
              /* BNE_rel */ 0xD0 => (Op::BNE, 2, AddrMode::Relative), // add 1 cycle if page boundary is crossed
-             /* CMP_izy */ 0xD1 => (Op::CMP, 5, AddrMode::IndirectIndexedY), // add 1 cycle if page boundary is crossed
+             /* CMP_izy */ 0xD1 => (Op::CMP, 5, AddrMode::IndirectIndexedY(true)), // add 1 cycle if page boundary is crossed
              /* CMP_zpx */ 0xD5 => (Op::CMP, 4, AddrMode::ZeropageIndexedX),
              /* DEC_zpx */ 0xD6 => (Op::DEC, 6, AddrMode::ZeropageIndexedX),
              /* CLD     */ 0xD8 => (Op::CLD, 2, AddrMode::Implied),
-             /* CMP_aby */ 0xD9 => (Op::CMP, 4, AddrMode::AbsoluteIndexedY), // add 1 cycle if page boundary is crossed
-             /* CMP_abx */ 0xDD => (Op::CMP, 4, AddrMode::AbsoluteIndexedX), // add 1 cycle if page boundary is crossed
-             /* DEC_abx */ 0xDE => (Op::DEC, 7, AddrMode::AbsoluteIndexedX),
+             /* CMP_aby */ 0xD9 => (Op::CMP, 4, AddrMode::AbsoluteIndexedY(true)), // add 1 cycle if page boundary is crossed
+             /* CMP_abx */ 0xDD => (Op::CMP, 4, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
+             /* DEC_abx */ 0xDE => (Op::DEC, 7, AddrMode::AbsoluteIndexedX(false)),
              /* CPX_imm */ 0xE0 => (Op::CPX, 2, AddrMode::Immediate),
              /* SBC_izx */ 0xE1 => (Op::SBC, 6, AddrMode::IndexedIndirectX),
              /* CPX_zp  */ 0xE4 => (Op::CPX, 3, AddrMode::Zeropage),
@@ -712,13 +719,13 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
              /* SBC_abs */ 0xED => (Op::SBC, 4, AddrMode::Absolute),
              /* INC_abs */ 0xEE => (Op::INC, 6, AddrMode::Absolute),
              /* BEQ_rel */ 0xF0 => (Op::BEQ, 2, AddrMode::Relative), // add 1 cycle if page boundary is crossed
-             /* SBC_izy */ 0xF1 => (Op::SBC, 5, AddrMode::IndirectIndexedY), // add 1 cycle if page boundary is crossed
+             /* SBC_izy */ 0xF1 => (Op::SBC, 5, AddrMode::IndirectIndexedY(true)), // add 1 cycle if page boundary is crossed
              /* SBC_zpx */ 0xF5 => (Op::SBC, 4, AddrMode::ZeropageIndexedX),
              /* INC_zpx */ 0xF6 => (Op::INC, 6, AddrMode::ZeropageIndexedX),
              /* SED     */ 0xF8 => (Op::SED, 2, AddrMode::Implied),
-             /* SBC_aby */ 0xF9 => (Op::SBC, 4, AddrMode::AbsoluteIndexedY), // add 1 cycle if page boundary is crossed
-             /* SBC_abx */ 0xFD => (Op::SBC, 4, AddrMode::AbsoluteIndexedX), // add 1 cycle if page boundary is crossed
-             /* INC_abx */ 0xFE => (Op::INC, 7, AddrMode::AbsoluteIndexedX),
+             /* SBC_aby */ 0xF9 => (Op::SBC, 4, AddrMode::AbsoluteIndexedY(true)), // add 1 cycle if page boundary is crossed
+             /* SBC_abx */ 0xFD => (Op::SBC, 4, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
+             /* INC_abx */ 0xFE => (Op::INC, 7, AddrMode::AbsoluteIndexedX(false)),
              /* ** undocumented/forbidden instructions ** */
              /* HLT     */ 0x02 => (Op::HLT, 1, AddrMode::Implied),
              /* SLO_izx */ 0x03 => (Op::SLO, 8, AddrMode::IndexedIndirectX),
@@ -728,26 +735,26 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
              /* NOP_abs */ 0x0C => (Op::NOP, 4, AddrMode::Absolute),
              /* SLO_abs */ 0x0F => (Op::SLO, 6, AddrMode::Absolute),
              /* HLT     */ 0x12 => (Op::HLT, 1, AddrMode::Implied),
-             /* SLO_izy */ 0x13 => (Op::SLO, 8, AddrMode::IndirectIndexedY),
+             /* SLO_izy */ 0x13 => (Op::SLO, 8, AddrMode::IndirectIndexedY(false)),
              /* NOP_zpx */ 0x14 => (Op::NOP, 4, AddrMode::ZeropageIndexedX),
              /* SLO_zpx */ 0x17 => (Op::SLO, 6, AddrMode::ZeropageIndexedX),
              /* NOP     */ 0x1A => (Op::NOP, 2, AddrMode::Implied),
-             /* SLO_aby */ 0x1B => (Op::SLO, 7, AddrMode::AbsoluteIndexedY),
-             /* NOP_abx */ 0x1C => (Op::NOP, 4, AddrMode::AbsoluteIndexedX), // add 1 cycle if page boudary is crossed
-             /* SLO_abx */ 0x1F => (Op::SLO, 7, AddrMode::AbsoluteIndexedX),
+             /* SLO_aby */ 0x1B => (Op::SLO, 7, AddrMode::AbsoluteIndexedY(false)),
+             /* NOP_abx */ 0x1C => (Op::NOP, 4, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boudary is crossed
+             /* SLO_abx */ 0x1F => (Op::SLO, 7, AddrMode::AbsoluteIndexedX(false)),
              /* HLT     */ 0x22 => (Op::HLT, 1, AddrMode::Implied),
              /* RLA_izx */ 0x23 => (Op::RLA, 8, AddrMode::IndexedIndirectX),
              /* RLA_zp  */ 0x27 => (Op::RLA, 5, AddrMode::Zeropage),
              /* ANC_imm */ 0x2B => (Op::ANC, 2, AddrMode::Immediate),
              /* RLA_abs */ 0x2F => (Op::RLA, 6, AddrMode::Absolute),
              /* HLT     */ 0x32 => (Op::HLT, 1, AddrMode::Implied),
-             /* RLA_izy */ 0x33 => (Op::RLA, 8, AddrMode::IndirectIndexedY),
+             /* RLA_izy */ 0x33 => (Op::RLA, 8, AddrMode::IndirectIndexedY(false)),
              /* NOP_zpx */ 0x34 => (Op::NOP, 4, AddrMode::ZeropageIndexedX),
              /* RLA_zpx */ 0x37 => (Op::RLA, 6, AddrMode::ZeropageIndexedX),
              /* NOP     */ 0x3A => (Op::NOP, 2, AddrMode::Implied),
-             /* RLA_aby */ 0x3B => (Op::RLA, 7, AddrMode::AbsoluteIndexedY),
-             /* NOP_abx */ 0x3C => (Op::NOP, 4, AddrMode::AbsoluteIndexedX), // add 1 cycle if page boundary is crossed
-             /* RLA_abx */ 0x3F => (Op::RLA, 7, AddrMode::AbsoluteIndexedX),
+             /* RLA_aby */ 0x3B => (Op::RLA, 7, AddrMode::AbsoluteIndexedY(false)),
+             /* NOP_abx */ 0x3C => (Op::NOP, 4, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
+             /* RLA_abx */ 0x3F => (Op::RLA, 7, AddrMode::AbsoluteIndexedX(false)),
              /* HLT     */ 0x42 => (Op::HLT, 1, AddrMode::Implied),
              /* SRE_izx */ 0x43 => (Op::SRE, 8, AddrMode::IndexedIndirectX),
              /* NOP     */ 0x44 => (Op::NOP, 3, AddrMode::Implied),
@@ -755,13 +762,13 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
              /* ALR_imm */ 0x4B => (Op::ALR, 2, AddrMode::Immediate),
              /* SRE_abs */ 0x4F => (Op::SRE, 6, AddrMode::Absolute),
              /* HLT     */ 0x52 => (Op::HLT, 1, AddrMode::Implied),
-             /* SRE_izy */ 0x53 => (Op::SRE, 8, AddrMode::IndirectIndexedY),
+             /* SRE_izy */ 0x53 => (Op::SRE, 8, AddrMode::IndirectIndexedY(false)),
              /* NOP_zpx */ 0x54 => (Op::NOP, 4, AddrMode::ZeropageIndexedX),
              /* SRE_zpx */ 0x57 => (Op::SRE, 6, AddrMode::ZeropageIndexedX),
              /* NOP     */ 0x5A => (Op::NOP, 2, AddrMode::Implied),
-             /* SRE_aby */ 0x5B => (Op::SRE, 7, AddrMode::AbsoluteIndexedY),
-             /* NOP_abx */ 0x5C => (Op::NOP, 4, AddrMode::AbsoluteIndexedX), // add 1 cycle if page boundary is crossed
-             /* SRE_abx */ 0x5F => (Op::SRE, 7, AddrMode::AbsoluteIndexedX),
+             /* SRE_aby */ 0x5B => (Op::SRE, 7, AddrMode::AbsoluteIndexedY(false)),
+             /* NOP_abx */ 0x5C => (Op::NOP, 4, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
+             /* SRE_abx */ 0x5F => (Op::SRE, 7, AddrMode::AbsoluteIndexedX(false)),
              /* HLT     */ 0x62 => (Op::HLT, 1, AddrMode::Implied),
              /* RRA_izx */ 0x63 => (Op::RRA, 8, AddrMode::IndexedIndirectX),
              /* NOP_zp  */ 0x64 => (Op::NOP, 3, AddrMode::Zeropage),
@@ -769,13 +776,13 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
              /* ARR     */ 0x6B => (Op::ARR, 2, AddrMode::Implied),
              /* RRA_abs */ 0x6F => (Op::RRA, 6, AddrMode::Absolute),
              /* HLT     */ 0x72 => (Op::HLT, 1, AddrMode::Implied),
-             /* RRA_izy */ 0x73 => (Op::RRA, 8, AddrMode::IndirectIndexedY),
+             /* RRA_izy */ 0x73 => (Op::RRA, 8, AddrMode::IndirectIndexedY(false)),
              /* NOP_zpx */ 0x74 => (Op::NOP, 4, AddrMode::ZeropageIndexedX),
              /* RRA_zpx */ 0x77 => (Op::RRA, 6, AddrMode::ZeropageIndexedX),
              /* NOP     */ 0x7A => (Op::NOP, 2, AddrMode::Implied),
-             /* RRA_aby */ 0x7B => (Op::RRA, 7, AddrMode::AbsoluteIndexedY),
-             /* NOP_abx */ 0x7C => (Op::NOP, 4, AddrMode::AbsoluteIndexedX), // add 1 cycle if page boundary is crossed
-             /* RRA_abx */ 0x7F => (Op::RRA, 7, AddrMode::AbsoluteIndexedX),
+             /* RRA_aby */ 0x7B => (Op::RRA, 7, AddrMode::AbsoluteIndexedY(false)),
+             /* NOP_abx */ 0x7C => (Op::NOP, 4, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
+             /* RRA_abx */ 0x7F => (Op::RRA, 7, AddrMode::AbsoluteIndexedX(false)),
              /* NOP_imm */ 0x80 => (Op::NOP, 2, AddrMode::Immediate),
              /* NOP_imm */ 0x82 => (Op::NOP, 2, AddrMode::Immediate),
              /* SAX_izx */ 0x83 => (Op::SAX, 6, AddrMode::IndexedIndirectX),
@@ -784,47 +791,47 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, AddrMode)>
              /* XAA_imm */ 0x8B => (Op::XAA, 2, AddrMode::Immediate),
              /* SAX_abs */ 0x8F => (Op::SAX, 4, AddrMode::Absolute),
              /* HLT     */ 0x92 => (Op::HLT, 1, AddrMode::Implied),
-             /* AHX_izy */ 0x93 => (Op::AHX, 6, AddrMode::IndirectIndexedY),
+             /* AHX_izy */ 0x93 => (Op::AHX, 6, AddrMode::IndirectIndexedY(false)),
              /* SAX_zpy */ 0x97 => (Op::SAX, 4, AddrMode::ZeropageIndexedY),
-             /* TAS_aby */ 0x9B => (Op::TAS, 5, AddrMode::AbsoluteIndexedY),
-             /* SHY_abx */ 0x9C => (Op::SHY, 5, AddrMode::AbsoluteIndexedX),
-             /* SHX_aby */ 0x9E => (Op::SHX, 5, AddrMode::AbsoluteIndexedY),
-             /* AHX_aby */ 0x9F => (Op::AHX, 5, AddrMode::AbsoluteIndexedY),
+             /* TAS_aby */ 0x9B => (Op::TAS, 5, AddrMode::AbsoluteIndexedY(false)),
+             /* SHY_abx */ 0x9C => (Op::SHY, 5, AddrMode::AbsoluteIndexedX(false)),
+             /* SHX_aby */ 0x9E => (Op::SHX, 5, AddrMode::AbsoluteIndexedY(false)),
+             /* AHX_aby */ 0x9F => (Op::AHX, 5, AddrMode::AbsoluteIndexedY(false)),
              /* LAX_izx */ 0xA3 => (Op::LAX, 6, AddrMode::IndexedIndirectX),
              /* LAX_zp  */ 0xA7 => (Op::LAX, 3, AddrMode::Zeropage),
              /* LAX_imm */ 0xAB => (Op::LAX, 2, AddrMode::Immediate),
              /* LAX_abs */ 0xAF => (Op::LAX, 4, AddrMode::Absolute),
              /* HLT     */ 0xB2 => (Op::HLT, 1, AddrMode::Implied),
-             /* LAX_izy */ 0xB3 => (Op::LAX, 5, AddrMode::IndirectIndexedY), // add 1 cycle if page boundary is crossed
+             /* LAX_izy */ 0xB3 => (Op::LAX, 5, AddrMode::IndirectIndexedY(true)), // add 1 cycle if page boundary is crossed
              /* LAX_zpy */ 0xB7 => (Op::LAX, 4, AddrMode::ZeropageIndexedY),
-             /* LAS_aby */ 0xBB => (Op::LAS, 4, AddrMode::AbsoluteIndexedY), // add 1 cycle if page boundary is crossed
-             /* LAX_aby */ 0xBF => (Op::LAX, 4, AddrMode::AbsoluteIndexedY), // add 1 cycle if page boundary is crossed
+             /* LAS_aby */ 0xBB => (Op::LAS, 4, AddrMode::AbsoluteIndexedY(true)), // add 1 cycle if page boundary is crossed
+             /* LAX_aby */ 0xBF => (Op::LAX, 4, AddrMode::AbsoluteIndexedY(true)), // add 1 cycle if page boundary is crossed
              /* NOP_imm */ 0xC2 => (Op::NOP, 2, AddrMode::Immediate),
              /* DCP_izx */ 0xC3 => (Op::DCP, 8, AddrMode::IndexedIndirectX),
              /* DCP_zp  */ 0xC7 => (Op::DCP, 5, AddrMode::Zeropage),
              /* AXS_imm */ 0xCB => (Op::AXS, 2, AddrMode::Immediate),
              /* DCP_abs */ 0xCF => (Op::DCP, 6, AddrMode::Absolute),
              /* HLT     */ 0xD2 => (Op::HLT, 1, AddrMode::Implied),
-             /* DCP_izy */ 0xD3 => (Op::DCP, 8, AddrMode::IndirectIndexedY),
+             /* DCP_izy */ 0xD3 => (Op::DCP, 8, AddrMode::IndirectIndexedY(false)),
              /* NOP_zpx */ 0xD4 => (Op::NOP, 4, AddrMode::ZeropageIndexedX),
              /* DCP_zpx */ 0xD7 => (Op::DCP, 6, AddrMode::ZeropageIndexedX),
              /* NOP     */ 0xDA => (Op::NOP, 2, AddrMode::Implied),
-             /* DCP_aby */ 0xDB => (Op::DCP, 7, AddrMode::AbsoluteIndexedY),
-             /* NOP_abx */ 0xDC => (Op::NOP, 4, AddrMode::AbsoluteIndexedX), // add 1 cycle if page boundary is crossed
-             /* DCP_abx */ 0xDF => (Op::DCP, 7, AddrMode::AbsoluteIndexedX),
+             /* DCP_aby */ 0xDB => (Op::DCP, 7, AddrMode::AbsoluteIndexedY(false)),
+             /* NOP_abx */ 0xDC => (Op::NOP, 4, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
+             /* DCP_abx */ 0xDF => (Op::DCP, 7, AddrMode::AbsoluteIndexedX(false)),
              /* NOP_imm */ 0xE2 => (Op::NOP, 2, AddrMode::Immediate),
              /* ISC_izx */ 0xE3 => (Op::ISC, 8, AddrMode::IndexedIndirectX),
              /* ISC_zp  */ 0xE7 => (Op::ISC, 5, AddrMode::Zeropage),
              /* SBC_imm */ 0xEB => (Op::SBC, 2, AddrMode::Immediate),
              /* ISC_abs */ 0xEF => (Op::ISC, 6, AddrMode::Absolute),
              /* HLT     */ 0xF2 => (Op::HLT, 1, AddrMode::Implied),
-             /* ISC_izy */ 0xF3 => (Op::ISC, 8, AddrMode::IndirectIndexedY),
+             /* ISC_izy */ 0xF3 => (Op::ISC, 8, AddrMode::IndirectIndexedY(false)),
              /* NOP_zpx */ 0xF4 => (Op::NOP, 4, AddrMode::ZeropageIndexedX),
              /* ISC_zpx */ 0xF7 => (Op::ISC, 6, AddrMode::ZeropageIndexedX),
              /* NOP     */ 0xFA => (Op::NOP, 2, AddrMode::Implied),
-             /* ISC_aby */ 0xFB => (Op::ISC, 7, AddrMode::AbsoluteIndexedY),
-             /* NOP_abx */ 0xFC => (Op::NOP, 4, AddrMode::AbsoluteIndexedX), // add 1 cycle if page boundary is crossed
-             /* ISC_abx */ 0xFF => (Op::ISC, 7, AddrMode::AbsoluteIndexedX),
+             /* ISC_aby */ 0xFB => (Op::ISC, 7, AddrMode::AbsoluteIndexedY(false)),
+             /* NOP_abx */ 0xFC => (Op::NOP, 4, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
+             /* ISC_abx */ 0xFF => (Op::ISC, 7, AddrMode::AbsoluteIndexedX(false)),
              
              _ => return None
          })
