@@ -47,6 +47,7 @@ enum CPUState
 {
     FetchOp,
     FetchOperand,
+    PerformRMW,
     ExecuteOp
 }
 
@@ -182,16 +183,43 @@ impl CPU
             CPUState::FetchOperand => {
                 if self.fetch_operand()
                 {
-                    self.state = CPUState::ExecuteOp;
+                    if self.curr_instr.cycles_to_rmw > 0
+                    {
+                        self.state = CPUState::PerformRMW;
+                    }
+                    else
+                    {
+                        self.state = CPUState::ExecuteOp;
+                    }
                 }
 
                 // TODO: odd case? Some instructions can be executed immediately after operand fetch
                 if self.curr_instr.cycles_to_run == 0
                 {
+                    panic!("Not sure if this should happen - reinvestigate");
                     self.run_instruction();
                     self.state = CPUState::FetchOp;
                 }
             }
+            CPUState::PerformRMW => {
+                match self.curr_instr.cycles_to_rmw
+                {
+                    2 => {
+                        if self.ba_low { return; }
+                        let addr = self.curr_instr.operand_addr;
+                        self.curr_instr.rmw_buffer = self.read_byte(addr);
+                    },
+                    1 => {
+                        let addr = self.curr_instr.operand_addr;
+                        let val = self.curr_instr.rmw_buffer;
+                        self.write_byte(addr, val);
+                        self.state = CPUState::ExecuteOp;
+                    },
+                     _ => panic!("Too many cycles in RMW stage! ({}) ", self.curr_instr.cycles_to_rmw)
+                }
+
+                self.curr_instr.cycles_to_rmw -= 1;
+            },
             CPUState::ExecuteOp => {
                 if self.run_instruction()
                 {

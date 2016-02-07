@@ -143,6 +143,8 @@ pub struct Instruction
     pub index_addr: u16,    // additional address storage for indirect and indexed addressing modes
     pub cycles_to_fetch: u8, // how many cycles to fetch the operand?
     pub cycles_to_run: u8, // how many cycles to execute the operation?
+    pub cycles_to_rmw: u8, // how many cycles for additional 2 steps of read-move-write?
+    pub rmw_buffer: u8,   // data read and stored during rmw stage and used as operand addr during execution for rmw instruction
     pub zp_crossed: bool, // zero page crossed?
 }
 
@@ -157,6 +159,8 @@ impl Instruction
             index_addr: 0,
             cycles_to_fetch: 0,
             cycles_to_run: 0,
+            cycles_to_rmw: 0,
+            rmw_buffer: 0,
             zp_crossed: false,
         };
 
