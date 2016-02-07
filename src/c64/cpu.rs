@@ -919,6 +919,54 @@ impl CPU
                     _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
                 }
             },
+            Op::JSR => { // TODO: is this ok?
+                match self.curr_instr.cycles_to_run
+                {
+                    3 => {
+                        // TODO: break down PC push to 2 byte instructions?
+                    },
+                    2 => {
+                        let pc = self.PC - 0x0001;
+                        self.push_word(pc);
+                    },
+                    1  => {
+                        if self.ba_low { return false; }
+                        let pc = self.PC;
+                        self.read_idle(pc);
+                        self.PC = self.curr_instr.operand_addr;
+                    },
+                    _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
+            Op::RTS => {
+                if self.ba_low { return false; }
+
+                match self.curr_instr.cycles_to_run
+                {
+                    5 => {
+                        let pc = self.PC;
+                        self.read_idle(pc);
+                    },
+                    4 => {
+                        let sp = self.SP as u16;
+                        self.read_idle(sp + 1);
+                    },
+                    3 => {
+                        let pc_lo = self.pop_byte() as u16;
+                        self.PC = pc_lo;
+                    },
+                    2 => {
+                        let pc_hi = self.pop_byte() as u16;
+                        self.PC |= pc_hi << 8;
+                    },
+                    1  => {
+                        let pc = self.PC;
+                        self.read_idle(pc+1);
+                        self.PC += 1;
+                    },
+                    _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
             Op::CLC => {
                 if self.ba_low { return false; }
                 let pc = self.PC;
