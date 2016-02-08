@@ -758,6 +758,12 @@ impl CPU
     fn get_operand(&mut self) -> u8
     {
         let addr = self.curr_instr.operand_addr;
+
+        if self.curr_instr.cycles_to_rmw > 0
+        {
+            return self.curr_instr.rmw_buffer;
+        }
+        
         let val = match self.curr_instr.addr_mode {
             AddrMode::Accumulator => self.A,
             AddrMode::Immediate  => self.next_byte(),
@@ -765,6 +771,16 @@ impl CPU
         };
 
         val
+    }
+
+    fn set_operand(&mut self, val: u8)
+    {
+        let addr = self.curr_instr.operand_addr;
+        
+        match self.curr_instr.addr_mode {
+            AddrMode::Accumulator => { self.A = val; },
+            _ => { self.write_byte(addr, val); },
+        }
     }
 
     fn run_instruction(&mut self) -> bool
@@ -921,6 +937,104 @@ impl CPU
                     _ => panic!("Wrong number of cycles: {} {}", self.curr_instr, self.curr_instr.cycles_to_run)
                 }
             },
+            Op::AND => {
+                if self.ba_low { return false; }
+                let v = self.get_operand();
+                let na = self.A & v;
+                self.A = na;
+                self.set_zn_flags(na);
+            },
+            Op::EOR => {
+                if self.ba_low { return false; }
+                let v = self.get_operand();
+                let na = self.A ^ v;
+                self.A = na;
+                self.set_zn_flags(na);
+            },
+            Op::ORA => {
+                if self.ba_low { return false; }
+                let v = self.get_operand();
+                let na = self.A | v;
+                self.A = na;
+                self.set_zn_flags(na);
+            },
+            Op::BIT => {
+                if self.ba_low { return false; }
+                let v = self.get_operand();
+                let a = self.A;
+                self.set_status_flag(StatusFlag::Negative, (v & 0x80) != 0); // TODO: is this ok?
+                self.set_status_flag(StatusFlag::Overflow, (v & 0x40) != 0);
+                self.set_status_flag(StatusFlag::Zero,     (v & a)    == 0);
+            },
+            Op::ADC => {
+                if self.ba_low { return false; }
+                // TODO: support decimal mode
+                if self.get_status_flag(StatusFlag::DecimalMode)
+                {
+                    panic!("Decimal mode not supported in ADC yet!");
+                }
+                // TODO: should operation wrap automatically here?
+                let v = self.get_operand();
+                let mut res: u16 = (Wrapping(self.A as u16) + Wrapping(v as u16)).0;
+                if self.get_status_flag(StatusFlag::Carry)
+                {
+                    res = (Wrapping(res) + Wrapping(0x0001)).0;
+                }
+                self.set_status_flag(StatusFlag::Carry, (res & 0x0100) != 0);
+                let res = res as u8;
+                let is_overflow = (self.A ^ v) & 0x80 == 0 && (self.A ^ res) & 0x80 == 0x80;
+                self.set_status_flag(StatusFlag::Overflow, is_overflow);
+                self.A = res;
+                self.set_zn_flags(res);
+            },
+            Op::SBC => {
+                if self.ba_low { return false; }
+                // TODO: support decimal mode
+                if self.get_status_flag(StatusFlag::DecimalMode)
+                {
+                    panic!("Decimal mode not supported in SBC yet!");
+                }
+                // TODO: should operation wrap automatically here?
+                let v = self.get_operand();
+                let mut res: u16 = (Wrapping(self.A as u16) - Wrapping(v as u16)).0;
+                if !self.get_status_flag(StatusFlag::Carry)
+                {
+                    res = (Wrapping(res) - Wrapping(0x0001)).0;
+                }
+                self.set_status_flag(StatusFlag::Carry, (res & 0x0100) == 0);
+                let res = res as u8;
+                let is_overflow = (self.A ^ res) & 0x80 != 0 && (self.A ^ v) & 0x80 == 0x80;
+                self.set_status_flag(StatusFlag::Overflow, is_overflow);
+                self.A = res;
+                self.set_zn_flags(res);
+            },
+            Op::CMP => {
+                if self.ba_low { return false; }
+                let v = self.get_operand();
+                let res = self.A as i16 - v as i16;
+                self.set_status_flag(StatusFlag::Carry, res >= 0);
+                self.set_zn_flags(res as u8);
+            },
+            Op::CPX => {
+                if self.ba_low { return false; }
+                let v = self.get_operand();
+                let res = self.X as i16 - v as i16;
+                self.set_status_flag(StatusFlag::Carry, res >= 0);
+                self.set_zn_flags(res as u8);
+            },
+            Op::CPY => {
+                if self.ba_low { return false; }
+                let v = self.get_operand();
+                let res = self.Y as i16 - v as i16;
+                self.set_status_flag(StatusFlag::Carry, res >= 0);
+                self.set_zn_flags(res as u8);
+            },
+            Op::INC => {
+                let v = (Wrapping(self.curr_instr.rmw_buffer) + Wrapping(0x01)).0;
+                let addr = self.curr_instr.operand_addr;
+                self.write_byte(addr, v);
+                self.set_zn_flags(v);
+            },
             Op::INX => {
                 if self.ba_low { return false; }
                 let pc = self.PC;
@@ -937,6 +1051,12 @@ impl CPU
                 let y = self.Y;
                 self.set_zn_flags(y);
             },
+            Op::DEC => {
+                let v = (Wrapping(self.curr_instr.rmw_buffer) - Wrapping(0x01)).0;
+                let addr = self.curr_instr.operand_addr;
+                self.write_byte(addr, v);
+                self.set_zn_flags(v);
+            },
             Op::DEX => {
                 if self.ba_low { return false; }
                 let pc = self.PC;
@@ -952,6 +1072,68 @@ impl CPU
                 self.Y = (Wrapping(self.Y) - Wrapping(0x01)).0;
                 let y = self.Y;
                 self.set_zn_flags(y);
+            },
+            Op::ASL => {
+                if self.ba_low {
+                    match self.curr_instr.addr_mode {
+                        AddrMode::Accumulator => {return false; },
+                        _ => (),
+                    }
+                }
+                let v = self.get_operand();
+                self.set_status_flag(StatusFlag::Carry, (v & 0x80) != 0);
+                let res = v << 1;
+                self.set_operand(res);
+                self.set_zn_flags(res);
+            },
+            Op::LSR => {
+                if self.ba_low {
+                    match self.curr_instr.addr_mode {
+                        AddrMode::Accumulator => {return false; },
+                        _ => (),
+                    }
+                }
+                let v = self.get_operand();
+                self.set_status_flag(StatusFlag::Carry, (v & 0x01) != 0);
+                let res = v >> 1;
+                self.set_operand(res);
+                self.set_zn_flags(res);
+            },
+            Op::ROL => {
+                if self.ba_low {
+                    match self.curr_instr.addr_mode {
+                        AddrMode::Accumulator => {return false; },
+                        _ => (),
+                    }
+                }
+                let c = self.get_status_flag(StatusFlag::Carry);
+                let v = self.get_operand();
+                self.set_status_flag(StatusFlag::Carry, (v & 0x80) != 0);
+                let mut res = v << 1;
+                if c
+                {
+                    res |= 0x01;
+                }
+                self.set_operand(res);
+                self.set_zn_flags(res);
+            },
+            Op::ROR => {
+                if self.ba_low {
+                    match self.curr_instr.addr_mode {
+                        AddrMode::Accumulator => {return false; },
+                        _ => (),
+                    }
+                }
+                let c = self.get_status_flag(StatusFlag::Carry);
+                let v = self.get_operand();
+                self.set_status_flag(StatusFlag::Carry, (v & 0x01) != 0);
+                let mut res = v >> 1;
+                if c
+                {
+                    res |= 0x80;
+                }
+                self.set_operand(res);
+                self.set_zn_flags(res);
             },
             Op::JMP => { // TODO: is this ok?
                 if self.ba_low { return false; }
