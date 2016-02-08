@@ -99,7 +99,7 @@ impl CPU
             state: CPUState::FetchOp,
             irq_cycles: 0,
             op_cycles: 0,
-            curr_instr: Instruction::new(Op::BRK, 1, AddrMode::Implied),
+            curr_instr: Instruction::new(Op::BRK, 1, false, AddrMode::Implied),
             curr_op: 0,
             nmi: false,
             prev_PC: 0,
@@ -154,8 +154,8 @@ impl CPU
                 if self.ba_low { return; }
                 let next_op = self.next_byte();
                 match get_instruction(next_op) {
-                    Some((op_name, total_cycles, addr_mode)) => {
-                        self.curr_instr = Instruction::new(op_name, total_cycles, addr_mode);
+                    Some((op_name, total_cycles, is_rmw, addr_mode)) => {
+                        self.curr_instr = Instruction::new(op_name, total_cycles, is_rmw, addr_mode);
                         utils::debug_instruction(next_op, self);
                     }
                     None => panic!("Can't fetch instruction")
