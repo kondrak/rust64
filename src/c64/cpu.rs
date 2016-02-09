@@ -183,7 +183,7 @@ impl CPU
             CPUState::FetchOperand => {
                 if self.fetch_operand()
                 {
-                    if self.curr_instr.cycles_to_rmw > 0
+                    if self.curr_instr.is_rmw
                     {
                         self.state = CPUState::PerformRMW;
                     }
@@ -759,7 +759,7 @@ impl CPU
     {
         let addr = self.curr_instr.operand_addr;
 
-        if self.curr_instr.cycles_to_rmw > 0
+        if self.curr_instr.is_rmw
         {
             return self.curr_instr.rmw_buffer;
         }
@@ -1198,6 +1198,10 @@ impl CPU
                     _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
                 }
             },
+            // branching ops:
+            // take 2 cycles (fetch + execute) if no branch is taken
+            // 3 cycles if branch is taken, no page crossed
+            // 4 cycles if branch is taken, page crossed
             Op::CLC => {
                 if self.ba_low { return false; }
                 let pc = self.PC;
