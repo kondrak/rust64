@@ -48,6 +48,8 @@ enum CPUState
     FetchOp,
     FetchOperand,
     PerformRMW,
+    ProcessIRQ,
+    ProcessNMI,
     ExecuteOp
 }
 
@@ -67,6 +69,8 @@ pub struct CPU
     pub ba_low: bool,  // is BA low?
     pub cia_irq: bool,
     pub vic_irq: bool,
+    pub irq_cycles_left: u8,
+    pub nmi_cycles_left: u8,
     state: CPUState,
     irq_cycles: u8,
     op_cycles: u8,
@@ -96,6 +100,8 @@ impl CPU
             ba_low: false,
             cia_irq: false,
             vic_irq: false,
+            irq_cycles_left: 0,
+            nmi_cycles_left: 0,
             state: CPUState::FetchOp,
             irq_cycles: 0,
             op_cycles: 0,
@@ -148,15 +154,34 @@ impl CPU
 
     pub fn update(&mut self)
     {
+        // check for irq and nmi
         match self.state
         {
             CPUState::FetchOp => {
+                if self.nmi && self.nmi_cycles_left == 0
+                {
+                    self.nmi_cycles_left = 7;
+                    self.state = CPUState::ProcessNMI;
+                }
+                else if (self.cia_irq || self.vic_irq) && self.irq_cycles_left == 0 && !self.get_status_flag(StatusFlag::InterruptDisable)
+                {
+                    self.irq_cycles_left = 7;
+                    self.state = CPUState::ProcessIRQ;
+                }
+            },
+            _ => {}
+        }
+        
+        match self.state
+        {
+            CPUState::FetchOp => {
+                // fetch the op
                 if self.ba_low { return; }
                 let next_op = self.next_byte();
                 match get_instruction(next_op) {
                     Some((op_name, total_cycles, is_rmw, addr_mode)) => {
                         self.curr_instr = Instruction::new(op_name, total_cycles, is_rmw, addr_mode);
-                        utils::debug_instruction(next_op, self);
+                        //utils::debug_instruction(next_op, self);
                     }
                     None => panic!("Can't fetch instruction")
                 }
@@ -203,6 +228,21 @@ impl CPU
                     self.state = CPUState::FetchOp;
                 }
             }
+            CPUState::ProcessIRQ => {
+                if self.process_irq()
+                {
+                    self.cia_irq = false;
+                    self.vic_irq = false;
+                    self.state = CPUState::FetchOp;
+                }
+            },
+            CPUState::ProcessNMI => {
+                if self.process_nmi()
+                {
+                    self.nmi = false;
+                    self.state = CPUState::FetchOp;
+                }
+            },
             CPUState::PerformRMW => {
                 match self.curr_instr.cycles_to_rmw
                 {
@@ -481,7 +521,7 @@ impl CPU
     fn process_nmi(&mut self) -> bool
     {
         // only process irq if it's the "fetch op" stage
-        if self.op_cycles != 0 { return false }
+        /*if self.op_cycles != 0 { return false }
         // 7 cycles
         if self.nmi
         {
@@ -497,15 +537,54 @@ impl CPU
         else
         {
             false
+        } */
+
+        match self.nmi_cycles_left
+        {
+            7 => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+            },
+            6 => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+            },
+            5 => {
+                let pc_hi = (self.PC >> 8) as u8;
+                self.push_byte(pc_hi);
+            },
+            4 => {
+                let pc_lo = self.PC as u8;
+                self.push_byte(pc_lo);
+            },
+            3 => {
+                //self.set_status_flag(StatusFlag::Break, false); // TODO: clear brk flag?
+                let curr_p = self.P;
+                self.push_byte(curr_p);
+                self.set_status_flag(StatusFlag::InterruptDisable, true);
+            },
+            2 => {
+                if self.ba_low { return false; } // TODO: is reading whole word ok in cycle 1?
+            },
+            1 => {
+                if self.ba_low { return false; }
+                self.PC = as_ref!(self.mem_ref).read_word_le(NMI_VECTOR);
+            }
+            _ => panic!("Invalid NMI cycle")
         }
+
+        self.nmi_cycles_left -= 1;
+        self.nmi_cycles_left == 0
     }
     
     fn process_irq(&mut self) -> bool
     {
         // only process irq if it's the "fetch op" stage
-        if self.op_cycles != 0 { return false }
+        //if self.op_cycles != 0 { return false }
         // 7 cycles
-        if (self.cia_irq || self.vic_irq) && !self.get_status_flag(StatusFlag::InterruptDisable)
+        /*if (self.cia_irq || self.vic_irq) && !self.get_status_flag(StatusFlag::InterruptDisable)
         {
             self.set_status_flag(StatusFlag::Break, false);
             let curr_pc = self.PC;
@@ -518,11 +597,46 @@ impl CPU
             self.cia_irq = false;
             self.vic_irq = false;
             true
-        }
-        else
+        } */
+
+        match self.irq_cycles_left
         {
-            false
+            7 => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+            },
+            6 => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+            },
+            5 => {
+                let pc_hi = (self.PC >> 8) as u8;
+                self.push_byte(pc_hi);
+            },
+            4 => {
+                let pc_lo = self.PC as u8;
+                self.push_byte(pc_lo);
+            },
+            3 => {
+                self.set_status_flag(StatusFlag::Break, false);
+                let curr_p = self.P;
+                self.push_byte(curr_p);
+                self.set_status_flag(StatusFlag::InterruptDisable, true);
+            },
+            2 => {
+                if self.ba_low { return false; } // TODO: is reading whole word ok in cycle 1?
+            },
+            1 => {
+                if self.ba_low { return false; }
+                self.PC = as_ref!(self.mem_ref).read_word_le(IRQ_VECTOR);
+            }
+            _ => panic!("Invalid IRQ cycle")
         }
+
+        self.irq_cycles_left -= 1;
+        self.irq_cycles_left == 0
     }
 
     pub fn trigger_vic_irq(&mut self)
@@ -1617,6 +1731,7 @@ impl CPU
                         self.set_status_flag(StatusFlag::Break, true);
                     },
                     1  => {
+                        println!("Received BRK instruction at ${:04X}", self.PC);
                         self.PC = self.read_word_le(IRQ_VECTOR);
                     },
                     _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
@@ -1655,7 +1770,7 @@ impl CPU
                     _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
                 }
             },
-            _ => panic!("Unknown instruction: {}", self.curr_instr)
+            _ => panic!("Unknown instruction: {} at ${:04X}", self.curr_instr, self.PC)
         }
 
         self.curr_instr.cycles_to_run -= 1;
