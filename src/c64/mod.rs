@@ -166,7 +166,7 @@ impl C64
             self.cia1.borrow_mut().update();
             self.cia2.borrow_mut().update();
         
-            self.cpu.borrow_mut().update();
+            self.cpu.borrow_mut().update(self.cycle_count);
 
             self.debugger.update_raster_window(&mut self.vic);
 

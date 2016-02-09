@@ -71,6 +71,8 @@ pub struct CPU
     pub vic_irq: bool,
     pub irq_cycles_left: u8,
     pub nmi_cycles_left: u8,
+    first_nmi_cycle: u8,
+    first_irq_cycle: u8,
     state: CPUState,
     irq_cycles: u8,
     op_cycles: u8,
@@ -102,6 +104,8 @@ impl CPU
             vic_irq: false,
             irq_cycles_left: 0,
             nmi_cycles_left: 0,
+            first_nmi_cycle: 0,
+            first_irq_cycle: 0,
             state: CPUState::FetchOp,
             irq_cycles: 0,
             op_cycles: 0,
@@ -152,18 +156,18 @@ impl CPU
         self.nmi = false;
     }
 
-    pub fn update(&mut self)
+    pub fn update(&mut self, c64_cycle_cnt: u32)
     {
         // check for irq and nmi
         match self.state
         {
             CPUState::FetchOp => {
-                if self.nmi && self.nmi_cycles_left == 0
+                if self.nmi && self.nmi_cycles_left == 0 && (c64_cycle_cnt - (self.first_nmi_cycle as u32) >= 2)
                 {
                     self.nmi_cycles_left = 7;
                     self.state = CPUState::ProcessNMI;
                 }
-                else if (self.cia_irq || self.vic_irq) && self.irq_cycles_left == 0 && !self.get_status_flag(StatusFlag::InterruptDisable)
+                else if (self.cia_irq || self.vic_irq) && self.irq_cycles_left == 0 && !self.get_status_flag(StatusFlag::InterruptDisable) && (c64_cycle_cnt - (self.first_irq_cycle as u32) >= 2)
                 {
                     self.irq_cycles_left = 7;
                     self.state = CPUState::ProcessIRQ;
@@ -641,40 +645,34 @@ impl CPU
 
     pub fn trigger_vic_irq(&mut self)
     {
-        // TODO:
         //println!("VIC irq triggered");
         self.vic_irq = true;
     }
 
     pub fn clear_vic_irq(&mut self)
     {
-        // TODO
         self.vic_irq = false;
     }
 
     pub fn trigger_nmi(&mut self)
     {
-        // TODO
         //println!("NMI irq");
         self.nmi = true;
     }
 
     pub fn clear_nmi(&mut self)
     {
-        // TODO
         self.nmi = false;
     }
 
     pub fn trigger_cia_irq(&mut self)
     {
-        // TODO
         //println!("CIA irq triggered");
         self.cia_irq = true;
     }
 
     pub fn clear_cia_irq(&mut self)
     {
-        // TODO
         self.cia_irq = false;
     }
     
@@ -1338,7 +1336,8 @@ impl CPU
                     2 => {
                         if !self.curr_instr.zp_crossed
                         {
-                            // TODO: delay IRQ+NMI
+                            self.first_irq_cycle += 1;
+                            self.first_nmi_cycle += 1;
                         }
                         if self.ba_low { return false; }
                         
@@ -1381,7 +1380,8 @@ impl CPU
                     2 => {
                         if !self.curr_instr.zp_crossed
                         {
-                            // TODO: delay IRQ+NMI
+                            self.first_irq_cycle += 1;
+                            self.first_nmi_cycle += 1;
                         }
                         if self.ba_low { return false; }
                         
@@ -1424,7 +1424,8 @@ impl CPU
                     2 => {
                         if !self.curr_instr.zp_crossed
                         {
-                            // TODO: delay IRQ+NMI
+                            self.first_irq_cycle += 1;
+                            self.first_nmi_cycle += 1;
                         }
                         if self.ba_low { return false; }
                         
@@ -1467,7 +1468,8 @@ impl CPU
                     2 => {
                         if !self.curr_instr.zp_crossed
                         {
-                            // TODO: delay IRQ+NMI
+                            self.first_irq_cycle += 1;
+                            self.first_nmi_cycle += 1;
                         }
                         if self.ba_low { return false; }
                         
@@ -1509,7 +1511,8 @@ impl CPU
                     2 => {
                         if !self.curr_instr.zp_crossed
                         {
-                            // TODO: delay IRQ+NMI
+                            self.first_irq_cycle += 1;
+                            self.first_nmi_cycle += 1;
                         }
                         if self.ba_low { return false; }
                         
@@ -1552,7 +1555,8 @@ impl CPU
                     2 => {
                         if !self.curr_instr.zp_crossed
                         {
-                            // TODO: delay IRQ+NMI
+                            self.first_irq_cycle += 1;
+                            self.first_nmi_cycle += 1;
                         }
                         if self.ba_low { return false; }
                         
@@ -1595,7 +1599,8 @@ impl CPU
                     2 => {
                         if !self.curr_instr.zp_crossed
                         {
-                            // TODO: delay IRQ+NMI
+                            self.first_irq_cycle += 1;
+                            self.first_nmi_cycle += 1;
                         }
                         if self.ba_low { return false; }
                         
@@ -1638,7 +1643,8 @@ impl CPU
                     2 => {
                         if !self.curr_instr.zp_crossed
                         {
-                            // TODO: delay IRQ+NMI
+                            self.first_irq_cycle += 1;
+                            self.first_nmi_cycle += 1;
                         }
                         if self.ba_low { return false; }
                         
@@ -1723,15 +1729,19 @@ impl CPU
                         let p = self.P;
                         self.push_byte(p);
                         self.set_status_flag(StatusFlag::InterruptDisable, true);
-                        // TODO: add NMI interrrupt handling here
+                        if self.nmi
+                        {
+                            self.nmi_cycles_left = 7;
+                            self.state = CPUState::ProcessNMI;
+                        }
                     },
                     2 => {
-                        // TODO: delay NMI here
+                        self.first_nmi_cycle += 1;
                         //println!("Received BRK instruction at ${:04X}", self.PC-1);
                         self.set_status_flag(StatusFlag::Break, true);
                     },
                     1  => {
-                        println!("Received BRK instruction at ${:04X}", self.PC);
+                        println!("Received BRK instruction at ${:04X}", self.PC-1);
                         self.PC = self.read_word_le(IRQ_VECTOR);
                     },
                     _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
