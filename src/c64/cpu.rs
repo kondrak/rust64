@@ -174,7 +174,9 @@ impl CPU
                     },
                     AddrMode::Relative => {
                         // TODO: inc PC only during op execution?
-                        self.curr_instr.operand_addr = ((self.PC+1) as i16 + self.next_byte() as i16) as u16;
+                        let base = (self.PC + 1) as i16;
+                        let offset = self.next_byte() as i8;
+                        self.curr_instr.operand_addr = (base + offset as i16) as u16;
                         self.state = CPUState::ExecuteOp;
                     },
                     _ => self.state = CPUState::FetchOperand,
