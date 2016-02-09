@@ -174,7 +174,7 @@ impl CPU
                     },
                     AddrMode::Relative => {
                         // TODO: inc PC only during op execution?
-                        self.curr_instr.operand_addr = (self.PC as i16 + self.next_byte() as i16) as u16;
+                        self.curr_instr.operand_addr = ((self.PC+1) as i16 + self.next_byte() as i16) as u16;
                         self.state = CPUState::ExecuteOp;
                     },
                     _ => self.state = CPUState::FetchOperand,
@@ -194,9 +194,9 @@ impl CPU
                 }
 
                 // TODO: odd case? Some instructions can be executed immediately after operand fetch
-                if self.curr_instr.cycles_to_run == 0
+                if self.curr_instr.cycles_to_run == 0 && self.curr_instr.cycles_to_fetch == 0
                 {
-                    panic!("Not sure if this should happen - reinvestigate");
+                    //panic!("Not sure if this should happen - reinvestigate");
                     self.run_instruction();
                     self.state = CPUState::FetchOp;
                 }
@@ -1198,10 +1198,353 @@ impl CPU
                     _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
                 }
             },
-            // branching ops:
+            // branching ops: (TODO: take into account forward/back branching?)
             // take 2 cycles (fetch + execute) if no branch is taken
             // 3 cycles if branch is taken, no page crossed
             // 4 cycles if branch is taken, page crossed
+            Op::BCC => {
+                match self.curr_instr.cycles_to_run
+                {
+                    3 => {
+                        if self.ba_low { return false; }
+                        if !self.get_status_flag(StatusFlag::Carry)
+                        {
+                            let addr = self.curr_instr.operand_addr;
+                            let pc = self.PC;
+                            self.curr_instr.zp_crossed = (addr >> 8) != (pc >> 8);
+                        }
+                        else
+                        {
+                            // no branching - finish instruction after only 2 cycles
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    2 => {
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // TODO: delay IRQ+NMI
+                        }
+                        if self.ba_low { return false; }
+                        
+                        let pc = self.PC;
+                        let addr = self.curr_instr.operand_addr;
+                        self.read_idle(pc);
+                        self.PC = addr;
+
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // no page crossing - finish instruction after only 3 cycle
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    1 => {
+                        if self.ba_low { return false; }
+                        let pc = self.PC;
+                        self.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                    },
+                    _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
+            Op::BCS => {
+                match self.curr_instr.cycles_to_run
+                {
+                    3 => {
+                        if self.ba_low { return false; }
+                        if self.get_status_flag(StatusFlag::Carry)
+                        {
+                            let addr = self.curr_instr.operand_addr;
+                            let pc = self.PC;
+                            self.curr_instr.zp_crossed = (addr >> 8) != (pc >> 8);
+                        }
+                        else
+                        {
+                            // no branching - finish instruction after only 2 cycles
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    2 => {
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // TODO: delay IRQ+NMI
+                        }
+                        if self.ba_low { return false; }
+                        
+                        let pc = self.PC;
+                        let addr = self.curr_instr.operand_addr;
+                        self.read_idle(pc);
+                        self.PC = addr;
+
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // no page crossing - finish instruction after only 3 cycle
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    1 => {
+                        if self.ba_low { return false; }
+                        let pc = self.PC;
+                        self.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                    },
+                    _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
+            Op::BEQ => {
+                match self.curr_instr.cycles_to_run
+                {
+                    3 => {
+                        if self.ba_low { return false; }
+                        if self.get_status_flag(StatusFlag::Zero)
+                        {
+                            let addr = self.curr_instr.operand_addr;
+                            let pc = self.PC;
+                            self.curr_instr.zp_crossed = (addr >> 8) != (pc >> 8);
+                        }
+                        else
+                        {
+                            // no branching - finish instruction after only 2 cycles
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    2 => {
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // TODO: delay IRQ+NMI
+                        }
+                        if self.ba_low { return false; }
+                        
+                        let pc = self.PC;
+                        let addr = self.curr_instr.operand_addr;
+                        self.read_idle(pc);
+                        self.PC = addr;
+
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // no page crossing - finish instruction after only 3 cycle
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    1 => {
+                        if self.ba_low { return false; }
+                        let pc = self.PC;
+                        self.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                    },
+                    _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
+            Op::BNE => {
+                match self.curr_instr.cycles_to_run
+                {
+                    3 => {
+                        if self.ba_low { return false; }
+                        if !self.get_status_flag(StatusFlag::Zero)
+                        {
+                            let addr = self.curr_instr.operand_addr;
+                            let pc = self.PC;
+                            self.curr_instr.zp_crossed = (addr >> 8) != (pc >> 8);
+                        }
+                        else
+                        {
+                            // no branching - finish instruction after only 2 cycles
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    2 => {
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // TODO: delay IRQ+NMI
+                        }
+                        if self.ba_low { return false; }
+                        
+                        let pc = self.PC;
+                        let addr = self.curr_instr.operand_addr;
+                        self.read_idle(pc);
+                        self.PC = addr;
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // no page crossing - finish instruction after only 3 cycle
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    1 => {
+                        if self.ba_low { return false; }
+                        let pc = self.PC;
+                        self.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                    },
+                    _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
+            Op::BMI => {
+                match self.curr_instr.cycles_to_run
+                {
+                    3 => {
+                        if self.ba_low { return false; }
+                        if self.get_status_flag(StatusFlag::Negative)
+                        {
+                            let addr = self.curr_instr.operand_addr;
+                            let pc = self.PC;
+                            self.curr_instr.zp_crossed = (addr >> 8) != (pc >> 8);
+                        }
+                        else
+                        {
+                            // no branching - finish instruction after only 2 cycles
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    2 => {
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // TODO: delay IRQ+NMI
+                        }
+                        if self.ba_low { return false; }
+                        
+                        let pc = self.PC;
+                        let addr = self.curr_instr.operand_addr;
+                        self.read_idle(pc);
+                        self.PC = addr;
+
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // no page crossing - finish instruction after only 3 cycle
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    1 => {
+                        if self.ba_low { return false; }
+                        let pc = self.PC;
+                        self.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                    },
+                    _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
+            Op::BPL => {
+                match self.curr_instr.cycles_to_run
+                {
+                    3 => {
+                        if self.ba_low { return false; }
+                        if !self.get_status_flag(StatusFlag::Negative)
+                        {
+                            let addr = self.curr_instr.operand_addr;
+                            let pc = self.PC;
+                            self.curr_instr.zp_crossed = (addr >> 8) != (pc >> 8);
+                        }
+                        else
+                        {
+                            // no branching - finish instruction after only 2 cycles
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    2 => {
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // TODO: delay IRQ+NMI
+                        }
+                        if self.ba_low { return false; }
+                        
+                        let pc = self.PC;
+                        let addr = self.curr_instr.operand_addr;
+                        self.read_idle(pc);
+                        self.PC = addr;
+
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // no page crossing - finish instruction after only 3 cycle
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    1 => {
+                        if self.ba_low { return false; }
+                        let pc = self.PC;
+                        self.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                    },
+                    _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
+            Op::BVC => {
+                match self.curr_instr.cycles_to_run
+                {
+                    3 => {
+                        if self.ba_low { return false; }
+                        if !self.get_status_flag(StatusFlag::Overflow)
+                        {
+                            let addr = self.curr_instr.operand_addr;
+                            let pc = self.PC;
+                            self.curr_instr.zp_crossed = (addr >> 8) != (pc >> 8);
+                        }
+                        else
+                        {
+                            // no branching - finish instruction after only 2 cycles
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    2 => {
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // TODO: delay IRQ+NMI
+                        }
+                        if self.ba_low { return false; }
+                        
+                        let pc = self.PC;
+                        let addr = self.curr_instr.operand_addr;
+                        self.read_idle(pc);
+                        self.PC = addr;
+
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // no page crossing - finish instruction after only 3 cycle
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    1 => {
+                        if self.ba_low { return false; }
+                        let pc = self.PC;
+                        self.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                    },
+                    _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
+            Op::BVS => {
+                match self.curr_instr.cycles_to_run
+                {
+                    3 => {
+                        if self.ba_low { return false; }
+                        if self.get_status_flag(StatusFlag::Overflow)
+                        {
+                            let addr = self.curr_instr.operand_addr;
+                            let pc = self.PC;
+                            self.curr_instr.zp_crossed = (addr >> 8) != (pc >> 8);
+                        }
+                        else
+                        {
+                            // no branching - finish instruction after only 2 cycles
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    2 => {
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // TODO: delay IRQ+NMI
+                        }
+                        if self.ba_low { return false; }
+                        
+                        let pc = self.PC;
+                        let addr = self.curr_instr.operand_addr;
+                        self.read_idle(pc);
+                        self.PC = addr;
+
+                        if !self.curr_instr.zp_crossed
+                        {
+                            // no page crossing - finish instruction after only 3 cycle
+                            self.curr_instr.cycles_to_run = 1;
+                        }
+                    },
+                    1 => {
+                        if self.ba_low { return false; }
+                        let pc = self.PC;
+                        self.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                    },
+                    _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
             Op::CLC => {
                 if self.ba_low { return false; }
                 let pc = self.PC;
@@ -1310,7 +1653,7 @@ impl CPU
                     _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
                 }
             },
-            _ => { }
+            _ => panic!("Unknown instruction: {}", self.curr_instr)
         }
 
         self.curr_instr.cycles_to_run -= 1;
