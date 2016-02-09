@@ -1726,6 +1726,7 @@ impl CPU
                         self.push_byte((pc & 0xFF) as u8);
                     },
                     3 => {
+                        self.set_status_flag(StatusFlag::Break, true);
                         let p = self.P;
                         self.push_byte(p);
                         self.set_status_flag(StatusFlag::InterruptDisable, true);
@@ -1736,9 +1737,7 @@ impl CPU
                         }
                     },
                     2 => {
-                        self.first_nmi_cycle += 1;
-                        //println!("Received BRK instruction at ${:04X}", self.PC-1);
-                        self.set_status_flag(StatusFlag::Break, true);
+                        self.first_nmi_cycle += 1; // delay NMI
                     },
                     1  => {
                         println!("Received BRK instruction at ${:04X}", self.PC-1);
