@@ -608,7 +608,7 @@ impl CPU
                         self.curr_instr.index_addr = self.next_byte() as u16;
                         self.curr_instr.operand_addr = ((addr_lo + self.X as u16) & 0xFF) | (self.curr_instr.index_addr << 8);
                         // page crossed?
-                        self.curr_instr.zp_crossed = addr_lo + (self.X as u16) < 0x100;
+                        self.curr_instr.zp_crossed = addr_lo + (self.X as u16) > 0x100;
 
                         // if instruction has extra cycle on page crossing and it hasn't happened, we don't get
                         // the extra cycle (finish fetching now)
@@ -635,7 +635,7 @@ impl CPU
                         let addr_lo = self.curr_instr.operand_addr;
                         self.curr_instr.operand_addr = ((addr_lo + self.Y as u16) & 0xFF) | (self.curr_instr.index_addr << 8);
                         // page crossed?
-                        self.curr_instr.zp_crossed = addr_lo + (self.Y as u16) < 0x100;
+                        self.curr_instr.zp_crossed = addr_lo + (self.Y as u16) > 0x100;
                         
                         // if instruction has extra cycle on page crossing and it hasn't happened, we don't get
                         // the extra cycle (finish fetching now)
