@@ -1040,7 +1040,6 @@ impl CPU
                     1 => {
                         let p = self.pop_byte();
                         self.P = p;
-                        self.set_zn_flags(p);
                     },
                     _ => panic!("Wrong number of cycles: {} {}", self.curr_instr, self.curr_instr.cycles_to_run)
                 }
