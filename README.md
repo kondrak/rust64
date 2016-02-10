@@ -33,12 +33,9 @@ TODO
 
 This is an on-off WIP project, so update frequency may vary.
 
-Known Issues
+Resources
 ------------------
-- CPU and timing bugs
-- no Reset button
-
-Resources used to create this emulator:
+The following has been used to create this emulator:
 
 - http://www.zimmers.net/cbmpics/cbm/c64/vic-ii.txt
 - http://frodo.cebix.net/ (inspired the VIC-II implementaiton)
@@ -49,3 +46,4 @@ Resources used to create this emulator:
 - http://archive.6502.org/datasheets/mos_6526_cia.pdf
 - https://www.yoyogames.com/tech_blog/95
 - http://code.google.com/p/hmc-6502/source/browse/trunk/emu/testvectors/AllSuiteA.asm
+- https://t.co/J40UKu7RBf
