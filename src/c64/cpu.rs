@@ -1073,47 +1073,94 @@ impl CPU
                 self.set_status_flag(StatusFlag::Overflow, (v & 0x40) != 0);
                 self.set_status_flag(StatusFlag::Zero,     (v & a)    == 0);
             },
-            Op::ADC => {
+            Op::ADC => { // TODO: test decimal mode, check if flag values are correct
                 if self.ba_low { return false; }
-                // TODO: support decimal mode
-                if self.get_status_flag(StatusFlag::DecimalMode)
-                {
-                    panic!("Decimal mode not supported in ADC yet!");
-                }
-                // TODO: should operation wrap automatically here?
                 let v = self.get_operand();
-                let mut res: u16 = (Wrapping(self.A as u16) + Wrapping(v as u16)).0;
-                if self.get_status_flag(StatusFlag::Carry)
-                {
-                    res = (Wrapping(res) + Wrapping(0x0001)).0;
-                }
-                self.set_status_flag(StatusFlag::Carry, (res & 0x0100) != 0);
-                let res = res as u8;
-                let is_overflow = (self.A ^ v) & 0x80 == 0 && (self.A ^ res) & 0x80 == 0x80;
-                self.set_status_flag(StatusFlag::Overflow, is_overflow);
-                self.A = res;
-                self.set_zn_flags(res);
-            },
-            Op::SBC => {
-                if self.ba_low { return false; }
-                // TODO: support decimal mode
+                let c = self.get_status_flag(StatusFlag::Carry);
+                
                 if self.get_status_flag(StatusFlag::DecimalMode)
                 {
-                    panic!("Decimal mode not supported in SBC yet!");
+                    let mut lo = (Wrapping((self.A as u16) & 0xF) + Wrapping((v as u16) & 0xF)).0;
+                    if  c { lo = (Wrapping(lo) + Wrapping(1)).0; }
+                    if lo > 9 { lo = (Wrapping(lo) + Wrapping(6)).0; }
+
+                    let mut hi = (Wrapping((self.A as u16) >> 4) + Wrapping((v as u16) >> 4)).0;
+                    if lo > 0xF { hi = (Wrapping(hi) + Wrapping(1)).0; }
+
+                    let is_overflow = ((((hi << 4) ^ (self.A as u16)) & 0x80) != 0) && (((self.A ^ v) & 0x80) == 0);
+                    let mut is_zero = (Wrapping(self.A as u16) + Wrapping(v as u16)).0;
+                    if c  { is_zero = (Wrapping(is_zero) + Wrapping(1)).0; }
+                    
+                    self.set_status_flag(StatusFlag::Negative, (hi << 4) != 0); // TODO: is this ok?              
+                    self.set_status_flag(StatusFlag::Overflow, is_overflow);
+                    self.set_status_flag(StatusFlag::Zero,     is_zero == 0);
+
+                    if hi > 9 { hi = (Wrapping(hi) + Wrapping(6)).0; }
+                    self.set_status_flag(StatusFlag::Carry, hi > 0xF);
+                    self.A = ((hi << 4) | (lo & 0xF)) as u8;
                 }
-                // TODO: should operation wrap automatically here?
+                else
+                {
+                    // TODO: should operation wrap automatically here?
+                    let mut res: u16 = (Wrapping(self.A as u16) + Wrapping(v as u16)).0;
+                    if c
+                    {
+                        res = (Wrapping(res) + Wrapping(0x0001)).0;
+                    }
+                    self.set_status_flag(StatusFlag::Carry, (res & 0x0100) != 0);
+                    let res = res as u8;
+                    let is_overflow = (self.A ^ v) & 0x80 == 0 && (self.A ^ res) & 0x80 == 0x80;
+                    self.set_status_flag(StatusFlag::Overflow, is_overflow);
+                    self.A = res;
+                    self.set_zn_flags(res);
+                }
+            },
+            Op::SBC => { // TODO: test decimal mode, check if flag values are correct
+                if self.ba_low { return false; }
+                
                 let v = self.get_operand();
                 let mut res: u16 = (Wrapping(self.A as u16) - Wrapping(v as u16)).0;
                 if !self.get_status_flag(StatusFlag::Carry)
                 {
                     res = (Wrapping(res) - Wrapping(0x0001)).0;
                 }
-                self.set_status_flag(StatusFlag::Carry, (res & 0x0100) == 0);
-                let res = res as u8;
-                let is_overflow = (self.A ^ res) & 0x80 != 0 && (self.A ^ v) & 0x80 == 0x80;
-                self.set_status_flag(StatusFlag::Overflow, is_overflow);
-                self.A = res;
-                self.set_zn_flags(res);
+                
+                if self.get_status_flag(StatusFlag::DecimalMode)
+                {
+                    let mut lo = (Wrapping((self.A as u16) & 0xF) - Wrapping((v as u16) & 0xF)).0;
+                    let mut hi = (Wrapping((self.A as u16) >> 4) - Wrapping((v as u16) >> 4)).0;
+
+                    if self.get_status_flag(StatusFlag::Carry)
+                    {
+                        lo = (Wrapping(lo) - Wrapping(1)).0;
+                    }
+                    
+                    if (lo & 0x10) != 0
+                    {
+                        lo = (Wrapping(lo) - Wrapping(6)).0;
+                        hi = (Wrapping(hi) - Wrapping(1)).0;
+                    }
+
+                    if (hi & 0x10) != 0 { hi = (Wrapping(hi) - Wrapping(6)).0; }
+
+                    self.set_status_flag(StatusFlag::Carry, (res & 0x0100) == 0);
+                    let res = res as u8;
+                    let is_overflow = (self.A ^ res) & 0x80 != 0 && (self.A ^ v) & 0x80 == 0x80;
+                    self.set_status_flag(StatusFlag::Overflow, is_overflow);
+                    self.set_zn_flags(res);
+
+                    self.A = ((hi << 4) | (lo & 0xF)) as u8;
+                }
+                else
+                {
+                    // TODO: should operation wrap automatically here?
+                    self.set_status_flag(StatusFlag::Carry, (res & 0x0100) == 0);
+                    let res = res as u8;
+                    let is_overflow = (self.A ^ res) & 0x80 != 0 && (self.A ^ v) & 0x80 == 0x80;
+                    self.set_status_flag(StatusFlag::Overflow, is_overflow);
+                    self.A = res;
+                    self.set_zn_flags(res);
+                }
             },
             Op::CMP => {
                 if self.ba_low { return false; }
