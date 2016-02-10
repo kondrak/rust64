@@ -1130,7 +1130,7 @@ impl CPU
                     let mut lo = (Wrapping((self.A as u16) & 0xF) - Wrapping((v as u16) & 0xF)).0;
                     let mut hi = (Wrapping((self.A as u16) >> 4) - Wrapping((v as u16) >> 4)).0;
 
-                    if self.get_status_flag(StatusFlag::Carry)
+                    if !self.get_status_flag(StatusFlag::Carry)
                     {
                         lo = (Wrapping(lo) - Wrapping(1)).0;
                     }
