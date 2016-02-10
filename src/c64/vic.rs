@@ -407,7 +407,7 @@ impl VIC
                 {
                     // normally we'd dereference the cpu directly but in Rust
                     // it's not possible due to RefCell already being borrowed (call by CPU)
-                    *on_vic_write = cpu::CallbackAction::TriggerVICIrq;
+                    *on_vic_write = cpu::CallbackAction::ClearVICIrq;
                 }
                 as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
