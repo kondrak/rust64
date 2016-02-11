@@ -71,8 +71,8 @@ pub struct CPU
     pub vic_irq: bool,
     pub irq_cycles_left: u8,
     pub nmi_cycles_left: u8,
-    first_nmi_cycle: u8,
-    first_irq_cycle: u8,
+    first_nmi_cycle: u32,
+    first_irq_cycle: u32,
     state: CPUState,
     nmi: bool,
     pub prev_PC: u16, // previous program counter - for debugging
@@ -1954,9 +1954,9 @@ impl CPU
                 self.set_zn_flags(nv);
             }, 
             Op::DCP => {
-                let v = self.curr_instr.rmw_buffer - 1;
+                let v = (Wrapping(self.curr_instr.rmw_buffer) - Wrapping(0x01)).0;
                 self.set_operand(v);
-                let diff = self.A - v;
+                let diff = (Wrapping(self.A) - Wrapping(v)).0;
                 self.set_zn_flags(diff);
                 self.set_status_flag(StatusFlag::Carry, (diff & 0x0100) == 0);
             },
