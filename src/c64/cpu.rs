@@ -1780,7 +1780,7 @@ impl CPU
                         self.first_nmi_cycle += 1; // delay NMI
                     },
                     1  => {
-                        println!("Received BRK instruction at ${:04X}", self.PC-1);
+                        //println!("Received BRK instruction at ${:04X}", self.PC-1);
                         self.PC = self.read_word_le(IRQ_VECTOR);
                     },
                     _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
@@ -1817,6 +1817,196 @@ impl CPU
                         self.PC |= pc_hi << 8;
                     },
                     _ => panic!("Wrong number of cycles: {} {} ", self.curr_instr, self.curr_instr.cycles_to_run)
+                }
+            },
+            // forbidden ops
+            Op::HLT => {
+                //panic!("Received HLT instruction at ${:04X}", self.PC-1);
+            },
+            Op::SLO => {
+                let mut v = self.curr_instr.rmw_buffer;
+                let nc = (v & 0x80) != 0;
+                self.set_status_flag(StatusFlag::Carry, nc);
+                v <<= 1;
+                self.set_operand(v);
+                let na = self.A | v;
+                self.A = na;
+                self.set_zn_flags(na);
+            },
+            Op::ANC => {
+                let v = self.get_operand();
+                let na = self.A & v;
+                self.set_zn_flags(na);
+                let n = self.get_status_flag(StatusFlag::Negative);
+                self.set_status_flag(StatusFlag::Carry, n);
+            },
+            Op::RLA => {
+                let tmp = self.curr_instr.rmw_buffer & 0x80;
+                let c = self.get_status_flag(StatusFlag::Carry);
+                let mut v = self.curr_instr.rmw_buffer << 1;
+                if c
+                {
+                    v |= 1;
+                }
+
+                self.set_status_flag(StatusFlag::Carry, tmp != 0);
+                self.set_operand(v);
+                let na = self.A & v;
+                self.A = na;
+                self.set_zn_flags(na);
+            },
+            Op::SRE => {
+                let mut v = self.curr_instr.rmw_buffer;
+                let nc = (v & 0x01) != 0;
+                self.set_status_flag(StatusFlag::Carry, nc);
+                v >>= 1;
+                self.set_operand(v);
+                let na = self.A ^ v;
+                self.A = na;
+                self.set_zn_flags(na);
+            },
+            Op::RRA => {
+                let mut v = self.curr_instr.rmw_buffer;
+                let tmp = v & 0x01;
+                let c = self.get_status_flag(StatusFlag::Carry);
+                v >>= 1;
+                if c
+                {
+                    v |= 0x80;
+                }
+                self.set_status_flag(StatusFlag::Carry, tmp != 0);
+
+                // todo: copy from adc
+                if self.get_status_flag(StatusFlag::DecimalMode)
+                {
+                    let mut lo = (Wrapping((self.A as u16) & 0xF) + Wrapping((v as u16) & 0xF)).0;
+                    if  c { lo = (Wrapping(lo) + Wrapping(1)).0; }
+                    if lo > 9 { lo = (Wrapping(lo) + Wrapping(6)).0; }
+
+                    let mut hi = (Wrapping((self.A as u16) >> 4) + Wrapping((v as u16) >> 4)).0;
+                    if lo > 0xF { hi = (Wrapping(hi) + Wrapping(1)).0; }
+
+                    let is_overflow = ((((hi << 4) ^ (self.A as u16)) & 0x80) != 0) && (((self.A ^ v) & 0x80) == 0);
+                    let mut is_zero = (Wrapping(self.A as u16) + Wrapping(v as u16)).0;
+                    if c  { is_zero = (Wrapping(is_zero) + Wrapping(1)).0; }
+                    
+                    self.set_status_flag(StatusFlag::Negative, (hi << 4) != 0); // TODO: is this ok?              
+                    self.set_status_flag(StatusFlag::Overflow, is_overflow);
+                    self.set_status_flag(StatusFlag::Zero,     is_zero == 0);
+
+                    if hi > 9 { hi = (Wrapping(hi) + Wrapping(6)).0; }
+                    self.set_status_flag(StatusFlag::Carry, hi > 0xF);
+                    self.A = ((hi << 4) | (lo & 0xF)) as u8;
+                }
+                else
+                {
+                    // TODO: should operation wrap automatically here?
+                    let mut res: u16 = (Wrapping(self.A as u16) + Wrapping(v as u16)).0;
+                    if c
+                    {
+                        res = (Wrapping(res) + Wrapping(0x0001)).0;
+                    }
+                    self.set_status_flag(StatusFlag::Carry, (res & 0x0100) != 0);
+                    let res = res as u8;
+                    let is_overflow = (self.A ^ v) & 0x80 == 0 && (self.A ^ res) & 0x80 == 0x80;
+                    self.set_status_flag(StatusFlag::Overflow, is_overflow);
+                    self.A = res;
+                    self.set_zn_flags(res);
+                }
+                
+            },
+            Op::SAX => {
+                let v = self.A & self.X;
+                self.set_operand(v);
+            },
+            Op::AHX => {
+                let addr = self.curr_instr.operand_addr;
+                let addr_hi = self.curr_instr.index_addr as u8;
+                let y = self.Y;
+                self.write_byte(addr, y & (addr_hi + 1));
+            },
+            Op::TAS => {
+                let addr = self.curr_instr.operand_addr;
+                let addr_hi = self.curr_instr.index_addr as u8;
+                let a = self.A;
+                let x = self.X;
+                self.SP = a & x;
+                self.write_byte(addr, (a & x) & (addr_hi + 1));
+            },
+            Op::SHY => {
+                let addr = self.curr_instr.operand_addr;
+                let addr_hi = self.curr_instr.index_addr as u8;
+                let a = self.A;
+                let x = self.X;
+                self.write_byte(addr, a & x & (addr_hi + 1));
+            },
+            Op::SHX => {
+                let addr = self.curr_instr.operand_addr;
+                let addr_hi = self.curr_instr.index_addr as u8;
+                let x = self.X;
+                self.write_byte(addr, x & (addr_hi + 1));
+            },
+            Op::LAX => {
+                if self.ba_low { return false; }
+                let nv = self.get_operand();
+                self.A = nv;
+                self.X = nv;
+                self.set_zn_flags(nv);
+            }, 
+            Op::DCP => {
+                let v = self.curr_instr.rmw_buffer - 1;
+                self.set_operand(v);
+                let diff = self.A - v;
+                self.set_zn_flags(diff);
+                self.set_status_flag(StatusFlag::Carry, (diff & 0x0100) == 0);
+            },
+            Op::ISC => {
+                self.curr_instr.rmw_buffer += 1;
+                let v = self.curr_instr.rmw_buffer;
+                self.set_operand(v);
+
+                // copy of SBC; TODO: common func?
+                let mut res: u16 = (Wrapping(self.A as u16) - Wrapping(v as u16)).0;
+                if !self.get_status_flag(StatusFlag::Carry)
+                {
+                    res = (Wrapping(res) - Wrapping(0x0001)).0;
+                }
+                
+                if self.get_status_flag(StatusFlag::DecimalMode)
+                {
+                    let mut lo = (Wrapping((self.A as u16) & 0xF) - Wrapping((v as u16) & 0xF)).0;
+                    let mut hi = (Wrapping((self.A as u16) >> 4) - Wrapping((v as u16) >> 4)).0;
+
+                    if !self.get_status_flag(StatusFlag::Carry)
+                    {
+                        lo = (Wrapping(lo) - Wrapping(1)).0;
+                    }
+                    
+                    if (lo & 0x10) != 0
+                    {
+                        lo = (Wrapping(lo) - Wrapping(6)).0;
+                        hi = (Wrapping(hi) - Wrapping(1)).0;
+                    }
+
+                    if (hi & 0x10) != 0 { hi = (Wrapping(hi) - Wrapping(6)).0; }
+
+                    self.set_status_flag(StatusFlag::Carry, (res & 0x0100) == 0);
+                    let res = res as u8;
+                    let is_overflow = (self.A ^ res) & 0x80 != 0 && (self.A ^ v) & 0x80 == 0x80;
+                    self.set_status_flag(StatusFlag::Overflow, is_overflow);
+                    self.set_zn_flags(res);
+
+                    self.A = ((hi << 4) | (lo & 0xF)) as u8;
+                }
+                else
+                {
+                    // TODO: should operation wrap automatically here?
+                    self.set_status_flag(StatusFlag::Carry, (res & 0x0100) == 0);
+                    let res = res as u8;
+                    let is_overflow = (self.A ^ res) & 0x80 != 0 && (self.A ^ v) & 0x80 == 0x80;
+                    self.set_status_flag(StatusFlag::Overflow, is_overflow);
+                    self.A = res;
+                    self.set_zn_flags(res);
                 }
             },
             _ => panic!("Unknown instruction: {} at ${:04X}", self.curr_instr, self.PC)
