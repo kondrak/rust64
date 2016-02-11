@@ -104,7 +104,7 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
     let operand_hex: String;
     let operand: String;
     let mut extra_cycle = false;
-    let debug_loops = false; // true;
+    let debug_loops = true;
 
     // RTS? pop from queue to continue logging
     if !debug_loops
@@ -154,7 +154,7 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
         },
         opcodes::AddrMode::ZeropageIndexedY => {
             operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
-            operand = format!("${:02X},Y", cpu.read_byte(prev_pc));
+            operand = format!("${:02X},Y  ", cpu.read_byte(prev_pc));
         },
         opcodes::AddrMode::Relative => {
             operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
