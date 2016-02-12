@@ -75,6 +75,7 @@ pub struct CPU
     first_irq_cycle: u32,
     state: CPUState,
     nmi: bool,
+    debug_instr: bool,
     pub prev_PC: u16, // previous program counter - for debugging
     dfff_byte: u8,
     pub op_debugger: utils::OpDebugger
@@ -106,6 +107,7 @@ impl CPU
             state: CPUState::FetchOp,
             curr_instr: Instruction::new(Op::BRK, 1, false, AddrMode::Implied),
             nmi: false,
+            debug_instr: false,
             prev_PC: 0,
             dfff_byte: 0x55,
             op_debugger: utils::OpDebugger::new()
@@ -179,7 +181,7 @@ impl CPU
                 match get_instruction(next_op) {
                     Some((op_name, total_cycles, is_rmw, addr_mode)) => {
                         self.curr_instr = Instruction::new(op_name, total_cycles, is_rmw, addr_mode);
-                        //utils::debug_instruction(next_op, self);
+                        if self.debug_instr { utils::debug_instruction(next_op, self); }
                     }
                     None => panic!("Can't fetch instruction")
                 }
@@ -333,15 +335,15 @@ impl CPU
 
     pub fn push_word(&mut self, value: u16)
     {
-        self.SP -= 0x02;
-        self.write_word_le(0x0100 + (self.SP + 0x01) as u16, value);
+        self.push_byte(((value >> 8) & 0xFF) as u8);
+        self.push_byte((value & 0xFF) as u8);
     }
 
     pub fn pop_word(&mut self) -> u16
     {
-        let value = self.read_word_le(0x0100 + (self.SP + 0x01) as u16);
-        self.SP += 0x02;
-        value
+        let lo = (self.pop_byte() as u16) & 0x00FF;
+        let hi = (self.pop_byte() as u16) & 0x00FF;
+        (hi << 8) | lo
     }
 
     pub fn write_byte(&mut self, addr: u16, value: u8) -> bool
@@ -1821,7 +1823,7 @@ impl CPU
             },
             // forbidden ops
             Op::HLT => {
-                //panic!("Received HLT instruction at ${:04X}", self.PC-1);
+                panic!("Received HLT instruction at ${:04X}", self.PC-1);
             },
             Op::SLO => {
                 let mut v = self.curr_instr.rmw_buffer;
