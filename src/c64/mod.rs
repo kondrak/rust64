@@ -182,6 +182,12 @@ impl C64
                 {
                     self.cpu.borrow_mut().trigger_nmi();
                 }
+
+                if self.window.is_key_pressed(Key::F11, KeyRepeat::No)
+                {
+                    let di = self.cpu.borrow_mut().debug_instr;
+                    self.cpu.borrow_mut().debug_instr = !di;
+                }
             }
 
             self.cycle_count += 1;

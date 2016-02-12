@@ -75,7 +75,7 @@ pub struct CPU
     first_irq_cycle: u32,
     state: CPUState,
     nmi: bool,
-    debug_instr: bool,
+    pub debug_instr: bool,
     pub prev_PC: u16, // previous program counter - for debugging
     dfff_byte: u8,
     pub op_debugger: utils::OpDebugger
