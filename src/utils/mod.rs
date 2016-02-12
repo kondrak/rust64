@@ -109,7 +109,7 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
     // RTS? pop from queue to continue logging
     if !debug_loops
     {
-        match cpu.curr_instr.op
+        match cpu.instruction.opcode
         {
             opcodes::Op::RTS => { let _ = cpu.op_debugger.jump_queue.pop(); return; },
             opcodes::Op::JSR => if !cpu.op_debugger.jump_queue.is_empty() { cpu.op_debugger.jump_queue.push(opcode); return; },
@@ -117,7 +117,7 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
         }
     }
 
-    match cpu.curr_instr.addr_mode {
+    match cpu.instruction.addr_mode {
         opcodes::AddrMode::Implied => {
             operand_hex = format!("       ");
             operand = format!("       ");
@@ -179,8 +179,8 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
     let byte0 = cpu.read_byte(0x0000);
     let byte1 = cpu.read_byte(0x0001);
 
-    let mut total_cycles = cpu.curr_instr.cycles_to_fetch + cpu.curr_instr.cycles_to_run + cpu.curr_instr.cycles_to_rmw;
-    let mut fetch_cycles = cpu.curr_instr.cycles_to_fetch;
+    let mut total_cycles = cpu.instruction.cycles_to_fetch + cpu.instruction.cycles_to_run + cpu.instruction.cycles_to_rmw;
+    let mut fetch_cycles = cpu.instruction.cycles_to_fetch;
     let mut extra_cycle_mark = "*";
 
     if !extra_cycle
@@ -190,14 +190,14 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU)
         fetch_cycles += 1;
     }
     
-    let rmw_mark = if cpu.curr_instr.cycles_to_rmw > 0 { "+" } else { " " };
+    let rmw_mark = if cpu.instruction.cycles_to_rmw > 0 { "+" } else { " " };
 
-    println!("${:04X}: {:02X}{}{}{} {}  {}<- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}] ({} cls, f: {}, r: {})", cpu.prev_PC - 1, opcode, operand_hex, extra_cycle_mark, cpu.curr_instr, operand,rmw_mark, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P, total_cycles, fetch_cycles, cpu.curr_instr.cycles_to_run);
+    println!("${:04X}: {:02X}{}{}{} {}  {}<- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}] ({} cls, f: {}, r: {})", cpu.prev_PC - 1, opcode, operand_hex, extra_cycle_mark, cpu.instruction, operand,rmw_mark, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P, total_cycles, fetch_cycles, cpu.instruction.cycles_to_run);
 
     // JSR? push on queue to supress logging
     if !debug_loops
     {
-        match cpu.curr_instr.op
+        match cpu.instruction.opcode
         {
             opcodes::Op::JSR => cpu.op_debugger.jump_queue.push(opcode),
             _ => ()

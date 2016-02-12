@@ -33,64 +33,6 @@ pub enum AddrMode
     IndirectIndexedY(bool)
 }
 
-/*impl AddrMode
-{
-    pub fn get_address(&self, cpu: &mut cpu::CPU) -> u16
-    {
-        match *self
-        {
-            AddrMode::Implied                     => panic!("Can't get operand address, PC ${:04X} ", cpu.prev_PC - 1),
-            AddrMode::Accumulator                 => panic!("Can't get operand address, PC ${:04X} ", cpu.prev_PC - 1),
-            AddrMode::Immediate(..)               => panic!("Can't get operand address, PC ${:04X} ", cpu.prev_PC - 1),
-            AddrMode::Absolute(next_word)         => next_word,
-            AddrMode::AbsoluteIndexedX(next_word) => next_word + cpu.X as u16,
-            AddrMode::AbsoluteIndexedY(next_word) => next_word + cpu.Y as u16,
-            AddrMode::Zeropage(next_byte)         => next_byte as u16,
-            AddrMode::ZeropageIndexedX(next_byte) => (Wrapping(next_byte) + Wrapping(cpu.X)).0 as u16,
-            AddrMode::ZeropageIndexedY(next_byte) => (Wrapping(next_byte) + Wrapping(cpu.Y)).0 as u16,
-            AddrMode::Relative(next_byte)         => (cpu.PC as i16 + next_byte as i16) as u16,
-            AddrMode::Indirect(next_word)         => cpu.read_word_le(next_word),
-            AddrMode::IndexedIndirectX(next_byte) => cpu.read_word_le((Wrapping(next_byte) + Wrapping(cpu.X)).0 as u16),
-            AddrMode::IndirectIndexedY(next_byte) => (Wrapping(cpu.read_word_le(next_byte as u16)) + Wrapping(cpu.Y as u16)).0 as u16
-        }
-    }
-    
-    pub fn get_value(&self, cpu: &mut cpu::CPU) -> u8
-    {
-       match *self
-        {
-            AddrMode::Implied                     => panic!("Can't get operand value, PC ${:04X} ", cpu.prev_PC - 1),
-            AddrMode::Accumulator                 => cpu.A,
-            AddrMode::Immediate(next_byte)        => next_byte,
-            _ => {
-                let addr = self.get_address(cpu);
-                cpu.read_byte(addr)
-            }
-        }
-    }
-
-    pub fn set_value(&self, cpu: &mut cpu::CPU, value: u8)
-    {
-        match *self
-        {
-            AddrMode::Implied         => panic!("Can't set operand value, PC ${:04X} ", cpu.prev_PC - 1),
-            AddrMode::Accumulator     => cpu.A = value,
-            AddrMode::Immediate(..)   => panic!("Can't set operand value, PC ${:04X} ", cpu.prev_PC - 1),
-            AddrMode::Relative(..)    => panic!("Can't set operand value, PC ${:04X} ", cpu.prev_PC - 1),
-            _ => {
-                let addr = self.get_address(cpu);
-                let _ = cpu.write_byte(addr, value);
-                /*if !byte_written
-                {
-                    let byte0 = cpu.read_byte(0x0000);
-                    let byte1 = cpu.read_byte(0x0001);
-                    println!("${:04X}: ROM write (0x{:02X} -> ${:04X})   A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}]", cpu.prev_PC - 1, value, addr, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P);
-                }*/
-            }
-        }
-    }
-} */
-
 pub enum Op {
     // Load/store
     LDA, LDX, LDY,
@@ -138,7 +80,7 @@ pub enum Op {
 pub struct Instruction
 {
     pub addr_mode: AddrMode,
-    pub op: Op,
+    pub opcode: Op,
     pub operand_addr: u16,  // operand address for other modes
     pub index_addr: u16,    // additional address storage for indirect and indexed addressing modes
     pub cycles_to_fetch: u8, // how many cycles to fetch the operand?
@@ -154,391 +96,52 @@ impl Instruction
     pub fn new(op: Op, total_cycles: u8, is_rmw: bool, addr_mode: AddrMode) -> Instruction
     {
         let mut i = Instruction {
-            op: op,
+            opcode: op,
             addr_mode: addr_mode,
             operand_addr: 0,
             index_addr: 0,
             cycles_to_fetch: 0,
             cycles_to_run: 0,
-            cycles_to_rmw: if is_rmw { 2 } else { 0 },
+            cycles_to_rmw: 0,
             is_rmw: is_rmw,
             rmw_buffer: 0,
             zp_crossed: false,
         };
 
-        let mut extra_cycle = false;
-        
-        match i.addr_mode {
-            AddrMode::Absolute => i.cycles_to_fetch = 2,
-            AddrMode::AbsoluteIndexedX(ec) => { i.cycles_to_fetch = 3; extra_cycle = ec; },
-            AddrMode::AbsoluteIndexedY(ec) => { i.cycles_to_fetch = 3; extra_cycle = ec; },
-            AddrMode::Zeropage => i.cycles_to_fetch = 1,
-            AddrMode::Indirect => i.cycles_to_fetch = 2,
-            AddrMode::ZeropageIndexedX => i.cycles_to_fetch = 2,
-            AddrMode::ZeropageIndexedY => i.cycles_to_fetch = 2,
-            AddrMode::IndexedIndirectX => i.cycles_to_fetch = 4,
-            AddrMode::IndirectIndexedY(ec) => { i.cycles_to_fetch = 4; extra_cycle = ec; },
-            _ => {}
-        }
-        
-        i.cycles_to_run = total_cycles - i.cycles_to_fetch - i.cycles_to_rmw;
-
-        // subtract 1 to account for op fetching which already took 1 cycle
-        i.cycles_to_run -= 1;
+        i.calculate_cycles(total_cycles, false);
         i
     }
 
-    // TODO: forbidden opcodes
-    pub fn run(&mut self)
+    pub fn calculate_cycles(&mut self, total_cycles: u8, is_rmw: bool)
     {
-    /*    match *self
-        {
-            Op::LDA => {
-                let na = operand.get_value(cpu);
-                cpu.A = na;
-                cpu.set_zn_flags(na);
-            },
-            Op::LDX => {
-                let nx = operand.get_value(cpu);
-                cpu.X = nx;
-                cpu.set_zn_flags(nx);
-            },
-            Op::LDY => {
-                let ny = operand.get_value(cpu);
-                cpu.Y = ny;
-                cpu.set_zn_flags(ny);
-            },
-            Op::STA => {
-                let a = cpu.A;
-                operand.set_value(cpu, a);
-            },
-            Op::STX => {
-                let x = cpu.X;
-                operand.set_value(cpu, x);
-            },
-            Op::STY => {
-                let y = cpu.Y;
-                operand.set_value(cpu, y);
-            },
-            Op::TAX => {
-                cpu.X = cpu.A;
-                let x = cpu.X;
-                cpu.set_zn_flags(x);
-            },
-            Op::TAY => {
-                cpu.Y = cpu.A;
-                let y = cpu.Y;
-                cpu.set_zn_flags(y);
-            },
-            Op::TXA => {
-                cpu.A = cpu.X;
-                let a = cpu.A;
-                cpu.set_zn_flags(a);
-            },
-            Op::TYA => {
-                cpu.A = cpu.Y;
-                let a = cpu.A;
-                cpu.set_zn_flags(a);
-            },
-            Op::TSX => {
-                cpu.X = cpu.SP;
-                let x = cpu.X;
-                cpu.set_zn_flags(x);
-            },
-            Op::TXS => {
-                cpu.SP = cpu.X;
-            },
-            Op::PHA => {
-                let a = cpu.A;
-                cpu.push_byte(a);
-            },
-            Op::PHP => {
-                let p = cpu.P;
-                cpu.push_byte(p);
-            },
-            Op::PLA => {
-                let a = cpu.pop_byte();
-                cpu.A = a;
-                cpu.set_zn_flags(a);
-            },
-            Op::PLP => {
-                let p = cpu.pop_byte();
-                cpu.P = p;
-                // TODO: should we really set unused flag?
-                cpu.set_status_flag(cpu::StatusFlag::Unused, true);
-            },
-            Op::AND => {
-                let v = operand.get_value(cpu);
-                let na = cpu.A & v;
-                cpu.A = na;
-                cpu.set_zn_flags(na);
-                
-            },
-            Op::EOR => {
-                let v = operand.get_value(cpu);
-                let na = cpu.A ^ v;
-                cpu.A = na;
-                cpu.set_zn_flags(na);
-            },
-            Op::ORA => {
-                let v = operand.get_value(cpu);
-                let na = cpu.A | v;
-                cpu.A = na;
-                cpu.set_zn_flags(na);
-            },
-            Op::BIT => {
-                let v = operand.get_value(cpu);
-                let a = cpu.A;
-                cpu.set_status_flag(cpu::StatusFlag::Negative, (v & 0x80) != 0);
-                cpu.set_status_flag(cpu::StatusFlag::Overflow, (v & 0x40) != 0);
-                cpu.set_status_flag(cpu::StatusFlag::Zero,     (v & a)    == 0);
-            },
-            Op::ADC => {
-                // TODO: support decimal mode
-                if cpu.get_status_flag(cpu::StatusFlag::DecimalMode)
-                {
-                    panic!("Decimal mode not supported in ADC yet!");
-                }
-                // TODO: should operation wrap automatically here?
-                let v = operand.get_value(cpu);
-                let mut res: u16 = (Wrapping(cpu.A as u16) + Wrapping(v as u16)).0;
-                if cpu.get_status_flag(cpu::StatusFlag::Carry)
-                {
-                    res = (Wrapping(res) + Wrapping(0x0001)).0;
-                }
-                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) != 0);
-                let res = res as u8;
-                let is_overflow = (cpu.A ^ v) & 0x80 == 0 && (cpu.A ^ res) & 0x80 == 0x80;
-                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
-		cpu.A = res;
-		cpu.set_zn_flags(res);
-            },
-            Op::SBC => {
-                // TODO: support decimal mode
-                if cpu.get_status_flag(cpu::StatusFlag::DecimalMode)
-                {
-                    panic!("Decimal mode not supported in SBC yet!");
-                }
-                // TODO: should operation wrap automatically here?
-                let v = operand.get_value(cpu);
-                let mut res: u16 = (Wrapping(cpu.A as u16) - Wrapping(v as u16)).0;
-                if !cpu.get_status_flag(cpu::StatusFlag::Carry)
-                {
-                    res = (Wrapping(res) - Wrapping(0x0001)).0;
-                }
-                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) == 0);
-                let res = res as u8;
-                let is_overflow = (cpu.A ^ res) & 0x80 != 0 && (cpu.A ^ v) & 0x80 == 0x80;
-                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
-		cpu.A = res;
-		cpu.set_zn_flags(res);
-            },
-            Op::CMP => {
-	        let res = cpu.A as i16 - operand.get_value(cpu) as i16;
-		cpu.set_status_flag(cpu::StatusFlag::Carry, res >= 0);
-		cpu.set_zn_flags(res as u8);
-            },
-            Op::CPX => {
-	        let res = cpu.X as i16 - operand.get_value(cpu) as i16;
-		cpu.set_status_flag(cpu::StatusFlag::Carry, res >= 0);
-		cpu.set_zn_flags(res as u8);
-            },
-            Op::CPY => {
-	        let res = cpu.Y as i16 - operand.get_value(cpu) as i16;
-		cpu.set_status_flag(cpu::StatusFlag::Carry, res >= 0);
-		cpu.set_zn_flags(res as u8);
-            },
-            Op::INC => {
-                let v = (Wrapping(operand.get_value(cpu)) + Wrapping(0x01)).0;
-                operand.set_value(cpu, v);
-                cpu.set_zn_flags(v);
-            },
-            Op::INX => {
-                cpu.X = (Wrapping(cpu.X) + Wrapping(0x01)).0;
-                let x = cpu.X;
-                cpu.set_zn_flags(x);
-            },
-            Op::INY => {
-                cpu.Y = (Wrapping(cpu.Y) + Wrapping(0x01)).0;
-                let y = cpu.Y;
-                cpu.set_zn_flags(y);
-            },
-            Op::DEC => {
-                let v = (Wrapping(operand.get_value(cpu)) - Wrapping(0x01)).0;
-                operand.set_value(cpu, v);
-                cpu.set_zn_flags(v);
-            },
-            Op::DEX => {
-                cpu.X = (Wrapping(cpu.X) - Wrapping(0x01)).0;
-                let x = cpu.X;
-                cpu.set_zn_flags(x);
-            },
-            Op::DEY => {
-                cpu.Y = (Wrapping(cpu.Y) - Wrapping(0x01)).0;
-                let y = cpu.Y;
-                cpu.set_zn_flags(y);
-            },
-            Op::ASL => {
-                let v = operand.get_value(cpu);
-                cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x80) != 0);
-                let res = v << 1;
-                operand.set_value(cpu, res);
-                cpu.set_zn_flags(res);
-            },
-            Op::LSR => {
-                let v = operand.get_value(cpu);
-                cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x01) != 0);
-                let res = v >> 1;
-                operand.set_value(cpu, res);
-                cpu.set_zn_flags(res);
-            },
-            Op::ROL => {
-                let c = cpu.get_status_flag(cpu::StatusFlag::Carry);
-                let v = operand.get_value(cpu);
-                cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x80) != 0);
-                let mut res = v << 1;
-                if c
-                {
-                    res |= 0x01;
-                }                                
-                operand.set_value(cpu, res);
-                cpu.set_zn_flags(res);
-            },
-            Op::ROR => {
-                let c = cpu.get_status_flag(cpu::StatusFlag::Carry);
-                let v = operand.get_value(cpu);
-                cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x01) != 0);
-                let mut res = v >> 1;
-                if c
-                {
-                    res |= 0x80;
-                }                                
-                operand.set_value(cpu, res);
-                cpu.set_zn_flags(res);
-            },
-            Op::JMP => {
-                let npc = operand.get_address(cpu);
-                cpu.PC = npc;
-            },
-            Op::JSR => {
-                let npc = operand.get_address(cpu);
-                let pc = cpu.PC - 0x0001;
-                cpu.push_word(pc);
-                cpu.PC = npc;
-            },
-            Op::RTS => {
-                let pc = cpu.pop_word();
-                cpu.PC = pc + 0x0001;
-            },
-            Op::BCC => {
-                let npc = operand.get_address(cpu);
-                if !cpu.get_status_flag(cpu::StatusFlag::Carry)
-                {
-                    cpu.PC = npc;
-                }
-            },
-            Op::BCS => {
-                let npc = operand.get_address(cpu);
-                if cpu.get_status_flag(cpu::StatusFlag::Carry)
-                {
-                    cpu.PC = npc;
-                }
-            },
-            Op::BEQ => {
-                let npc = operand.get_address(cpu);
-                if cpu.get_status_flag(cpu::StatusFlag::Zero)
-                {
-                    cpu.PC = npc;
-                }
-            },
-            Op::BMI => {
-                let npc = operand.get_address(cpu);
-                if cpu.get_status_flag(cpu::StatusFlag::Negative)
-                {
-                    cpu.PC = npc;
-                }
-            },
-            Op::BNE => {
-                let npc = operand.get_address(cpu);
-                if !cpu.get_status_flag(cpu::StatusFlag::Zero)
-                {
-                    cpu.PC = npc;
-                }
-            },
-            Op::BPL => {
-                let npc = operand.get_address(cpu);
-                if !cpu.get_status_flag(cpu::StatusFlag::Negative)
-                {
-                    cpu.PC = npc;
-                }
-            },
-            Op::BVC => {
-                let npc = operand.get_address(cpu);
-                if !cpu.get_status_flag(cpu::StatusFlag::Overflow)
-                {
-                    cpu.PC = npc;
-                }
-            },
-            Op::BVS => {
-                let npc = operand.get_address(cpu);
-                if cpu.get_status_flag(cpu::StatusFlag::Overflow)
-                {
-                    cpu.PC = npc;
-                }
-            },
-            Op::CLC => {
-                cpu.set_status_flag(cpu::StatusFlag::Carry, false);
-            },
-            Op::CLD => {
-                cpu.set_status_flag(cpu::StatusFlag::DecimalMode, false);
-            },
-            Op::CLI => {
-                cpu.set_status_flag(cpu::StatusFlag::InterruptDisable, false);
-            },
-            Op::CLV => {
-                cpu.set_status_flag(cpu::StatusFlag::Overflow, false);
-            },
-            Op::SEC => {
-                cpu.set_status_flag(cpu::StatusFlag::Carry, true);
-            },
-            Op::SED => {
-                cpu.set_status_flag(cpu::StatusFlag::DecimalMode, true);
-            },
-            Op::SEI => {
-                cpu.set_status_flag(cpu::StatusFlag::InterruptDisable, true);
-            },
-            Op::BRK => {
-                println!("Received BRK instruction at ${:04X}", cpu.PC-1);
-                cpu.set_status_flag(cpu::StatusFlag::Break, true);
-                // BRK increases PC by 2, however we already do it once after op is fetched
-                let pc = cpu.PC + 0x0001;
-                let p  = cpu.P;
-                cpu.push_word(pc);
-                cpu.push_byte(p);
-                cpu.PC = cpu.read_word_le(cpu::IRQ_VECTOR);
-                cpu.set_status_flag(cpu::StatusFlag::InterruptDisable, true);
-            },
-            Op::NOP => (),
-            Op::RTI => {
-                let p = cpu.pop_byte();
-                let pc = cpu.pop_word();
-                cpu.P = p;
-                cpu.PC = pc;
-            },
-            // TODO: perform a reset if HLT occurs?
-            Op::HLT => panic!("Received HLT instruction at ${:04X}", cpu.PC - 1),
-            // TODO: handle undocumented ops
-            // TODO: PC value is incorrect here for debugging (will become irrelevant once illegal ops are done)
-            _       => panic!("Unsupported op: {} at ${:04X}", self, cpu.PC)
-        } */
-    } 
+        let mut extra_cycle = false;
+        
+        match self.addr_mode {
+            AddrMode::Absolute => self.cycles_to_fetch = 2,
+            AddrMode::AbsoluteIndexedX(ec) => { self.cycles_to_fetch = 3; extra_cycle = ec; },
+            AddrMode::AbsoluteIndexedY(ec) => { self.cycles_to_fetch = 3; extra_cycle = ec; },
+            AddrMode::Zeropage => self.cycles_to_fetch = 1,
+            AddrMode::Indirect => self.cycles_to_fetch = 2,
+            AddrMode::ZeropageIndexedX => self.cycles_to_fetch = 2,
+            AddrMode::ZeropageIndexedY => self.cycles_to_fetch = 2,
+            AddrMode::IndexedIndirectX => self.cycles_to_fetch = 4,
+            AddrMode::IndirectIndexedY(ec) => { self.cycles_to_fetch = 4; extra_cycle = ec; },
+            _ => {}
+        }        
+        
+        self.cycles_to_rmw = if is_rmw { 2 } else { 0 };
+        self.cycles_to_run = total_cycles - self.cycles_to_fetch - self.cycles_to_rmw;
+
+        // subtract 1 to account for op fetching which already took 1 cycle
+        self.cycles_to_run -= 1;
+    }
 }
 
 // debug display for opcodes
 impl fmt::Display for Instruction
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let op_name = match self.op {
+        let op_name = match self.opcode {
             Op::LDA => "LDA", Op::LDX => "LDX", Op::LDY => "LDY", Op::STA => "STA",
             Op::STX => "STX", Op::STY => "STY", Op::TAX => "TAX", Op::TAY => "TAY",
             Op::TXA => "TXA", Op::TYA => "TYA", Op::TSX => "TSX", Op::TXS => "TXS",
@@ -559,14 +162,1311 @@ impl fmt::Display for Instruction
             Op::SHX => "SHX", Op::ARR => "ARR", Op::LAX => "LAX", Op::LAS => "LAS",
             Op::DCP => "DCP", Op::AXS => "AXS", Op::ISC => "ISC",
         };
-
-        /*let operand = match self.addr_mode {
-            AddrMode::Implied =>     ("       ", "       "),
-            AddrMode::Accumulator => ("       ", "A      "),
-            }; */
         
         write!(f, "{}", op_name)
     }
+}
+
+pub fn fetch_operand(cpu: &mut cpu::CPU) -> bool
+{
+    if cpu.ba_low { return false; }
+    
+    match cpu.instruction.addr_mode
+    {
+        AddrMode::Absolute => {
+            match cpu.instruction.cycles_to_fetch {
+                2 => {
+                    cpu.instruction.operand_addr = cpu.next_byte() as u16;
+                },
+                1 => {
+                    cpu.instruction.operand_addr = cpu.instruction.operand_addr | ((cpu.next_byte() as u16) << 8);
+                },
+                _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
+            }
+        },
+        AddrMode::AbsoluteIndexedX(extra_cycle) => {
+            match cpu.instruction.cycles_to_fetch {
+                3 => {
+                    cpu.instruction.operand_addr = cpu.next_byte() as u16;
+                },
+                2 => {
+                    let addr_lo = cpu.instruction.operand_addr;
+                    cpu.instruction.index_addr = cpu.next_byte() as u16;
+                    cpu.instruction.operand_addr = ((addr_lo + cpu.X as u16) & 0xFF) | (cpu.instruction.index_addr << 8);
+                    // page crossed?
+                    cpu.instruction.zp_crossed = addr_lo + (cpu.X as u16) >= 0x100;
+
+                    // if instruction has extra cycle on page crossing and it hasn't happened, we don't get
+                    // the extra cycle (finish fetching now)
+                    if !cpu.instruction.zp_crossed && extra_cycle
+                    {
+                        cpu.instruction.cycles_to_fetch = 1;
+                    }
+                },
+                1 => { // if page crossed - add 0x100 to operand address
+                    let addr = cpu.instruction.operand_addr;
+                    cpu.read_idle(addr);                     
+                    if cpu.instruction.zp_crossed { cpu.instruction.operand_addr += 0x100; }
+                },
+                _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
+            }
+        },
+        AddrMode::AbsoluteIndexedY(extra_cycle) => {
+            match cpu.instruction.cycles_to_fetch {
+                3 => {
+                    cpu.instruction.operand_addr = cpu.next_byte() as u16;
+                },
+                2 => {
+                    cpu.instruction.index_addr = cpu.next_byte() as u16;
+                    let addr_lo = cpu.instruction.operand_addr;
+                    cpu.instruction.operand_addr = ((addr_lo + cpu.Y as u16) & 0xFF) | (cpu.instruction.index_addr << 8);
+                    // page crossed?
+                    cpu.instruction.zp_crossed = addr_lo + (cpu.Y as u16) >= 0x100;
+                    
+                    // if instruction has extra cycle on page crossing and it hasn't happened, we don't get
+                    // the extra cycle (finish fetching now)
+                    if !cpu.instruction.zp_crossed && extra_cycle
+                    {
+                        cpu.instruction.cycles_to_fetch = 1;
+                    }
+                },
+                1 => { // if page crossed - add 0x100 to operand address
+                    let addr = cpu.instruction.operand_addr;
+                    cpu.read_idle(addr);
+                    if cpu.instruction.zp_crossed { cpu.instruction.operand_addr += 0x100; }
+                },
+                _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
+            }
+        },
+        AddrMode::Zeropage => {
+            cpu.instruction.operand_addr = cpu.next_byte() as u16;
+        },
+        AddrMode::ZeropageIndexedX => {
+            match cpu.instruction.cycles_to_fetch {
+                2 => {
+                    cpu.instruction.operand_addr = cpu.next_byte() as u16;
+                },
+                1 => {
+                    let x = cpu.X as u16;
+                    let base_addr = cpu.instruction.operand_addr;
+                    cpu.read_idle(base_addr);
+                    cpu.instruction.operand_addr = ((Wrapping(base_addr) + Wrapping(x)).0 as u16) & 0xFF;
+                }
+                _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
+            }
+        },
+        AddrMode::ZeropageIndexedY => {
+            match cpu.instruction.cycles_to_fetch {
+                2 => {
+                    cpu.instruction.operand_addr = cpu.next_byte() as u16;
+                },
+                1 => {
+                    let y = cpu.Y as u16;
+                    let base_addr = cpu.instruction.operand_addr;
+                    cpu.read_idle(base_addr);
+                    cpu.instruction.operand_addr = ((Wrapping(base_addr) + Wrapping(y)).0 as u16) & 0xFF;
+                }
+                _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
+            }
+        },
+        AddrMode::IndexedIndirectX => {
+            match cpu.instruction.cycles_to_fetch {
+                4 => {
+                    cpu.instruction.index_addr = cpu.next_byte() as u16;
+                },
+                3 => {
+                    let addr = cpu.instruction.index_addr;
+                    cpu.read_idle(addr);
+                    cpu.instruction.index_addr = (cpu.instruction.index_addr + cpu.X as u16) & 0xFF;
+                },
+                2 => {
+                    let idx_addr = cpu.instruction.index_addr;
+                    cpu.instruction.operand_addr =  cpu.read_byte(idx_addr) as u16;
+                },
+                1 => {
+                    let idx = cpu.instruction.index_addr;
+                    let hi = cpu.read_byte((idx + 1) & 0xFF) as u16;
+                    cpu.instruction.operand_addr = cpu.instruction.operand_addr | (hi << 8);
+                },
+                _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
+            }
+        },
+        AddrMode::IndirectIndexedY(extra_cycle) => {
+            match cpu.instruction.cycles_to_fetch {
+                4 => {
+                    cpu.instruction.index_addr = cpu.next_byte() as u16;
+                },
+                3 => {
+                    let base_addr = cpu.instruction.index_addr;
+                    cpu.instruction.operand_addr = cpu.read_byte(base_addr) as u16;
+                },
+                2 => {
+                    let idx = cpu.instruction.index_addr;
+                    let opaddr = cpu.instruction.operand_addr;
+                    cpu.instruction.index_addr =  cpu.read_byte((idx + 1) & 0xFF ) as u16;
+                    cpu.instruction.operand_addr = ((opaddr + cpu.Y as u16) & 0x0FF) | (cpu.instruction.index_addr << 8);
+                    // page crossed?
+                    cpu.instruction.zp_crossed = opaddr + (cpu.Y as u16) >= 0x100;
+
+                    // if instruction has extra cycle on page crossing and it hasn't happened, we don't get
+                    // the extra cycle (finish fetching now)
+                    if !cpu.instruction.zp_crossed && extra_cycle
+                    {
+                        cpu.instruction.cycles_to_fetch = 1;
+                    }
+                },
+                1 => { // if page crossed - add 0x100 to operand address
+                    let addr = cpu.instruction.operand_addr;
+                    cpu.read_idle(addr);
+                    if cpu.instruction.zp_crossed { cpu.instruction.operand_addr += 0x100; }
+                },
+                _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
+            }
+        },
+        AddrMode::Indirect => {
+            match cpu.instruction.cycles_to_fetch {
+                2 => {
+                    cpu.instruction.operand_addr = cpu.next_byte() as u16;
+                },
+                1 => {
+                    let addr = cpu.instruction.operand_addr | ((cpu.next_byte() as u16) << 8);
+                    cpu.instruction.operand_addr = cpu.read_word_le(addr);
+                },
+                _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
+            }
+        },
+        _ => {}
+    }
+
+    cpu.instruction.cycles_to_fetch -= 1;
+    // fetch complete?
+    cpu.instruction.cycles_to_fetch == 0
+}
+
+pub fn run(cpu: &mut cpu::CPU) -> bool
+{
+    match cpu.instruction.opcode
+    {
+        Op::LDA => {
+            if cpu.ba_low { return false; }
+            let na = cpu.get_operand();
+            cpu.A = na;
+            cpu.set_zn_flags(na);
+        },
+        Op::LDX => {
+            if cpu.ba_low { return false; }
+            let nx = cpu.get_operand();
+            cpu.X = nx;
+            cpu.set_zn_flags(nx);
+        },
+        Op::LDY => {
+            if cpu.ba_low { return false; }
+            let ny = cpu.get_operand();
+            cpu.Y = ny;
+            cpu.set_zn_flags(ny);
+        },
+        Op::STA => {
+            let addr = cpu.instruction.operand_addr;
+            let val = cpu.A;
+            cpu.write_byte(addr, val);
+        },
+        Op::STX => {
+            let addr = cpu.instruction.operand_addr;
+            let val = cpu.X;
+            cpu.write_byte(addr, val);
+        },
+        Op::STY => {
+            let addr = cpu.instruction.operand_addr;
+            let val = cpu.Y;
+            cpu.write_byte(addr, val);
+        },
+        Op::TAX => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.X = cpu.A;
+            let x = cpu.X;
+            cpu.set_zn_flags(x);
+        },
+        Op::TAY => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.Y = cpu.A;
+            let y = cpu.Y;
+            cpu.set_zn_flags(y);
+        },
+        Op::TXA => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.A = cpu.X;
+            let a = cpu.A;
+            cpu.set_zn_flags(a);
+        },
+        Op::TYA => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.A = cpu.Y;
+            let a = cpu.A;
+            cpu.set_zn_flags(a);
+        },
+        Op::TSX => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.X = cpu.SP;
+            let x = cpu.X;
+            cpu.set_zn_flags(x);
+        },
+        Op::TXS => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.SP = cpu.X;
+        },
+        Op::PHA => {
+            match cpu.instruction.cycles_to_run
+            {
+                2 => {
+                    if cpu.ba_low { return false; }
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc);
+                },
+                1 => {
+                    let a = cpu.A;
+                    cpu.push_byte(a);
+                },
+                _ => panic!("Wrong number of cycles: {} {}", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::PHP => {
+            match cpu.instruction.cycles_to_run
+            {
+                2 => {
+                    if cpu.ba_low { return false; }
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc);
+                },
+                1 => {
+                    let p = cpu.P;
+                    // TODO: break flag?
+                    cpu.push_byte(p);
+                },
+                _ => panic!("Wrong number of cycles: {} {}", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::PLA => {
+            if cpu.ba_low { return false; }
+            match cpu.instruction.cycles_to_run
+            {
+                3 => {
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc);
+                },
+                2 => {
+                    let sp = cpu.SP as u16;
+                    cpu.read_idle(sp+1);
+                },
+                1 => {
+                    let a = cpu.pop_byte();
+                    cpu.A = a;
+                    cpu.set_zn_flags(a);
+                },
+                _ => panic!("Wrong number of cycles: {} {}", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::PLP => {
+            if cpu.ba_low { return false; }
+            match cpu.instruction.cycles_to_run
+            {
+                3 => {
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc);
+                },
+                2 => {
+                    let sp = cpu.SP as u16;
+                    cpu.read_idle(sp+1);
+                },
+                1 => {
+                    let p = cpu.pop_byte();
+                    cpu.P = p;
+                },
+                _ => panic!("Wrong number of cycles: {} {}", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::AND => {
+            if cpu.ba_low { return false; }
+            let v = cpu.get_operand();
+            let na = cpu.A & v;
+            cpu.A = na;
+            cpu.set_zn_flags(na);
+        },
+        Op::EOR => {
+            if cpu.ba_low { return false; }
+            let v = cpu.get_operand();
+            let na = cpu.A ^ v;
+            cpu.A = na;
+            cpu.set_zn_flags(na);
+        },
+        Op::ORA => {
+            if cpu.ba_low { return false; }
+            let v = cpu.get_operand();
+            let na = cpu.A | v;
+            cpu.A = na;
+            cpu.set_zn_flags(na);
+        },
+        Op::BIT => {
+            if cpu.ba_low { return false; }
+            let v = cpu.get_operand();
+            let a = cpu.A;
+            cpu.set_status_flag(cpu::StatusFlag::Negative, (v & 0x80) != 0); // TODO: is this ok?
+            cpu.set_status_flag(cpu::StatusFlag::Overflow, (v & 0x40) != 0);
+            cpu.set_status_flag(cpu::StatusFlag::Zero,     (v & a)    == 0);
+        },
+        Op::ADC => { // TODO: test decimal mode, check if flag values are correct
+            if cpu.ba_low { return false; }
+            let v = cpu.get_operand();
+            let c = cpu.get_status_flag(cpu::StatusFlag::Carry);
+            
+            if cpu.get_status_flag(cpu::StatusFlag::DecimalMode)
+            {
+                let mut lo = (Wrapping((cpu.A as u16) & 0xF) + Wrapping((v as u16) & 0xF)).0;
+                if  c { lo = (Wrapping(lo) + Wrapping(1)).0; }
+                if lo > 9 { lo = (Wrapping(lo) + Wrapping(6)).0; }
+
+                let mut hi = (Wrapping((cpu.A as u16) >> 4) + Wrapping((v as u16) >> 4)).0;
+                if lo > 0xF { hi = (Wrapping(hi) + Wrapping(1)).0; }
+
+                let is_overflow = ((((hi << 4) ^ (cpu.A as u16)) & 0x80) != 0) && (((cpu.A ^ v) & 0x80) == 0);
+                let mut is_zero = (Wrapping(cpu.A as u16) + Wrapping(v as u16)).0;
+                if c  { is_zero = (Wrapping(is_zero) + Wrapping(1)).0; }
+                
+                cpu.set_status_flag(cpu::StatusFlag::Negative, (hi << 4) != 0); // TODO: is this ok?              
+                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
+                cpu.set_status_flag(cpu::StatusFlag::Zero,     is_zero == 0);
+
+                if hi > 9 { hi = (Wrapping(hi) + Wrapping(6)).0; }
+                cpu.set_status_flag(cpu::StatusFlag::Carry, hi > 0xF);
+                cpu.A = ((hi << 4) | (lo & 0xF)) as u8;
+            }
+            else
+            {
+                // TODO: should operation wrap automatically here?
+                let mut res: u16 = (Wrapping(cpu.A as u16) + Wrapping(v as u16)).0;
+                if c
+                {
+                    res = (Wrapping(res) + Wrapping(0x0001)).0;
+                }
+                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) != 0);
+                let res = res as u8;
+                let is_overflow = (cpu.A ^ v) & 0x80 == 0 && (cpu.A ^ res) & 0x80 == 0x80;
+                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
+                cpu.A = res;
+                cpu.set_zn_flags(res);
+            }
+        },
+        Op::SBC => { // TODO: test decimal mode, check if flag values are correct
+            if cpu.ba_low { return false; }
+            
+            let v = cpu.get_operand();
+            let mut res: u16 = (Wrapping(cpu.A as u16) - Wrapping(v as u16)).0;
+            if !cpu.get_status_flag(cpu::StatusFlag::Carry)
+            {
+                res = (Wrapping(res) - Wrapping(0x0001)).0;
+            }
+            
+            if cpu.get_status_flag(cpu::StatusFlag::DecimalMode)
+            {
+                let mut lo = (Wrapping((cpu.A as u16) & 0xF) - Wrapping((v as u16) & 0xF)).0;
+                let mut hi = (Wrapping((cpu.A as u16) >> 4) - Wrapping((v as u16) >> 4)).0;
+
+                if !cpu.get_status_flag(cpu::StatusFlag::Carry)
+                {
+                    lo = (Wrapping(lo) - Wrapping(1)).0;
+                }
+                
+                if (lo & 0x10) != 0
+                {
+                    lo = (Wrapping(lo) - Wrapping(6)).0;
+                    hi = (Wrapping(hi) - Wrapping(1)).0;
+                }
+
+                if (hi & 0x10) != 0 { hi = (Wrapping(hi) - Wrapping(6)).0; }
+
+                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) == 0);
+                let res = res as u8;
+                let is_overflow = (cpu.A ^ res) & 0x80 != 0 && (cpu.A ^ v) & 0x80 == 0x80;
+                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
+                cpu.set_zn_flags(res);
+
+                cpu.A = ((hi << 4) | (lo & 0xF)) as u8;
+            }
+            else
+            {
+                // TODO: should operation wrap automatically here?
+                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) == 0);
+                let res = res as u8;
+                let is_overflow = (cpu.A ^ res) & 0x80 != 0 && (cpu.A ^ v) & 0x80 == 0x80;
+                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
+                cpu.A = res;
+                cpu.set_zn_flags(res);
+            }
+        },
+        Op::CMP => {
+            if cpu.ba_low { return false; }
+            let v = cpu.get_operand();
+            let res = cpu.A as i16 - v as i16;
+            cpu.set_status_flag(cpu::StatusFlag::Carry, res >= 0);
+            cpu.set_zn_flags(res as u8);
+        },
+        Op::CPX => {
+            if cpu.ba_low { return false; }
+            let v = cpu.get_operand();
+            let res = cpu.X as i16 - v as i16;
+            cpu.set_status_flag(cpu::StatusFlag::Carry, res >= 0);
+            cpu.set_zn_flags(res as u8);
+        },
+        Op::CPY => {
+            if cpu.ba_low { return false; }
+            let v = cpu.get_operand();
+            let res = cpu.Y as i16 - v as i16;
+            cpu.set_status_flag(cpu::StatusFlag::Carry, res >= 0);
+            cpu.set_zn_flags(res as u8);
+        },
+        Op::INC => {
+            let v = (Wrapping(cpu.instruction.rmw_buffer) + Wrapping(0x01)).0;
+            let addr = cpu.instruction.operand_addr;
+            cpu.write_byte(addr, v);
+            cpu.set_zn_flags(v);
+        },
+        Op::INX => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.X = (Wrapping(cpu.X) + Wrapping(0x01)).0;
+            let x = cpu.X;
+            cpu.set_zn_flags(x);
+        },
+        Op::INY => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.Y = (Wrapping(cpu.Y) + Wrapping(0x01)).0;
+            let y = cpu.Y;
+            cpu.set_zn_flags(y);
+        },
+        Op::DEC => {
+            let v = (Wrapping(cpu.instruction.rmw_buffer) - Wrapping(0x01)).0;
+            let addr = cpu.instruction.operand_addr;
+            cpu.write_byte(addr, v);
+            cpu.set_zn_flags(v);
+        },
+        Op::DEX => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.X = (Wrapping(cpu.X) - Wrapping(0x01)).0;
+            let x = cpu.X;
+            cpu.set_zn_flags(x);
+        },
+        Op::DEY => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.Y = (Wrapping(cpu.Y) - Wrapping(0x01)).0;
+            let y = cpu.Y;
+            cpu.set_zn_flags(y);
+        },
+        Op::ASL => {
+            if cpu.ba_low {
+                match cpu.instruction.addr_mode {
+                    AddrMode::Accumulator => {return false; },
+                    _ => (),
+                }
+            }
+            let v = cpu.get_operand();
+            cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x80) != 0);
+            let res = v << 1;
+            cpu.set_operand(res);
+            cpu.set_zn_flags(res);
+        },
+        Op::LSR => {
+            if cpu.ba_low {
+                match cpu.instruction.addr_mode {
+                    AddrMode::Accumulator => {return false; },
+                    _ => (),
+                }
+            }
+            let v = cpu.get_operand();
+            cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x01) != 0);
+            let res = v >> 1;
+            cpu.set_operand(res);
+            cpu.set_zn_flags(res);
+        },
+        Op::ROL => {
+            if cpu.ba_low {
+                match cpu.instruction.addr_mode {
+                    AddrMode::Accumulator => {return false; },
+                    _ => (),
+                }
+            }
+            let c = cpu.get_status_flag(cpu::StatusFlag::Carry);
+            let v = cpu.get_operand();
+            cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x80) != 0);
+            let mut res = v << 1;
+            if c
+            {
+                res |= 0x01;
+            }
+            cpu.set_operand(res);
+            cpu.set_zn_flags(res);
+        },
+        Op::ROR => {
+            if cpu.ba_low {
+                match cpu.instruction.addr_mode {
+                    AddrMode::Accumulator => {return false; },
+                    _ => (),
+                }
+            }
+            let c = cpu.get_status_flag(cpu::StatusFlag::Carry);
+            let v = cpu.get_operand();
+            cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x01) != 0);
+            let mut res = v >> 1;
+            if c
+            {
+                res |= 0x80;
+            }
+            cpu.set_operand(res);
+            cpu.set_zn_flags(res);
+        },
+        Op::JMP => { // TODO: is this ok?
+            if cpu.ba_low { return false; }
+            match cpu.instruction.cycles_to_run
+            {
+                2 => {
+                    //cpu.instruction.cycles_to_run -= 1;
+                },
+                1 | 0 => {
+                    cpu.PC = cpu.instruction.operand_addr;
+                    cpu.instruction.cycles_to_run = 1;
+                },
+                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::JSR => { // TODO: is this ok?
+            match cpu.instruction.cycles_to_run
+            {
+                3 => {
+                    // TODO: break down PC push to 2 byte instructions?
+                },
+                2 => {
+                    let pc = cpu.PC - 0x0001;
+                    cpu.push_word(pc);
+                },
+                1  => {
+                    if cpu.ba_low { return false; }
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc);
+                    cpu.PC = cpu.instruction.operand_addr;
+                },
+                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::RTS => {
+            if cpu.ba_low { return false; }
+
+            match cpu.instruction.cycles_to_run
+            {
+                5 => {
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc);
+                },
+                4 => {
+                    let sp = cpu.SP as u16;
+                    cpu.read_idle(sp + 1);
+                },
+                3 => {
+                    let pc_lo = cpu.pop_byte() as u16;
+                    cpu.PC = pc_lo;
+                },
+                2 => {
+                    let pc_hi = cpu.pop_byte() as u16;
+                    cpu.PC |= pc_hi << 8;
+                },
+                1  => {
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc+1);
+                    cpu.PC += 1;
+                },
+                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        // branching ops: (TODO: take into account forward/back branching?)
+        // take 2 cycles (fetch + execute) if no branch is taken
+        // 3 cycles if branch is taken, no page crossed
+        // 4 cycles if branch is taken, page crossed
+        Op::BCC => {
+            match cpu.instruction.cycles_to_run
+            {
+                3 => {
+                    if cpu.ba_low { return false; }
+                    if !cpu.get_status_flag(cpu::StatusFlag::Carry)
+                    {
+                        let addr = cpu.instruction.operand_addr;
+                        let pc = cpu.PC;
+                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
+                    }
+                    else
+                    {
+                        // no branching - finish instruction after only 2 cycles
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                2 => {
+                    if !cpu.instruction.zp_crossed
+                    {
+                        cpu.first_irq_cycle += 1;
+                        cpu.first_nmi_cycle += 1;
+                    }
+                    if cpu.ba_low { return false; }
+                    
+                    let pc = cpu.PC;
+                    let addr = cpu.instruction.operand_addr;
+                    cpu.read_idle(pc);
+                    cpu.PC = addr;
+
+                    if !cpu.instruction.zp_crossed
+                    {
+                        // no page crossing - finish instruction after only 3 cycle
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                1 => {
+                    if cpu.ba_low { return false; }
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                },
+                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::BCS => {
+            match cpu.instruction.cycles_to_run
+            {
+                3 => {
+                    if cpu.ba_low { return false; }
+                    if cpu.get_status_flag(cpu::StatusFlag::Carry)
+                    {
+                        let addr = cpu.instruction.operand_addr;
+                        let pc = cpu.PC;
+                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
+                    }
+                    else
+                    {
+                        // no branching - finish instruction after only 2 cycles
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                2 => {
+                    if !cpu.instruction.zp_crossed
+                    {
+                        cpu.first_irq_cycle += 1;
+                        cpu.first_nmi_cycle += 1;
+                    }
+                    if cpu.ba_low { return false; }
+                    
+                    let pc = cpu.PC;
+                    let addr = cpu.instruction.operand_addr;
+                    cpu.read_idle(pc);
+                    cpu.PC = addr;
+
+                    if !cpu.instruction.zp_crossed
+                    {
+                        // no page crossing - finish instruction after only 3 cycle
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                1 => {
+                    if cpu.ba_low { return false; }
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                },
+                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::BEQ => {
+            match cpu.instruction.cycles_to_run
+            {
+                3 => {
+                    if cpu.ba_low { return false; }
+                    if cpu.get_status_flag(cpu::StatusFlag::Zero)
+                    {
+                        let addr = cpu.instruction.operand_addr;
+                        let pc = cpu.PC;
+                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
+                    }
+                    else
+                    {
+                        // no branching - finish instruction after only 2 cycles
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                2 => {
+                    if !cpu.instruction.zp_crossed
+                    {
+                        cpu.first_irq_cycle += 1;
+                        cpu.first_nmi_cycle += 1;
+                    }
+                    if cpu.ba_low { return false; }
+                    
+                    let pc = cpu.PC;
+                    let addr = cpu.instruction.operand_addr;
+                    cpu.read_idle(pc);
+                    cpu.PC = addr;
+
+                    if !cpu.instruction.zp_crossed
+                    {
+                        // no page crossing - finish instruction after only 3 cycle
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                1 => {
+                    if cpu.ba_low { return false; }
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                },
+                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::BNE => {
+            match cpu.instruction.cycles_to_run
+            {
+                3 => {
+                    if cpu.ba_low { return false; }
+                    if !cpu.get_status_flag(cpu::StatusFlag::Zero)
+                    {
+                        let addr = cpu.instruction.operand_addr;
+                        let pc = cpu.PC;
+                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
+                    }
+                    else
+                    {
+                        // no branching - finish instruction after only 2 cycles
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                2 => {
+                    if !cpu.instruction.zp_crossed
+                    {
+                        cpu.first_irq_cycle += 1;
+                        cpu.first_nmi_cycle += 1;
+                    }
+                    if cpu.ba_low { return false; }
+                    
+                    let pc = cpu.PC;
+                    let addr = cpu.instruction.operand_addr;
+                    cpu.read_idle(pc);
+                    cpu.PC = addr;
+                    if !cpu.instruction.zp_crossed
+                    {
+                        // no page crossing - finish instruction after only 3 cycle
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                1 => {
+                    if cpu.ba_low { return false; }
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                },
+                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::BMI => {
+            match cpu.instruction.cycles_to_run
+            {
+                3 => {
+                    if cpu.ba_low { return false; }
+                    if cpu.get_status_flag(cpu::StatusFlag::Negative)
+                    {
+                        let addr = cpu.instruction.operand_addr;
+                        let pc = cpu.PC;
+                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
+                    }
+                    else
+                    {
+                        // no branching - finish instruction after only 2 cycles
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                2 => {
+                    if !cpu.instruction.zp_crossed
+                    {
+                        cpu.first_irq_cycle += 1;
+                        cpu.first_nmi_cycle += 1;
+                    }
+                    if cpu.ba_low { return false; }
+                    
+                    let pc = cpu.PC;
+                    let addr = cpu.instruction.operand_addr;
+                    cpu.read_idle(pc);
+                    cpu.PC = addr;
+
+                    if !cpu.instruction.zp_crossed
+                    {
+                        // no page crossing - finish instruction after only 3 cycle
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                1 => {
+                    if cpu.ba_low { return false; }
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                },
+                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::BPL => {
+            match cpu.instruction.cycles_to_run
+            {
+                3 => {
+                    if cpu.ba_low { return false; }
+                    if !cpu.get_status_flag(cpu::StatusFlag::Negative)
+                    {
+                        let addr = cpu.instruction.operand_addr;
+                        let pc = cpu.PC;
+                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
+                    }
+                    else
+                    {
+                        // no branching - finish instruction after only 2 cycles
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                2 => {
+                    if !cpu.instruction.zp_crossed
+                    {
+                        cpu.first_irq_cycle += 1;
+                        cpu.first_nmi_cycle += 1;
+                    }
+                    if cpu.ba_low { return false; }
+                    
+                    let pc = cpu.PC;
+                    let addr = cpu.instruction.operand_addr;
+                    cpu.read_idle(pc);
+                    cpu.PC = addr;
+
+                    if !cpu.instruction.zp_crossed
+                    {
+                        // no page crossing - finish instruction after only 3 cycle
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                1 => {
+                    if cpu.ba_low { return false; }
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                },
+                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::BVC => {
+            match cpu.instruction.cycles_to_run
+            {
+                3 => {
+                    if cpu.ba_low { return false; }
+                    if !cpu.get_status_flag(cpu::StatusFlag::Overflow)
+                    {
+                        let addr = cpu.instruction.operand_addr;
+                        let pc = cpu.PC;
+                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
+                    }
+                    else
+                    {
+                        // no branching - finish instruction after only 2 cycles
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                2 => {
+                    if !cpu.instruction.zp_crossed
+                    {
+                        cpu.first_irq_cycle += 1;
+                        cpu.first_nmi_cycle += 1;
+                    }
+                    if cpu.ba_low { return false; }
+                    
+                    let pc = cpu.PC;
+                    let addr = cpu.instruction.operand_addr;
+                    cpu.read_idle(pc);
+                    cpu.PC = addr;
+
+                    if !cpu.instruction.zp_crossed
+                    {
+                        // no page crossing - finish instruction after only 3 cycle
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                1 => {
+                    if cpu.ba_low { return false; }
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                },
+                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::BVS => {
+            match cpu.instruction.cycles_to_run
+            {
+                3 => {
+                    if cpu.ba_low { return false; }
+                    if cpu.get_status_flag(cpu::StatusFlag::Overflow)
+                    {
+                        let addr = cpu.instruction.operand_addr;
+                        let pc = cpu.PC;
+                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
+                    }
+                    else
+                    {
+                        // no branching - finish instruction after only 2 cycles
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                2 => {
+                    if !cpu.instruction.zp_crossed
+                    {
+                        cpu.first_irq_cycle += 1;
+                        cpu.first_nmi_cycle += 1;
+                    }
+                    if cpu.ba_low { return false; }
+                    
+                    let pc = cpu.PC;
+                    let addr = cpu.instruction.operand_addr;
+                    cpu.read_idle(pc);
+                    cpu.PC = addr;
+
+                    if !cpu.instruction.zp_crossed
+                    {
+                        // no page crossing - finish instruction after only 3 cycle
+                        cpu.instruction.cycles_to_run = 1;
+                    }
+                },
+                1 => {
+                    if cpu.ba_low { return false; }
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+                },
+                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::CLC => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.set_status_flag(cpu::StatusFlag::Carry, false);
+        },
+        Op::CLD => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.set_status_flag(cpu::StatusFlag::DecimalMode, false);
+        },
+        Op::CLI => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.set_status_flag(cpu::StatusFlag::InterruptDisable, false);
+        },
+        Op::CLV => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.set_status_flag(cpu::StatusFlag::Overflow, false);
+        },
+        Op::SEC => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.set_status_flag(cpu::StatusFlag::Carry, true);
+        },
+        Op::SED => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.set_status_flag(cpu::StatusFlag::DecimalMode, true);
+        },
+        Op::SEI => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+            cpu.set_status_flag(cpu::StatusFlag::InterruptDisable, true);
+        },
+        Op::BRK => { // TODO: is this ok? do we have to break down new PC value to 2 cycles? read_word ok here?
+            match cpu.instruction.cycles_to_run
+            {
+                6 => {
+                    if cpu.ba_low { return false; }
+                    let pc = cpu.PC + 0x0001;
+                    cpu.read_idle(pc);
+                },
+                5 => {
+                    let pc = cpu.PC + 0x0001;
+                    cpu.push_byte(((pc >> 8) & 0xFF) as u8);
+                },
+                4 => {
+                    let pc = cpu.PC + 0x0001;
+                    cpu.push_byte((pc & 0xFF) as u8);
+                },
+                3 => {
+                    cpu.set_status_flag(cpu::StatusFlag::Break, true);
+                    let p = cpu.P;
+                    cpu.push_byte(p);
+                    cpu.set_status_flag(cpu::StatusFlag::InterruptDisable, true);
+                    if cpu.nmi
+                    {
+                        cpu.nmi_cycles_left = 7;
+                        cpu.state = cpu::CPUState::ProcessNMI;
+                    }
+                },
+                2 => {
+                    cpu.first_nmi_cycle += 1; // delay NMI
+                },
+                1  => {
+                    //println!("Received BRK instruction at ${:04X}", cpu.PC-1);
+                    cpu.PC = cpu.read_word_le(cpu::IRQ_VECTOR);
+                },
+                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        Op::NOP => {
+            if cpu.ba_low { return false; }
+            let pc = cpu.PC;
+            cpu.read_idle(pc);
+        },
+        Op::RTI => { // TODO is this ok?
+            if cpu.ba_low { return false; }
+
+            match cpu.instruction.cycles_to_run
+            {
+                5 => {
+                    let pc = cpu.PC;
+                    cpu.read_idle(pc);
+                },
+                4 => {
+                    let sp = cpu.SP as u16;
+                    cpu.read_idle(sp + 1);
+                },
+                3 => {
+                    let p = cpu.pop_byte();
+                    cpu.P = p;
+                },
+                2 => {
+                    let pc_lo = cpu.pop_byte() as u16;
+                    cpu.PC = pc_lo;
+                },
+                1  => {
+                    let pc_hi = cpu.pop_byte() as u16;
+                    cpu.PC |= pc_hi << 8;
+                },
+                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+            }
+        },
+        // forbidden ops
+        Op::HLT => {
+            panic!("Received HLT instruction at ${:04X}", cpu.PC-1);
+        },
+        Op::SLO => {
+            let mut v = cpu.instruction.rmw_buffer;
+            let nc = (v & 0x80) != 0;
+            cpu.set_status_flag(cpu::StatusFlag::Carry, nc);
+            v <<= 1;
+            cpu.set_operand(v);
+            let na = cpu.A | v;
+            cpu.A = na;
+            cpu.set_zn_flags(na);
+        },
+        Op::ANC => {
+            let v = cpu.get_operand();
+            let na = cpu.A & v;
+            cpu.set_zn_flags(na);
+            let n = cpu.get_status_flag(cpu::StatusFlag::Negative);
+            cpu.set_status_flag(cpu::StatusFlag::Carry, n);
+        },
+        Op::RLA => {
+            let tmp = cpu.instruction.rmw_buffer & 0x80;
+            let c = cpu.get_status_flag(cpu::StatusFlag::Carry);
+            let mut v = cpu.instruction.rmw_buffer << 1;
+            if c
+            {
+                v |= 1;
+            }
+
+            cpu.set_status_flag(cpu::StatusFlag::Carry, tmp != 0);
+            cpu.set_operand(v);
+            let na = cpu.A & v;
+            cpu.A = na;
+            cpu.set_zn_flags(na);
+        },
+        Op::SRE => {
+            let mut v = cpu.instruction.rmw_buffer;
+            let nc = (v & 0x01) != 0;
+            cpu.set_status_flag(cpu::StatusFlag::Carry, nc);
+            v >>= 1;
+            cpu.set_operand(v);
+            let na = cpu.A ^ v;
+            cpu.A = na;
+            cpu.set_zn_flags(na);
+        },
+        Op::RRA => {
+            let mut v = cpu.instruction.rmw_buffer;
+            let tmp = v & 0x01;
+            let c = cpu.get_status_flag(cpu::StatusFlag::Carry);
+            v >>= 1;
+            if c
+            {
+                v |= 0x80;
+            }
+            cpu.set_status_flag(cpu::StatusFlag::Carry, tmp != 0);
+
+            // todo: copy from adc
+            if cpu.get_status_flag(cpu::StatusFlag::DecimalMode)
+            {
+                let mut lo = (Wrapping((cpu.A as u16) & 0xF) + Wrapping((v as u16) & 0xF)).0;
+                if  c { lo = (Wrapping(lo) + Wrapping(1)).0; }
+                if lo > 9 { lo = (Wrapping(lo) + Wrapping(6)).0; }
+
+                let mut hi = (Wrapping((cpu.A as u16) >> 4) + Wrapping((v as u16) >> 4)).0;
+                if lo > 0xF { hi = (Wrapping(hi) + Wrapping(1)).0; }
+
+                let is_overflow = ((((hi << 4) ^ (cpu.A as u16)) & 0x80) != 0) && (((cpu.A ^ v) & 0x80) == 0);
+                let mut is_zero = (Wrapping(cpu.A as u16) + Wrapping(v as u16)).0;
+                if c  { is_zero = (Wrapping(is_zero) + Wrapping(1)).0; }
+                
+                cpu.set_status_flag(cpu::StatusFlag::Negative, (hi << 4) != 0); // TODO: is this ok?              
+                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
+                cpu.set_status_flag(cpu::StatusFlag::Zero,     is_zero == 0);
+
+                if hi > 9 { hi = (Wrapping(hi) + Wrapping(6)).0; }
+                cpu.set_status_flag(cpu::StatusFlag::Carry, hi > 0xF);
+                cpu.A = ((hi << 4) | (lo & 0xF)) as u8;
+            }
+            else
+            {
+                // TODO: should operation wrap automatically here?
+                let mut res: u16 = (Wrapping(cpu.A as u16) + Wrapping(v as u16)).0;
+                if c
+                {
+                    res = (Wrapping(res) + Wrapping(0x0001)).0;
+                }
+                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) != 0);
+                let res = res as u8;
+                let is_overflow = (cpu.A ^ v) & 0x80 == 0 && (cpu.A ^ res) & 0x80 == 0x80;
+                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
+                cpu.A = res;
+                cpu.set_zn_flags(res);
+            }
+            
+        },
+        Op::SAX => {
+            let v = cpu.A & cpu.X;
+            cpu.set_operand(v);
+        },
+        Op::AHX => {
+            let addr = cpu.instruction.operand_addr;
+            let addr_hi = cpu.instruction.index_addr as u8;
+            let y = cpu.Y;
+            cpu.write_byte(addr, y & (addr_hi + 1));
+        },
+        Op::TAS => {
+            let addr = cpu.instruction.operand_addr;
+            let addr_hi = cpu.instruction.index_addr as u8;
+            let a = cpu.A;
+            let x = cpu.X;
+            cpu.SP = a & x;
+            cpu.write_byte(addr, (a & x) & (addr_hi + 1));
+        },
+        Op::SHY => {
+            let addr = cpu.instruction.operand_addr;
+            let addr_hi = cpu.instruction.index_addr as u8;
+            let a = cpu.A;
+            let x = cpu.X;
+            cpu.write_byte(addr, a & x & (addr_hi + 1));
+        },
+        Op::SHX => {
+            let addr = cpu.instruction.operand_addr;
+            let addr_hi = cpu.instruction.index_addr as u8;
+            let x = cpu.X;
+            cpu.write_byte(addr, x & (addr_hi + 1));
+        },
+        Op::LAX => {
+            if cpu.ba_low { return false; }
+            let nv = cpu.get_operand();
+            cpu.A = nv;
+            cpu.X = nv;
+            cpu.set_zn_flags(nv);
+        }, 
+        Op::DCP => {
+            let v = (Wrapping(cpu.instruction.rmw_buffer) - Wrapping(0x01)).0;
+            cpu.set_operand(v);
+            let diff = (Wrapping(cpu.A) - Wrapping(v)).0;
+            cpu.set_zn_flags(diff);
+            cpu.set_status_flag(cpu::StatusFlag::Carry, (diff & 0x0100) == 0);
+        },
+        Op::ISC => {
+            cpu.instruction.rmw_buffer += 1;
+            let v = cpu.instruction.rmw_buffer;
+            cpu.set_operand(v);
+
+            // copy of SBC; TODO: common func?
+            let mut res: u16 = (Wrapping(cpu.A as u16) - Wrapping(v as u16)).0;
+            if !cpu.get_status_flag(cpu::StatusFlag::Carry)
+            {
+                res = (Wrapping(res) - Wrapping(0x0001)).0;
+            }
+            
+            if cpu.get_status_flag(cpu::StatusFlag::DecimalMode)
+            {
+                let mut lo = (Wrapping((cpu.A as u16) & 0xF) - Wrapping((v as u16) & 0xF)).0;
+                let mut hi = (Wrapping((cpu.A as u16) >> 4) - Wrapping((v as u16) >> 4)).0;
+
+                if !cpu.get_status_flag(cpu::StatusFlag::Carry)
+                {
+                    lo = (Wrapping(lo) - Wrapping(1)).0;
+                }
+                
+                if (lo & 0x10) != 0
+                {
+                    lo = (Wrapping(lo) - Wrapping(6)).0;
+                    hi = (Wrapping(hi) - Wrapping(1)).0;
+                }
+
+                if (hi & 0x10) != 0 { hi = (Wrapping(hi) - Wrapping(6)).0; }
+
+                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) == 0);
+                let res = res as u8;
+                let is_overflow = (cpu.A ^ res) & 0x80 != 0 && (cpu.A ^ v) & 0x80 == 0x80;
+                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
+                cpu.set_zn_flags(res);
+
+                cpu.A = ((hi << 4) | (lo & 0xF)) as u8;
+            }
+            else
+            {
+                // TODO: should operation wrap automatically here?
+                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) == 0);
+                let res = res as u8;
+                let is_overflow = (cpu.A ^ res) & 0x80 != 0 && (cpu.A ^ v) & 0x80 == 0x80;
+                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
+                cpu.A = res;
+                cpu.set_zn_flags(res);
+            }
+        },
+        _ => panic!("Unknown instruction: {} at ${:04X}", cpu.instruction, cpu.PC)
+    }
+
+
+    cpu.instruction.cycles_to_run -= 1;
+    // instruction finished execution?
+    cpu.instruction.cycles_to_run == 0
 }
 
 // num cycles represents the *max* number of cycles that the instruction can take to execute (so taking into account extra cycles for branching, page crosses etc.)
