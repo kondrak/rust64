@@ -640,11 +640,11 @@ impl CIA
             {
                 if self.is_cia1
                 {
-                    as_mut!(self.cpu_ref).trigger_cia_irq();
+                    as_mut!(self.cpu_ref).set_cia_irq(true);
                 }
                 else
                 {
-                    as_mut!(self.cpu_ref).trigger_nmi();
+                    as_mut!(self.cpu_ref).set_nmi(true);
                 }
             }
             
@@ -657,11 +657,11 @@ impl CIA
             {
                 if self.is_cia1
                 {
-                    as_mut!(self.cpu_ref).trigger_cia_irq();
+                    as_mut!(self.cpu_ref).set_cia_irq(true);
                 }
                 else
                 {
-                    as_mut!(self.cpu_ref).trigger_nmi();
+                    as_mut!(self.cpu_ref).set_nmi(true);
                 }
             }
             
@@ -767,11 +767,11 @@ impl CIA
                 {
                     if self.is_cia1
                     {
-                        as_mut!(self.cpu_ref).trigger_cia_irq();
+                        as_mut!(self.cpu_ref).set_cia_irq(true);
                     }
                     else
                     {
-                        as_mut!(self.cpu_ref).trigger_nmi();
+                        as_mut!(self.cpu_ref).set_nmi(true);
                     };
                 }
             }

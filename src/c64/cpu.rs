@@ -7,7 +7,6 @@ use c64::vic;
 use c64::cia;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::num::Wrapping;
 
 use utils;
 
@@ -46,7 +45,7 @@ pub static IRQ_VECTOR:   u16 = 0xFFFE;
 pub enum CPUState
 {
     FetchOp,
-    FetchOperand,
+    FetchOperandAddr,
     PerformRMW,
     ProcessIRQ,
     ProcessNMI,
@@ -105,7 +104,7 @@ impl CPU
             first_nmi_cycle: 0,
             first_irq_cycle: 0,
             state: CPUState::FetchOp,
-            instruction: opcodes::Instruction::new(opcodes::Op::BRK, 1, false, opcodes::AddrMode::Implied),
+            instruction: opcodes::Instruction::new(),
             nmi: false,
             debug_instr: false,
             prev_PC: 0,
@@ -142,7 +141,6 @@ impl CPU
     
     pub fn reset(&mut self)
     {
-        // reset program counter
         let pc = self.read_word_le(RESET_VECTOR);
         self.PC = pc;
         self.SP = 0xFF;
@@ -175,7 +173,6 @@ impl CPU
         match self.state
         {
             CPUState::FetchOp => {
-                // fetch the op
                 if self.ba_low { return; }
                 let next_op = self.next_byte();
                 match opcodes::get_instruction(next_op) {
@@ -191,27 +188,22 @@ impl CPU
                 
                 // implied addressed mode instructions don't fetch operands
                 match self.instruction.addr_mode {
-                    opcodes::AddrMode::Implied => self.state = CPUState::ExecuteOp,
-                    opcodes::AddrMode::Accumulator => {
-                        //self.instruction.operand_value = self.A;
-                        self.state = CPUState::ExecuteOp;
-                    },
-                    opcodes::AddrMode::Immediate => {
-                       // self.instruction.operand_value = self.next_byte() as u16;
-                        self.state = CPUState::ExecuteOp;
-                    },
-                    opcodes::AddrMode::Relative => {
+                    opcodes::AddrMode::Implied     => self.state = CPUState::ExecuteOp,
+                    opcodes::AddrMode::Accumulator => self.state = CPUState::ExecuteOp,
+                    opcodes::AddrMode::Immediate   => self.state = CPUState::ExecuteOp,
+                    opcodes::AddrMode::Relative    => {
                         // TODO: inc PC only during op execution?
                         let base = (self.PC + 1) as i16;
                         let offset = self.next_byte() as i8;
                         self.instruction.operand_addr = (base + offset as i16) as u16;
                         self.state = CPUState::ExecuteOp;
                     },
-                    _ => self.state = CPUState::FetchOperand,
+                    _ => self.state = CPUState::FetchOperandAddr,
                 };
             },
-            CPUState::FetchOperand => {
-                if opcodes::fetch_operand(self)
+            CPUState::FetchOperandAddr => {
+                if self.ba_low { return; }
+                if opcodes::fetch_operand_addr(self)
                 {
                     if self.instruction.is_rmw
                     {
@@ -288,7 +280,6 @@ impl CPU
         self.PC += 2;
         word
     }
-    
 
     // stack memory: $0100 - $01FF (256 byes)
     // TODO: some extra message if stack over/underflow occurs? (right now handled by Rust)
@@ -378,12 +369,12 @@ impl CPU
         // on VIC/CIA register write perform necessary action on the CPU
         match write_callback
         {
-            CallbackAction::TriggerVICIrq => self.trigger_vic_irq(),
-            CallbackAction::ClearVICIrq   => self.clear_vic_irq(),
-            CallbackAction::TriggerCIAIrq => self.trigger_cia_irq(),
-            CallbackAction::ClearCIAIrq   => self.clear_cia_irq(),
-            CallbackAction::TriggerNMI    => self.trigger_nmi(),
-            CallbackAction::ClearNMI      => self.clear_nmi(),
+            CallbackAction::TriggerVICIrq => self.set_vic_irq(true),
+            CallbackAction::ClearVICIrq   => self.set_vic_irq(false),
+            CallbackAction::TriggerCIAIrq => self.set_cia_irq(true),
+            CallbackAction::ClearCIAIrq   => self.set_cia_irq(false),
+            CallbackAction::TriggerNMI    => self.set_nmi(true),
+            CallbackAction::ClearNMI      => self.set_nmi(false),
             _ => (),
         }
 
@@ -472,10 +463,10 @@ impl CPU
 
         match read_callback
         {
-            CallbackAction::TriggerCIAIrq => self.trigger_cia_irq(),
-            CallbackAction::ClearCIAIrq   => self.clear_cia_irq(),
-            CallbackAction::TriggerNMI    => self.trigger_nmi(),
-            CallbackAction::ClearNMI      => self.clear_nmi(),
+            CallbackAction::TriggerCIAIrq => self.set_cia_irq(true),
+            CallbackAction::ClearCIAIrq   => self.set_cia_irq(false),
+            CallbackAction::TriggerNMI    => self.set_nmi(true),
+            CallbackAction::ClearNMI      => self.set_nmi(false),
             _ => (),
         }
 
@@ -576,53 +567,37 @@ impl CPU
         self.irq_cycles_left == 0
     }
 
-    pub fn trigger_vic_irq(&mut self)
+    pub fn set_vic_irq(&mut self, val: bool)
     {
-        //println!("VIC irq triggered");
-        self.vic_irq = true;
+        self.vic_irq = val;
     }
 
-    pub fn clear_vic_irq(&mut self)
+    pub fn set_nmi(&mut self, val: bool)
     {
-        self.vic_irq = false;
+        self.nmi = val;
     }
 
-    pub fn trigger_nmi(&mut self)
+    pub fn set_cia_irq(&mut self, val: bool)
     {
-        //println!("NMI irq");
-        self.nmi = true;
-    }
-
-    pub fn clear_nmi(&mut self)
-    {
-        self.nmi = false;
-    }
-
-    pub fn trigger_cia_irq(&mut self)
-    {
-        //println!("CIA irq triggered");
-        self.cia_irq = true;
-    }
-
-    pub fn clear_cia_irq(&mut self)
-    {
-        self.cia_irq = false;
+        self.cia_irq = val;
     }
     
     pub fn get_operand(&mut self) -> u8
     {
-        let addr = self.instruction.operand_addr;
-
+        // RMW instruction store pre-fetched operand value in internal buffer
         if self.instruction.is_rmw
         {
             return self.instruction.rmw_buffer;
         }
         
         let val = match self.instruction.addr_mode {
-            opcodes::AddrMode::Implied => panic!("Can't get operand value!"),
+            opcodes::AddrMode::Implied     => panic!("Can't get operand value!"),
             opcodes::AddrMode::Accumulator => self.A,
-            opcodes::AddrMode::Immediate  => self.next_byte(),
-            _ => self.read_byte(addr)
+            opcodes::AddrMode::Immediate   => self.next_byte(),
+            _ => {
+                let addr = self.instruction.operand_addr;
+                self.read_byte(addr)
+            }
         };
 
         val
@@ -630,11 +605,15 @@ impl CPU
 
     pub fn set_operand(&mut self, val: u8)
     {
-        let addr = self.instruction.operand_addr;
-        
         match self.instruction.addr_mode {
-            opcodes::AddrMode::Accumulator => { self.A = val; },
-            _ => { self.write_byte(addr, val); },
+            opcodes::AddrMode::Implied     => panic!("Can't set implied operand value!"),
+            opcodes::AddrMode::Accumulator => self.A = val,
+            opcodes::AddrMode::Immediate   => panic!("Can't set immediate operand value!"),
+            opcodes::AddrMode::Relative    => panic!("Can't set relative operand value!"),
+            _ => {
+                let addr = self.instruction.operand_addr;
+                let _ = self.write_byte(addr, val);
+            }
         }
     }
 }

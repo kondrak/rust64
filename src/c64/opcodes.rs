@@ -93,39 +93,34 @@ pub struct Instruction
 
 impl Instruction
 {
-    pub fn new(op: Op, total_cycles: u8, is_rmw: bool, addr_mode: AddrMode) -> Instruction
+    pub fn new() -> Instruction
     {
-        let mut i = Instruction {
-            opcode: op,
-            addr_mode: addr_mode,
+        Instruction {
+            opcode: Op::BRK,
+            addr_mode: AddrMode::Implied,
             operand_addr: 0,
             index_addr: 0,
             cycles_to_fetch: 0,
             cycles_to_run: 0,
             cycles_to_rmw: 0,
-            is_rmw: is_rmw,
+            is_rmw: false,
             rmw_buffer: 0,
             zp_crossed: false,
-        };
-
-        i.calculate_cycles(total_cycles, false);
-        i
+        }
     }
 
     pub fn calculate_cycles(&mut self, total_cycles: u8, is_rmw: bool)
     {
-        let mut extra_cycle = false;
-        
         match self.addr_mode {
             AddrMode::Absolute => self.cycles_to_fetch = 2,
-            AddrMode::AbsoluteIndexedX(ec) => { self.cycles_to_fetch = 3; extra_cycle = ec; },
-            AddrMode::AbsoluteIndexedY(ec) => { self.cycles_to_fetch = 3; extra_cycle = ec; },
             AddrMode::Zeropage => self.cycles_to_fetch = 1,
             AddrMode::Indirect => self.cycles_to_fetch = 2,
             AddrMode::ZeropageIndexedX => self.cycles_to_fetch = 2,
             AddrMode::ZeropageIndexedY => self.cycles_to_fetch = 2,
             AddrMode::IndexedIndirectX => self.cycles_to_fetch = 4,
-            AddrMode::IndirectIndexedY(ec) => { self.cycles_to_fetch = 4; extra_cycle = ec; },
+            AddrMode::AbsoluteIndexedX(..) => self.cycles_to_fetch = 3,
+            AddrMode::AbsoluteIndexedY(..) => self.cycles_to_fetch = 3,
+            AddrMode::IndirectIndexedY(..) => self.cycles_to_fetch = 4,
             _ => {}
         }        
         
@@ -167,10 +162,8 @@ impl fmt::Display for Instruction
     }
 }
 
-pub fn fetch_operand(cpu: &mut cpu::CPU) -> bool
+pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool
 {
-    if cpu.ba_low { return false; }
-    
     match cpu.instruction.addr_mode
     {
         AddrMode::Absolute => {
@@ -205,7 +198,7 @@ pub fn fetch_operand(cpu: &mut cpu::CPU) -> bool
                 },
                 1 => { // if page crossed - add 0x100 to operand address
                     let addr = cpu.instruction.operand_addr;
-                    cpu.read_idle(addr);                     
+                    cpu.read_idle(addr);
                     if cpu.instruction.zp_crossed { cpu.instruction.operand_addr += 0x100; }
                 },
                 _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
@@ -1407,8 +1400,8 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         Op::DCP => {
             let v = (Wrapping(cpu.instruction.rmw_buffer) - Wrapping(0x01)).0;
             cpu.set_operand(v);
-            let diff = (Wrapping(cpu.A) - Wrapping(v)).0;
-            cpu.set_zn_flags(diff);
+            let diff = (Wrapping(cpu.A as u16) - Wrapping(v as u16)).0;
+            cpu.set_zn_flags(diff as u8);
             cpu.set_status_flag(cpu::StatusFlag::Carry, (diff & 0x0100) == 0);
         },
         Op::ISC => {

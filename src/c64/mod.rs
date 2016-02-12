@@ -180,7 +180,7 @@ impl C64
 
                 if self.io.check_restore_key(&self.window)
                 {
-                    self.cpu.borrow_mut().trigger_nmi();
+                    self.cpu.borrow_mut().set_nmi(true);
                 }
 
                 if self.window.is_key_pressed(Key::F11, KeyRepeat::No)

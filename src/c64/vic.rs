@@ -447,7 +447,7 @@ impl VIC
             if (self.irq_mask & 0x08) != 0
             {
                 self.irq_flag |= 0x80;
-                as_mut!(self.cpu_ref).trigger_vic_irq();
+                as_mut!(self.cpu_ref).set_vic_irq(true);
             }
 
             self.write_register_nc(0xD013, lpx as u8);
@@ -471,7 +471,7 @@ impl VIC
             self.irq_flag |= 0x80;
 
             // TODO: when the time is right check if this works correctly (irq should be triggered here)
-            //as_mut!(self.cpu_ref).trigger_vic_irq();
+            //as_mut!(self.cpu_ref).set_vic_irq(true);
             cpu::CallbackAction::TriggerVICIrq
         }
         else
@@ -1039,7 +1039,7 @@ impl VIC
             self.irq_flag |= 0x04;
             if (self.irq_mask & 0x04) != 0 {
                 self.irq_flag |= 0x80;
-                as_mut!(self.cpu_ref).trigger_vic_irq();
+                as_mut!(self.cpu_ref).set_vic_irq(true);
             }
         }
         
@@ -1050,7 +1050,7 @@ impl VIC
             self.irq_flag |= 0x02;
             if (self.irq_mask & 0x02) != 0 {
                 self.irq_flag |= 0x80;
-                as_mut!(self.cpu_ref).trigger_vic_irq();
+                as_mut!(self.cpu_ref).set_vic_irq(true);
             }
         }
     }
@@ -1180,7 +1180,7 @@ impl VIC
                     if self.raster_cnt == self.raster_irq
                     {
                         match self.raster_irq() {
-                            cpu::CallbackAction::TriggerVICIrq => as_mut!(self.cpu_ref).trigger_vic_irq(),
+                            cpu::CallbackAction::TriggerVICIrq => as_mut!(self.cpu_ref).set_vic_irq(true),
                             _ => (),
                         }
                     }
@@ -1237,7 +1237,7 @@ impl VIC
                     if self.raster_irq == 0
                     {
                         match self.raster_irq() {
-                            cpu::CallbackAction::TriggerVICIrq => as_mut!(self.cpu_ref).trigger_vic_irq(),
+                            cpu::CallbackAction::TriggerVICIrq => as_mut!(self.cpu_ref).set_vic_irq(true),
                             _ => (),
                         }
                     }
