@@ -143,11 +143,6 @@ impl CPU
     {
         let pc = self.read_word_le(RESET_VECTOR);
         self.PC = pc;
-        self.SP = 0xFF;
-        self.ba_low = false;
-        self.cia_irq = false;
-        self.vic_irq = false;
-        self.nmi = false;
     }
 
     pub fn update(&mut self, c64_cycle_cnt: u32)
@@ -185,8 +180,8 @@ impl CPU
                     }
                     None => panic!("Can't fetch instruction")
                 }
-                
-                // implied addressed mode instructions don't fetch operands
+
+                // jump straight to op execution unless operand address needs to be fetched
                 match self.instruction.addr_mode {
                     opcodes::AddrMode::Implied     => self.state = CPUState::ExecuteOp,
                     opcodes::AddrMode::Accumulator => self.state = CPUState::ExecuteOp,
