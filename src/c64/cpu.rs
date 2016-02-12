@@ -219,7 +219,7 @@ impl CPU
                 }
             }
             CPUState::ProcessIRQ => {
-                if self.process_irq()
+                if self.process_irq(false)
                 {
                     self.cia_irq = false;
                     self.vic_irq = false;
@@ -227,7 +227,7 @@ impl CPU
                 }
             },
             CPUState::ProcessNMI => {
-                if self.process_nmi()
+                if self.process_irq(true)
                 {
                     self.nmi = false;
                     self.state = CPUState::FetchOp;
@@ -478,51 +478,12 @@ impl CPU
         as_ref!(self.mem_ref).write_word_le(addr, value)
     }
     
-    fn process_nmi(&mut self) -> bool
+    fn process_irq(&mut self, is_nmi: bool) -> bool
     {
-        match self.nmi_cycles_left
-        {
-            7 => {
-                if self.ba_low { return false; }
-                let pc = self.PC;
-                self.read_idle(pc);
-            },
-            6 => {
-                if self.ba_low { return false; }
-                let pc = self.PC;
-                self.read_idle(pc);
-            },
-            5 => {
-                let pc_hi = (self.PC >> 8) as u8;
-                self.push_byte(pc_hi);
-            },
-            4 => {
-                let pc_lo = self.PC as u8;
-                self.push_byte(pc_lo);
-            },
-            3 => {
-                //self.set_status_flag(StatusFlag::Break, false); // TODO: clear brk flag?
-                let curr_p = self.P;
-                self.push_byte(curr_p);
-                self.set_status_flag(StatusFlag::InterruptDisable, true);
-            },
-            2 => {
-                if self.ba_low { return false; } // TODO: is reading whole word ok in cycle 1?
-            },
-            1 => {
-                if self.ba_low { return false; }
-                self.PC = as_ref!(self.mem_ref).read_word_le(NMI_VECTOR);
-            }
-            _ => panic!("Invalid NMI cycle")
-        }
-
-        self.nmi_cycles_left -= 1;
-        self.nmi_cycles_left == 0
-    }
-    
-    fn process_irq(&mut self) -> bool
-    {
-        match self.irq_cycles_left
+        let new_pc    = if is_nmi { NMI_VECTOR } else { IRQ_VECTOR };
+        let cycle_cnt = if is_nmi { self.nmi_cycles_left } else { self.irq_cycles_left };
+        
+        match cycle_cnt
         {
             7 => {
                 if self.ba_low { return false; }
@@ -553,13 +514,21 @@ impl CPU
             },
             1 => {
                 if self.ba_low { return false; }
-                self.PC = as_ref!(self.mem_ref).read_word_le(IRQ_VECTOR);
+                self.PC = as_ref!(self.mem_ref).read_word_le(new_pc);
             }
-            _ => panic!("Invalid IRQ cycle")
+            _ => panic!("Invalid IRQ/NMI cycle")
         }
 
-        self.irq_cycles_left -= 1;
-        self.irq_cycles_left == 0
+        if is_nmi
+        {
+            self.nmi_cycles_left -= 1;
+            self.nmi_cycles_left == 0
+        }
+        else
+        {
+            self.irq_cycles_left -= 1;
+            self.irq_cycles_left == 0
+        }
     }
 
     pub fn set_vic_irq(&mut self, val: bool)

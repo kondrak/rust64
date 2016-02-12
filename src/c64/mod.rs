@@ -97,19 +97,12 @@ impl C64
     {
         let prg_data = utils::open_file(filename, 0);
         let start_address: u16 = ((prg_data[1] as u16) << 8) | (prg_data[0] as u16);
-        //let end_addr = start_address + (prg_data.len() as u16) - 2;
         println!("Loading {} to start location at ${:04x} ({})", filename, start_address, start_address);
 
         for i in 2..(prg_data.len())
         {
-            //println!("${:04x} -> {:02x}", start_address + (i as u16) - 2, prg_data[i]);
             self.memory.borrow_mut().write_byte(start_address + (i as u16) - 2, prg_data[i]);
         }
-
-        //self.memory.borrow_mut().write_word_le(0x02b, start_address);
-        //self.memory.borrow_mut().write_word_le(0x02d, end_addr);
-        //self.memory.borrow_mut().write_word_le(0x02f, end_addr);
-        //self.memory.borrow_mut().write_word_le(0x031, end_addr);
     }
 
     
