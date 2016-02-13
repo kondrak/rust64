@@ -25,11 +25,22 @@ You can pass a .prg file as a command line parameter to load it into memory once
 ```
 cargo run --release tests/bgcolor.prg
 ```
-
+To run with double-sized window:
+```
+cargo run --release x2 tests/bgcolor.prg
+```
+To run with double-sized window and debug windows enabled:
+```
+cargo run --release x2 debugger tests/bgcolor.prg
+```
 TODO
 ------------------
 - SID emulation
 - serial bus/disk drives (d64, t64)
+
+Known Issues
+------------------
+Due to lack of any SID register or serial bus functionality, some programs may not perform correctly or get stuck in infinite loops.
 
 This is an on-off WIP project, so update frequency may vary.
 
