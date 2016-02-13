@@ -31,7 +31,7 @@ pub struct C64
     vic: vic::VICShared,
     sid: sid::SID,
 
-    debugger: debugger::Debugger,
+    debugger: Option<debugger::Debugger>,
     boot_complete: bool,
     pub file_to_load: String,
     cycle_count: u32,
@@ -39,7 +39,7 @@ pub struct C64
 
 impl C64
 {
-    pub fn new() -> C64
+    pub fn new(window_scale: Scale, debugger_on: bool) -> C64
     {
         let memory = memory::Memory::new_shared();
         let vic    = vic::VIC::new_shared();
@@ -49,7 +49,7 @@ impl C64
 
         let mut c64 = C64
         {
-            window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, WindowOptions::default()).unwrap(),
+            window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, WindowOptions { scale: window_scale, ..Default::default() }).unwrap(),
             memory: memory.clone(), // shared system memory (RAM, ROM, IO registers)
             io:    io::IO::new(),
             clock: clock::Clock::new(CLOCK_FREQ),
@@ -58,8 +58,7 @@ impl C64
             cia2: cia2.clone(),
             vic: vic.clone(),
             sid: sid::SID::new(),
-
-            debugger: debugger::Debugger::new(),
+            debugger: if debugger_on { Some(debugger::Debugger::new()) } else { None },
             boot_complete: false,
             file_to_load: String::new(),
             cycle_count: 0,
@@ -161,11 +160,20 @@ impl C64
         
             self.cpu.borrow_mut().update(self.cycle_count);
 
-            self.debugger.update_raster_window(&mut self.vic);
+            match self.debugger
+            {
+                Some(ref mut dbg) => {
+                    dbg.update_raster_window(&mut self.vic);
+                    if should_trigger_vblank
+                    {
+                        dbg.render(&mut self.cpu, &mut self.memory);
+                    }
+                },
+                None => (),
+            }
 
             if should_trigger_vblank
             {
-                self.debugger.render(&mut self.cpu, &mut self.memory);
                 self.window.update_with_buffer(&self.vic.borrow_mut().window_buffer);
                 self.io.update(&self.window, &mut self.cia1);
                 self.cia1.borrow_mut().count_tod();

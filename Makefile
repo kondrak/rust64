@@ -3,7 +3,7 @@
 # misleading name, I know - this makefile is used for Emacs debugging for now 
 all:
 	@export PATH
-	RUST_BACKTRACE=1 cargo run --release
+	RUST_BACKTRACE=1 cargo run --release debugger
 debug:
 	@export PATH
 	cargo build
