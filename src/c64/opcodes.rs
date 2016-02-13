@@ -521,91 +521,12 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         Op::ADC => { // TODO: test decimal mode, check if flag values are correct
             if cpu.ba_low { return false; }
             let v = cpu.get_operand();
-            let c = cpu.get_status_flag(cpu::StatusFlag::Carry);
-            
-            if cpu.get_status_flag(cpu::StatusFlag::DecimalMode)
-            {
-                let mut lo = (Wrapping((cpu.A as u16) & 0xF) + Wrapping((v as u16) & 0xF)).0;
-                if  c { lo = (Wrapping(lo) + Wrapping(1)).0; }
-                if lo > 9 { lo = (Wrapping(lo) + Wrapping(6)).0; }
-
-                let mut hi = (Wrapping((cpu.A as u16) >> 4) + Wrapping((v as u16) >> 4)).0;
-                if lo > 0xF { hi = (Wrapping(hi) + Wrapping(1)).0; }
-
-                let is_overflow = ((((hi << 4) ^ (cpu.A as u16)) & 0x80) != 0) && (((cpu.A ^ v) & 0x80) == 0);
-                let mut is_zero = (Wrapping(cpu.A as u16) + Wrapping(v as u16)).0;
-                if c  { is_zero = (Wrapping(is_zero) + Wrapping(1)).0; }
-                
-                cpu.set_status_flag(cpu::StatusFlag::Negative, (hi << 4) != 0); // TODO: is this ok?              
-                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
-                cpu.set_status_flag(cpu::StatusFlag::Zero,     is_zero == 0);
-
-                if hi > 9 { hi = (Wrapping(hi) + Wrapping(6)).0; }
-                cpu.set_status_flag(cpu::StatusFlag::Carry, hi > 0xF);
-                cpu.A = ((hi << 4) | (lo & 0xF)) as u8;
-            }
-            else
-            {
-                // TODO: should operation wrap automatically here?
-                let mut res: u16 = (Wrapping(cpu.A as u16) + Wrapping(v as u16)).0;
-                if c
-                {
-                    res = (Wrapping(res) + Wrapping(0x0001)).0;
-                }
-                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) != 0);
-                let res = res as u8;
-                let is_overflow = (cpu.A ^ v) & 0x80 == 0 && (cpu.A ^ res) & 0x80 == 0x80;
-                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
-                cpu.A = res;
-                cpu.set_zn_flags(res);
-            }
+            cpu.adc(v);
         },
         Op::SBC => { // TODO: test decimal mode, check if flag values are correct
             if cpu.ba_low { return false; }
-            
             let v = cpu.get_operand();
-            let mut res: u16 = (Wrapping(cpu.A as u16) - Wrapping(v as u16)).0;
-            if !cpu.get_status_flag(cpu::StatusFlag::Carry)
-            {
-                res = (Wrapping(res) - Wrapping(0x0001)).0;
-            }
-            
-            if cpu.get_status_flag(cpu::StatusFlag::DecimalMode)
-            {
-                let mut lo = (Wrapping((cpu.A as u16) & 0xF) - Wrapping((v as u16) & 0xF)).0;
-                let mut hi = (Wrapping((cpu.A as u16) >> 4) - Wrapping((v as u16) >> 4)).0;
-
-                if !cpu.get_status_flag(cpu::StatusFlag::Carry)
-                {
-                    lo = (Wrapping(lo) - Wrapping(1)).0;
-                }
-                
-                if (lo & 0x10) != 0
-                {
-                    lo = (Wrapping(lo) - Wrapping(6)).0;
-                    hi = (Wrapping(hi) - Wrapping(1)).0;
-                }
-
-                if (hi & 0x10) != 0 { hi = (Wrapping(hi) - Wrapping(6)).0; }
-
-                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) == 0);
-                let res = res as u8;
-                let is_overflow = (cpu.A ^ res) & 0x80 != 0 && (cpu.A ^ v) & 0x80 == 0x80;
-                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
-                cpu.set_zn_flags(res);
-
-                cpu.A = ((hi << 4) | (lo & 0xF)) as u8;
-            }
-            else
-            {
-                // TODO: should operation wrap automatically here?
-                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) == 0);
-                let res = res as u8;
-                let is_overflow = (cpu.A ^ res) & 0x80 != 0 && (cpu.A ^ v) & 0x80 == 0x80;
-                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
-                cpu.A = res;
-                cpu.set_zn_flags(res);
-            }
+            cpu.sbc(v);
         },
         Op::CMP => {
             if cpu.ba_low { return false; }
@@ -1319,45 +1240,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
                 v |= 0x80;
             }
             cpu.set_status_flag(cpu::StatusFlag::Carry, tmp != 0);
-
-            // todo: copy from adc
-            if cpu.get_status_flag(cpu::StatusFlag::DecimalMode)
-            {
-                let mut lo = (Wrapping((cpu.A as u16) & 0xF) + Wrapping((v as u16) & 0xF)).0;
-                if  c { lo = (Wrapping(lo) + Wrapping(1)).0; }
-                if lo > 9 { lo = (Wrapping(lo) + Wrapping(6)).0; }
-
-                let mut hi = (Wrapping((cpu.A as u16) >> 4) + Wrapping((v as u16) >> 4)).0;
-                if lo > 0xF { hi = (Wrapping(hi) + Wrapping(1)).0; }
-
-                let is_overflow = ((((hi << 4) ^ (cpu.A as u16)) & 0x80) != 0) && (((cpu.A ^ v) & 0x80) == 0);
-                let mut is_zero = (Wrapping(cpu.A as u16) + Wrapping(v as u16)).0;
-                if c  { is_zero = (Wrapping(is_zero) + Wrapping(1)).0; }
-                
-                cpu.set_status_flag(cpu::StatusFlag::Negative, (hi << 4) != 0); // TODO: is this ok?              
-                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
-                cpu.set_status_flag(cpu::StatusFlag::Zero,     is_zero == 0);
-
-                if hi > 9 { hi = (Wrapping(hi) + Wrapping(6)).0; }
-                cpu.set_status_flag(cpu::StatusFlag::Carry, hi > 0xF);
-                cpu.A = ((hi << 4) | (lo & 0xF)) as u8;
-            }
-            else
-            {
-                // TODO: should operation wrap automatically here?
-                let mut res: u16 = (Wrapping(cpu.A as u16) + Wrapping(v as u16)).0;
-                if c
-                {
-                    res = (Wrapping(res) + Wrapping(0x0001)).0;
-                }
-                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) != 0);
-                let res = res as u8;
-                let is_overflow = (cpu.A ^ v) & 0x80 == 0 && (cpu.A ^ res) & 0x80 == 0x80;
-                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
-                cpu.A = res;
-                cpu.set_zn_flags(res);
-            }
-            
+            cpu.adc(v);
         },
         Op::SAX => {
             let v = cpu.A & cpu.X;

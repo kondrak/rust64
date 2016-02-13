@@ -7,6 +7,7 @@ use c64::vic;
 use c64::cia;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::num::Wrapping;
 
 use utils;
 
@@ -578,6 +579,96 @@ impl CPU
                 let addr = self.instruction.operand_addr;
                 let _ = self.write_byte(addr, val);
             }
+        }
+    }
+
+    pub fn adc(&mut self, value: u8)
+    {
+        let c = self.get_status_flag(StatusFlag::Carry);
+        let a = self.A as u16;
+        let v = value as u16;
+
+        if self.get_status_flag(StatusFlag::DecimalMode)
+        {
+            let mut lo = (Wrapping(a & 0xF) + Wrapping(v & 0xF)).0;
+            if  c { lo = (Wrapping(lo) + Wrapping(1)).0; }
+            if lo > 9 { lo = (Wrapping(lo) + Wrapping(6)).0; }
+
+            let mut hi = (Wrapping(a >> 4) + Wrapping(v >> 4)).0;
+            if lo > 0xF { hi = (Wrapping(hi) + Wrapping(1)).0; }
+
+            let is_overflow = ((((hi << 4) ^ a) & 0x80) != 0) && (((a ^ v) & 0x80) == 0);
+            let mut is_zero = (Wrapping(a) + Wrapping(v)).0;
+            if c  { is_zero = (Wrapping(is_zero) + Wrapping(1)).0; }
+            
+            self.set_status_flag(StatusFlag::Negative, (hi << 4) != 0); // TODO: is this ok?              
+            self.set_status_flag(StatusFlag::Overflow, is_overflow);
+            self.set_status_flag(StatusFlag::Zero,     is_zero == 0);
+
+            if hi > 9 { hi = (Wrapping(hi) + Wrapping(6)).0; }
+            self.set_status_flag(StatusFlag::Carry, hi > 0xF);
+            self.A = ((hi << 4) | (lo & 0xF)) as u8;
+        }
+        else
+        {
+            // TODO: should operation wrap automatically here?
+            let mut res = (Wrapping(a) + Wrapping(v)).0;
+            if c
+            {
+                res = (Wrapping(res) + Wrapping(1)).0;
+            }
+            self.set_status_flag(StatusFlag::Carry, (res & 0x0100) != 0);
+            let is_overflow = (a ^ v) & 0x80 == 0 && (a ^ res) & 0x80 == 0x80;
+            self.set_status_flag(StatusFlag::Overflow, is_overflow);
+            self.A = res as u8;
+            self.set_zn_flags(res as u8);
+        }
+    }
+
+    pub fn sbc(&mut self, value: u8)
+    {
+        let a = self.A as u16;
+        let v = value as u16;
+        let mut res: u16 = (Wrapping(a) - Wrapping(v)).0;
+        
+        if !self.get_status_flag(StatusFlag::Carry)
+        {
+            res = (Wrapping(res) - Wrapping(0x0001)).0;
+        }
+        
+        if self.get_status_flag(StatusFlag::DecimalMode)
+        {
+            let mut lo = (Wrapping(a & 0xF) - Wrapping(v & 0xF)).0;
+            let mut hi = (Wrapping(a >> 4)  - Wrapping(v >> 4)).0;
+
+            if !self.get_status_flag(StatusFlag::Carry)
+            {
+                lo = (Wrapping(lo) - Wrapping(1)).0;
+            }
+            
+            if (lo & 0x10) != 0
+            {
+                lo = (Wrapping(lo) - Wrapping(6)).0;
+                hi = (Wrapping(hi) - Wrapping(1)).0;
+            }
+
+            if (hi & 0x10) != 0 { hi = (Wrapping(hi) - Wrapping(6)).0; }
+            let is_overflow = (a ^ res) & 0x80 != 0 && (a ^ v) & 0x80 == 0x80;
+            
+            self.set_status_flag(StatusFlag::Carry, (res & 0x0100) == 0);
+            self.set_status_flag(StatusFlag::Overflow, is_overflow);
+            self.set_zn_flags(res as u8);
+
+            self.A = ((hi << 4) | (lo & 0xF)) as u8;
+        }
+        else
+        {
+            // TODO: should operation wrap automatically here?
+            self.set_status_flag(StatusFlag::Carry, (res & 0x0100) == 0);
+            let is_overflow = (a ^ res) & 0x80 != 0 && (a ^ v) & 0x80 == 0x80;
+            self.set_status_flag(StatusFlag::Overflow, is_overflow);
+            self.A = res as u8;
+            self.set_zn_flags(res as u8);
         }
     }
 }
