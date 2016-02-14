@@ -25,20 +25,44 @@ You can pass a .prg file as a command line parameter to load it into memory once
 ```
 cargo run --release tests/bgcolor.prg
 ```
+To run with double-sized window:
+```
+cargo run --release x2 tests/bgcolor.prg
+```
+To run with double-sized window and debug windows enabled:
+```
+cargo run --release x2 debugger tests/bgcolor.prg
+```
+
+C64 and special key mappings
+-------------------
+```
+ESC   - Run/Stop
+END   - Restore
+LCTRL - C=
+F11   - start asm output to console (very slow!)
+F12   - reset C64
+
+In debugger window:
+PGUP/PGDWN - flip currently displayed memory page
+END - change currently displayed memory banks between RAM, Color RAM, VIC, CIA (and in the future: SID)
+```
 
 TODO
 ------------------
 - SID emulation
 - serial bus/disk drives (d64, t64)
-
-This is an on-off WIP project, so update frequency may vary.
+- implement remaining undocumented ops
 
 Known Issues
 ------------------
-- CPU and timing bugs
-- no Reset button
+Due to lack of any SID register and serial bus handling, some programs may not perform correctly or get stuck in infinite loops.
 
-Resources used to create this emulator:
+This is an on-off WIP project, so update frequency may vary.
+
+Resources
+------------------
+The following has been used to create this emulator:
 
 - http://www.zimmers.net/cbmpics/cbm/c64/vic-ii.txt
 - http://frodo.cebix.net/ (inspired the VIC-II implementaiton)
@@ -49,3 +73,4 @@ Resources used to create this emulator:
 - http://archive.6502.org/datasheets/mos_6526_cia.pdf
 - https://www.yoyogames.com/tech_blog/95
 - http://code.google.com/p/hmc-6502/source/browse/trunk/emu/testvectors/AllSuiteA.asm
+- https://t.co/J40UKu7RBf

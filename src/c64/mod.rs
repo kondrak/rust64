@@ -31,7 +31,7 @@ pub struct C64
     vic: vic::VICShared,
     sid: sid::SID,
 
-    debugger: debugger::Debugger,
+    debugger: Option<debugger::Debugger>,
     boot_complete: bool,
     pub file_to_load: String,
     cycle_count: u32,
@@ -39,7 +39,7 @@ pub struct C64
 
 impl C64
 {
-    pub fn new() -> C64
+    pub fn new(window_scale: Scale, debugger_on: bool) -> C64
     {
         let memory = memory::Memory::new_shared();
         let vic    = vic::VIC::new_shared();
@@ -49,7 +49,7 @@ impl C64
 
         let mut c64 = C64
         {
-            window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, WindowOptions::default()).unwrap(),
+            window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, WindowOptions { scale: window_scale, ..Default::default() }).unwrap(),
             memory: memory.clone(), // shared system memory (RAM, ROM, IO registers)
             io:    io::IO::new(),
             clock: clock::Clock::new(CLOCK_FREQ),
@@ -58,8 +58,7 @@ impl C64
             cia2: cia2.clone(),
             vic: vic.clone(),
             sid: sid::SID::new(),
-
-            debugger: debugger::Debugger::new(),
+            debugger: if debugger_on { Some(debugger::Debugger::new()) } else { None },
             boot_complete: false,
             file_to_load: String::new(),
             cycle_count: 0,
@@ -97,19 +96,12 @@ impl C64
     {
         let prg_data = utils::open_file(filename, 0);
         let start_address: u16 = ((prg_data[1] as u16) << 8) | (prg_data[0] as u16);
-        //let end_addr = start_address + (prg_data.len() as u16) - 2;
         println!("Loading {} to start location at ${:04x} ({})", filename, start_address, start_address);
 
         for i in 2..(prg_data.len())
         {
-            //println!("${:04x} -> {:02x}", start_address + (i as u16) - 2, prg_data[i]);
             self.memory.borrow_mut().write_byte(start_address + (i as u16) - 2, prg_data[i]);
         }
-
-        //self.memory.borrow_mut().write_word_le(0x02b, start_address);
-        //self.memory.borrow_mut().write_word_le(0x02d, end_addr);
-        //self.memory.borrow_mut().write_word_le(0x02f, end_addr);
-        //self.memory.borrow_mut().write_word_le(0x031, end_addr);
     }
 
     
@@ -166,13 +158,22 @@ impl C64
             self.cia1.borrow_mut().update();
             self.cia2.borrow_mut().update();
         
-            self.cpu.borrow_mut().update();
+            self.cpu.borrow_mut().update(self.cycle_count);
 
-            self.debugger.update_raster_window(&mut self.vic);
+            match self.debugger
+            {
+                Some(ref mut dbg) => {
+                    dbg.update_raster_window(&mut self.vic);
+                    if should_trigger_vblank
+                    {
+                        dbg.render(&mut self.cpu, &mut self.memory);
+                    }
+                },
+                None => (),
+            }
 
             if should_trigger_vblank
             {
-                self.debugger.render(&mut self.cpu, &mut self.memory);
                 self.window.update_with_buffer(&self.vic.borrow_mut().window_buffer);
                 self.io.update(&self.window, &mut self.cia1);
                 self.cia1.borrow_mut().count_tod();
@@ -180,8 +181,19 @@ impl C64
 
                 if self.io.check_restore_key(&self.window)
                 {
-                    self.cpu.borrow_mut().trigger_nmi();
+                    self.cpu.borrow_mut().set_nmi(true);
                 }
+            }
+
+            if self.window.is_key_pressed(Key::F10, KeyRepeat::No)
+            {
+                let di = self.cpu.borrow_mut().debug_instr;
+                self.cpu.borrow_mut().debug_instr = !di;
+            }
+
+            if self.window.is_key_pressed(Key::F12, KeyRepeat::No)
+            {
+                self.reset();
             }
 
             self.cycle_count += 1;

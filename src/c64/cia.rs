@@ -353,7 +353,7 @@ impl CIA
         self.iec_lines = 0xD0;
     }
 
-    pub fn read_register(&mut self, addr: u16, on_cia_read: &mut cpu::CallbackAction) -> u8
+    pub fn read_register(&mut self, addr: u16, on_cia_read: &mut cpu::Callback) -> u8
     {
         //let base_addr = if self.is_cia1 { 0xDC00 } else { 0xDD00 };
         // CIA1 and CIA2 share behavior for certain addresses
@@ -379,7 +379,7 @@ impl CIA
             0x0D => {
                 let curr_icr = self.icr;
                 self.icr = 0;
-                *on_cia_read = if self.is_cia1 { cpu::CallbackAction::ClearCIAIrq } else { cpu::CallbackAction::ClearNMI };
+                *on_cia_read = if self.is_cia1 { cpu::Callback::ClearCIAIrq } else { cpu::Callback::ClearNMI };
                 curr_icr
             },
             0x0E => self.timer_a.ctrl,
@@ -452,16 +452,8 @@ impl CIA
             _ => panic!("Address out of CIA2 memory range ${:04X}", addr),
         }
     }
-
-    // write to register - ignore callback to CPU
-/*    pub fn write_register_nc(&mut self, addr: u16, value: u8)
-    {
-        let mut ca = cpu::CallbackAction::None;
-        self.write_register(addr, value, &mut ca);
-    }
-*/
     
-    pub fn write_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::CallbackAction)
+    pub fn write_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::Callback)
     {
         match addr & 0x00FF
         {
@@ -538,7 +530,7 @@ impl CIA
                 let irq_triggered = self.trigger_irq(8);
                 if irq_triggered
                 {
-                    *on_cia_write = if self.is_cia1 { cpu::CallbackAction::TriggerCIAIrq } else { cpu::CallbackAction::TriggerNMI };
+                    *on_cia_write = if self.is_cia1 { cpu::Callback::TriggerCIAIrq } else { cpu::Callback::TriggerNMI };
                 }
             },
             0x0D => {
@@ -554,7 +546,7 @@ impl CIA
                 if (self.icr & self.irq_mask & 0x1F) != 0
                 {
                     self.icr |= 0x80;
-                    *on_cia_write = if self.is_cia1 { cpu::CallbackAction::TriggerCIAIrq } else { cpu::CallbackAction::TriggerNMI };
+                    *on_cia_write = if self.is_cia1 { cpu::Callback::TriggerCIAIrq } else { cpu::Callback::TriggerNMI };
                 }
                 as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
@@ -584,7 +576,7 @@ impl CIA
         }
     }
 
-    fn write_cia1_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::CallbackAction)
+    fn write_cia1_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::Callback)
     {
         match addr
         {
@@ -597,7 +589,7 @@ impl CIA
         }
     }
 
-    fn write_cia2_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::CallbackAction)
+    fn write_cia2_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::Callback)
     {
         match addr
         {
@@ -640,11 +632,11 @@ impl CIA
             {
                 if self.is_cia1
                 {
-                    as_mut!(self.cpu_ref).trigger_cia_irq();
+                    as_mut!(self.cpu_ref).set_cia_irq(true);
                 }
                 else
                 {
-                    as_mut!(self.cpu_ref).trigger_nmi();
+                    as_mut!(self.cpu_ref).set_nmi(true);
                 }
             }
             
@@ -657,11 +649,11 @@ impl CIA
             {
                 if self.is_cia1
                 {
-                    as_mut!(self.cpu_ref).trigger_cia_irq();
+                    as_mut!(self.cpu_ref).set_cia_irq(true);
                 }
                 else
                 {
-                    as_mut!(self.cpu_ref).trigger_nmi();
+                    as_mut!(self.cpu_ref).set_nmi(true);
                 }
             }
             
@@ -767,11 +759,11 @@ impl CIA
                 {
                     if self.is_cia1
                     {
-                        as_mut!(self.cpu_ref).trigger_cia_irq();
+                        as_mut!(self.cpu_ref).set_cia_irq(true);
                     }
                     else
                     {
-                        as_mut!(self.cpu_ref).trigger_nmi();
+                        as_mut!(self.cpu_ref).set_nmi(true);
                     };
                 }
             }

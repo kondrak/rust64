@@ -1,12 +1,14 @@
 // The CPU
 #![allow(non_snake_case)]
-//extern crate sdl2;
+#![allow(dead_code)]
+
 use c64::opcodes;
 use c64::memory;
 use c64::vic;
 use c64::cia;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::num::Wrapping;
 
 use utils;
 
@@ -27,7 +29,7 @@ pub enum StatusFlag
 }
 
 // action to perform on specific CIA and VIC events
-pub enum CallbackAction
+pub enum Callback
 {
     None,
     TriggerVICIrq,
@@ -42,6 +44,16 @@ pub static NMI_VECTOR:   u16 = 0xFFFA;
 pub static RESET_VECTOR: u16 = 0xFFFC;
 pub static IRQ_VECTOR:   u16 = 0xFFFE;
 
+pub enum CPUState
+{
+    FetchOp,
+    FetchOperandAddr,
+    PerformRMW,
+    ProcessIRQ,
+    ProcessNMI,
+    ExecuteOp
+}
+
 pub struct CPU
 {
     pub PC: u16, // program counter
@@ -54,13 +66,17 @@ pub struct CPU
     pub vic_ref: Option<vic::VICShared>,
     pub cia1_ref: Option<cia::CIAShared>,
     pub cia2_ref: Option<cia::CIAShared>,
+    pub instruction: opcodes::Instruction,
     pub ba_low: bool,  // is BA low?
     pub cia_irq: bool,
     pub vic_irq: bool,
-    irq_cycles: u8,
-    op_cycles: u8,
-    curr_op: u8,
-    nmi: bool,
+    pub irq_cycles_left: u8,
+    pub nmi_cycles_left: u8,
+    pub first_nmi_cycle: u32,
+    pub first_irq_cycle: u32,
+    pub state: CPUState,
+    pub nmi: bool,
+    pub debug_instr: bool,
     pub prev_PC: u16, // previous program counter - for debugging
     dfff_byte: u8,
     pub op_debugger: utils::OpDebugger
@@ -85,10 +101,14 @@ impl CPU
             ba_low: false,
             cia_irq: false,
             vic_irq: false,
-            irq_cycles: 0,
-            op_cycles: 0,
-            curr_op: 0,
+            irq_cycles_left: 0,
+            nmi_cycles_left: 0,
+            first_nmi_cycle: 0,
+            first_irq_cycle: 0,
+            state: CPUState::FetchOp,
+            instruction: opcodes::Instruction::new(),
             nmi: false,
+            debug_instr: false,
             prev_PC: 0,
             dfff_byte: 0x55,
             op_debugger: utils::OpDebugger::new()
@@ -123,45 +143,122 @@ impl CPU
     
     pub fn reset(&mut self)
     {
-        // reset program counter
         let pc = self.read_word_le(RESET_VECTOR);
         self.PC = pc;
-        self.SP = 0xFF;
-        self.ba_low = false;
-        self.cia_irq = false;
-        self.vic_irq = false;
-        self.nmi = false;
     }
 
-    pub fn update(&mut self)
+    pub fn update(&mut self, c64_cycle_cnt: u32)
     {
-        if self.process_nmi() { self.irq_cycles = 7; }
-        else if self.process_irq() { self.irq_cycles = 7; }
+        // check for irq and nmi
+        match self.state
+        {
+            CPUState::FetchOp => {
+                if self.nmi && self.nmi_cycles_left == 0 && (c64_cycle_cnt - (self.first_nmi_cycle as u32) >= 2)
+                {
+                    self.nmi_cycles_left = 7;
+                    self.state = CPUState::ProcessNMI;
+                }
+                else if (self.cia_irq || self.vic_irq) && self.irq_cycles_left == 0 && !self.get_status_flag(StatusFlag::InterruptDisable) && (c64_cycle_cnt - (self.first_irq_cycle as u32) >= 2)
+                {
+                    self.irq_cycles_left = 7;
+                    self.state = CPUState::ProcessIRQ;
+                }
+            },
+            _ => {}
+        }
         
-        if !self.ba_low {
+        match self.state
+        {
+            CPUState::FetchOp => {
+                if self.ba_low { return; }
+                let next_op = self.next_byte();
+                match opcodes::get_instruction(next_op) {
+                    Some((opcode, total_cycles, is_rmw, addr_mode)) => {
+                        self.instruction.opcode = opcode;
+                        self.instruction.addr_mode = addr_mode;
+                        self.instruction.is_rmw = is_rmw;
+                        self.instruction.calculate_cycles(total_cycles, is_rmw);
+                        if self.debug_instr { utils::debug_instruction(next_op, self); }
+                    }
+                    None => panic!("Can't fetch instruction")
+                }
 
-            if self.irq_cycles > 0
-            {
-                self.irq_cycles -= 1;
-                return
-            }
-            
-            if self.op_cycles == 0
-            {
-                self.curr_op = self.next_byte();
-                let co = self.curr_op;
-                self.op_cycles = self.get_op_cycles(co);
-            }
+                // jump straight to op execution unless operand address needs to be fetched
+                match self.instruction.addr_mode {
+                    opcodes::AddrMode::Implied     => self.state = CPUState::ExecuteOp,
+                    opcodes::AddrMode::Accumulator => self.state = CPUState::ExecuteOp,
+                    opcodes::AddrMode::Immediate   => self.state = CPUState::ExecuteOp,
+                    opcodes::AddrMode::Relative    => {
+                        // TODO: inc PC only during op execution?
+                        let base = (self.PC + 1) as i16;
+                        let offset = self.next_byte() as i8;
+                        self.instruction.operand_addr = (base + offset as i16) as u16;
+                        self.state = CPUState::ExecuteOp;
+                    },
+                    _ => self.state = CPUState::FetchOperandAddr,
+                };
+            },
+            CPUState::FetchOperandAddr => {
+                if self.ba_low { return; }
+                if opcodes::fetch_operand_addr(self)
+                {
+                    if self.instruction.is_rmw
+                    {
+                        self.state = CPUState::PerformRMW;
+                    }
+                    else
+                    {
+                        self.state = CPUState::ExecuteOp;
+                    }
+                }
 
-            if self.op_cycles > 0
-            {
-                self.op_cycles -= 1;
+                // TODO: odd case? Some instructions can be executed immediately after operand fetch
+                if self.instruction.cycles_to_run == 0 && self.instruction.cycles_to_fetch == 0
+                {
+                    //panic!("Not sure if this should happen - reinvestigate");
+                    opcodes::run(self);
+                    self.state = CPUState::FetchOp;
+                }
             }
+            CPUState::ProcessIRQ => {
+                if self.process_irq(false)
+                {
+                    self.cia_irq = false;
+                    self.vic_irq = false;
+                    self.state = CPUState::FetchOp;
+                }
+            },
+            CPUState::ProcessNMI => {
+                if self.process_irq(true)
+                {
+                    self.nmi = false;
+                    self.state = CPUState::FetchOp;
+                }
+            },
+            CPUState::PerformRMW => {
+                match self.instruction.cycles_to_rmw
+                {
+                    2 => {
+                        if self.ba_low { return; }
+                        let addr = self.instruction.operand_addr;
+                        self.instruction.rmw_buffer = self.read_byte(addr);
+                    },
+                    1 => {
+                        let addr = self.instruction.operand_addr;
+                        let val = self.instruction.rmw_buffer;
+                        self.write_byte(addr, val);
+                        self.state = CPUState::ExecuteOp;
+                    },
+                     _ => panic!("Too many cycles in RMW stage! ({}) ", self.instruction.cycles_to_rmw)
+                }
 
-            if self.op_cycles == 0
-            {
-                let co = self.curr_op;
-                self.process_op(co);
+                self.instruction.cycles_to_rmw -= 1;
+            },
+            CPUState::ExecuteOp => {
+                if opcodes::run(self)
+                {
+                    self.state = CPUState::FetchOp;
+                }
             }
         }
     }
@@ -180,7 +277,6 @@ impl CPU
         self.PC += 2;
         word
     }
-    
 
     // stack memory: $0100 - $01FF (256 byes)
     // TODO: some extra message if stack over/underflow occurs? (right now handled by Rust)
@@ -201,20 +297,20 @@ impl CPU
 
     pub fn push_word(&mut self, value: u16)
     {
-        self.SP -= 0x02;
-        self.write_word_le(0x0100 + (self.SP + 0x01) as u16, value);
+        self.push_byte(((value >> 8) & 0xFF) as u8);
+        self.push_byte((value & 0xFF) as u8);
     }
 
     pub fn pop_word(&mut self) -> u16
     {
-        let value = self.read_word_le(0x0100 + (self.SP + 0x01) as u16);
-        self.SP += 0x02;
-        value
+        let lo = (self.pop_byte() as u16) & 0x00FF;
+        let hi = (self.pop_byte() as u16) & 0x00FF;
+        (hi << 8) | lo
     }
 
     pub fn write_byte(&mut self, addr: u16, value: u8) -> bool
     {
-        let mut write_callback = CallbackAction::None;
+        let mut on_write = Callback::None;
         let mut mem_write_ok = true;
         let io_enabled = as_ref!(self.mem_ref).io_on;
 
@@ -224,7 +320,7 @@ impl CPU
             0xD000...0xD3FF => {
                 if io_enabled
                 {
-                    as_mut!(self.vic_ref).write_register(addr, value, &mut write_callback);
+                    as_mut!(self.vic_ref).write_register(addr, value, &mut on_write);
                 }
                 else
                 {
@@ -246,7 +342,7 @@ impl CPU
             0xDC00...0xDCFF => {
                 if io_enabled
                 {
-                    as_mut!(self.cia1_ref).write_register(addr, value, &mut write_callback);
+                    as_mut!(self.cia1_ref).write_register(addr, value, &mut on_write);
                 }
                 else
                 {
@@ -257,7 +353,7 @@ impl CPU
             0xDD00...0xDDFF => {
                 if io_enabled
                 {
-                    as_mut!(self.cia2_ref).write_register(addr, value, &mut write_callback);
+                    as_mut!(self.cia2_ref).write_register(addr, value, &mut on_write);
                 }
                 else
                 {
@@ -268,24 +364,29 @@ impl CPU
         }
 
         // on VIC/CIA register write perform necessary action on the CPU
-        match write_callback
+        match on_write
         {
-            CallbackAction::TriggerVICIrq => self.trigger_vic_irq(),
-            CallbackAction::ClearVICIrq   => self.clear_vic_irq(),
-            CallbackAction::TriggerCIAIrq => self.trigger_cia_irq(),
-            CallbackAction::ClearCIAIrq   => self.clear_cia_irq(),
-            CallbackAction::TriggerNMI    => self.trigger_nmi(),
-            CallbackAction::ClearNMI      => self.clear_nmi(),
+            Callback::TriggerVICIrq => self.set_vic_irq(true),
+            Callback::ClearVICIrq   => self.set_vic_irq(false),
+            Callback::TriggerCIAIrq => self.set_cia_irq(true),
+            Callback::ClearCIAIrq   => self.set_cia_irq(false),
+            Callback::TriggerNMI    => self.set_nmi(true),
+            Callback::ClearNMI      => self.set_nmi(false),
             _ => (),
         }
 
         mem_write_ok
     }
+
+    pub fn read_idle(&mut self, addr: u16)
+    {
+        let _ = self.read_byte(addr);
+    }
     
     pub fn read_byte(&mut self, addr: u16) -> u8
     {
         let byte: u8;
-        let mut read_callback = CallbackAction::None;
+        let mut on_read = Callback::None;
         let io_enabled = as_ref!(self.mem_ref).io_on;
         match addr
         {
@@ -315,7 +416,7 @@ impl CPU
             0xDC00...0xDCFF => {
                 if io_enabled
                 {
-                    byte = as_mut!(self.cia1_ref).read_register(addr, &mut read_callback);
+                    byte = as_mut!(self.cia1_ref).read_register(addr, &mut on_read);
                 }
                 else
                 {
@@ -326,7 +427,7 @@ impl CPU
             0xDD00...0xDDFF => {
                 if io_enabled
                 {
-                    byte = as_mut!(self.cia2_ref).read_register(addr, &mut read_callback);
+                    byte = as_mut!(self.cia2_ref).read_register(addr, &mut on_read);
                 }
                 else
                 {
@@ -357,12 +458,12 @@ impl CPU
             _ => byte = as_mut!(self.mem_ref).read_byte(addr)
         }
 
-        match read_callback
+        match on_read
         {
-            CallbackAction::TriggerCIAIrq => self.trigger_cia_irq(),
-            CallbackAction::ClearCIAIrq   => self.clear_cia_irq(),
-            CallbackAction::TriggerNMI    => self.trigger_nmi(),
-            CallbackAction::ClearNMI      => self.clear_nmi(),
+            Callback::TriggerCIAIrq => self.set_cia_irq(true),
+            Callback::ClearCIAIrq   => self.set_cia_irq(false),
+            Callback::TriggerNMI    => self.set_nmi(true),
+            Callback::ClearNMI      => self.set_nmi(false),
             _ => (),
         }
 
@@ -379,117 +480,196 @@ impl CPU
         as_ref!(self.mem_ref).write_word_le(addr, value)
     }
     
-    fn process_nmi(&mut self) -> bool
+    fn process_irq(&mut self, is_nmi: bool) -> bool
     {
-        // only process irq if it's the "fetch op" stage
-        if self.op_cycles != 0 { return false }
-        // 7 cycles
-        if self.nmi
+        let new_pc    = if is_nmi { NMI_VECTOR } else { IRQ_VECTOR };
+        let cycle_cnt = if is_nmi { self.nmi_cycles_left } else { self.irq_cycles_left };
+        
+        match cycle_cnt
         {
-            let curr_pc = self.PC;
-            let curr_p = self.P;
-            self.push_word(curr_pc);
-            self.push_byte(curr_p);
-            self.set_status_flag(StatusFlag::InterruptDisable, true);
-            self.PC = as_ref!(self.mem_ref).read_word_le(NMI_VECTOR);
-            self.nmi = false;
-            true
+            7 => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+            },
+            6 => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc);
+            },
+            5 => {
+                let pc_hi = (self.PC >> 8) as u8;
+                self.push_byte(pc_hi);
+            },
+            4 => {
+                let pc_lo = self.PC as u8;
+                self.push_byte(pc_lo);
+            },
+            3 => {
+                self.set_status_flag(StatusFlag::Break, false);
+                let curr_p = self.P;
+                self.push_byte(curr_p);
+                self.set_status_flag(StatusFlag::InterruptDisable, true);
+            },
+            2 => {
+                if self.ba_low { return false; } // TODO: is reading whole word ok in cycle 1?
+            },
+            1 => {
+                if self.ba_low { return false; }
+                self.PC = as_ref!(self.mem_ref).read_word_le(new_pc);
+            }
+            _ => panic!("Invalid IRQ/NMI cycle")
+        }
+
+        if is_nmi
+        {
+            self.nmi_cycles_left -= 1;
+            self.nmi_cycles_left == 0
         }
         else
         {
-            false
+            self.irq_cycles_left -= 1;
+            self.irq_cycles_left == 0
         }
     }
-    
-    fn process_irq(&mut self) -> bool
+
+    pub fn set_vic_irq(&mut self, val: bool)
     {
-        // only process irq if it's the "fetch op" stage
-        if self.op_cycles != 0 { return false }
-        // 7 cycles
-        if (self.cia_irq || self.vic_irq) && !self.get_status_flag(StatusFlag::InterruptDisable)
+        self.vic_irq = val;
+    }
+
+    pub fn set_nmi(&mut self, val: bool)
+    {
+        self.nmi = val;
+    }
+
+    pub fn set_cia_irq(&mut self, val: bool)
+    {
+        self.cia_irq = val;
+    }
+    
+    pub fn get_operand(&mut self) -> u8
+    {
+        // RMW instruction store pre-fetched operand value in internal buffer
+        if self.instruction.is_rmw
         {
-            self.set_status_flag(StatusFlag::Break, false);
-            let curr_pc = self.PC;
-            let curr_p = self.P;
-            //println!("PC {} P {}", curr_pc, curr_p);
-            self.push_word(curr_pc);
-            self.push_byte(curr_p);
-            self.set_status_flag(StatusFlag::InterruptDisable, true);
-            self.PC = as_ref!(self.mem_ref).read_word_le(IRQ_VECTOR);
-            self.cia_irq = false;
-            self.vic_irq = false;
-            true
+            return self.instruction.rmw_buffer;
+        }
+        
+        let val = match self.instruction.addr_mode {
+            opcodes::AddrMode::Implied     => panic!("Can't get operand value!"),
+            opcodes::AddrMode::Accumulator => self.A,
+            opcodes::AddrMode::Immediate   => self.next_byte(),
+            _ => {
+                let addr = self.instruction.operand_addr;
+                self.read_byte(addr)
+            }
+        };
+
+        val
+    }
+
+    pub fn set_operand(&mut self, val: u8)
+    {
+        match self.instruction.addr_mode {
+            opcodes::AddrMode::Implied     => panic!("Can't set implied operand value!"),
+            opcodes::AddrMode::Accumulator => self.A = val,
+            opcodes::AddrMode::Immediate   => panic!("Can't set immediate operand value!"),
+            opcodes::AddrMode::Relative    => panic!("Can't set relative operand value!"),
+            _ => {
+                let addr = self.instruction.operand_addr;
+                let _ = self.write_byte(addr, val);
+            }
+        }
+    }
+
+    pub fn adc(&mut self, value: u8)
+    {
+        let c = self.get_status_flag(StatusFlag::Carry);
+        let a = self.A as u16;
+        let v = value as u16;
+
+        if self.get_status_flag(StatusFlag::DecimalMode)
+        {
+            let mut lo = (Wrapping(a & 0xF) + Wrapping(v & 0xF)).0;
+            if  c { lo = (Wrapping(lo) + Wrapping(1)).0; }
+            if lo > 9 { lo = (Wrapping(lo) + Wrapping(6)).0; }
+
+            let mut hi = (Wrapping(a >> 4) + Wrapping(v >> 4)).0;
+            if lo > 0xF { hi = (Wrapping(hi) + Wrapping(1)).0; }
+
+            let is_overflow = ((((hi << 4) ^ a) & 0x80) != 0) && (((a ^ v) & 0x80) == 0);
+            let mut is_zero = (Wrapping(a) + Wrapping(v)).0;
+            if c  { is_zero = (Wrapping(is_zero) + Wrapping(1)).0; }
+            
+            self.set_status_flag(StatusFlag::Negative, (hi << 4) != 0); // TODO: is this ok?              
+            self.set_status_flag(StatusFlag::Overflow, is_overflow);
+            self.set_status_flag(StatusFlag::Zero,     is_zero == 0);
+
+            if hi > 9 { hi = (Wrapping(hi) + Wrapping(6)).0; }
+            self.set_status_flag(StatusFlag::Carry, hi > 0xF);
+            self.A = ((hi << 4) | (lo & 0xF)) as u8;
         }
         else
         {
-            false
+            // TODO: should operation wrap automatically here?
+            let mut res = (Wrapping(a) + Wrapping(v)).0;
+            if c
+            {
+                res = (Wrapping(res) + Wrapping(1)).0;
+            }
+            self.set_status_flag(StatusFlag::Carry, (res & 0x0100) != 0);
+            let is_overflow = (a ^ v) & 0x80 == 0 && (a ^ res) & 0x80 == 0x80;
+            self.set_status_flag(StatusFlag::Overflow, is_overflow);
+            self.A = res as u8;
+            self.set_zn_flags(res as u8);
         }
     }
 
-    pub fn trigger_vic_irq(&mut self)
+    pub fn sbc(&mut self, value: u8)
     {
-        // TODO:
-        //println!("VIC irq triggered");
-        self.vic_irq = true;
-    }
-
-    pub fn clear_vic_irq(&mut self)
-    {
-        // TODO
-        self.vic_irq = false;
-    }
-
-    pub fn trigger_nmi(&mut self)
-    {
-        // TODO
-        //println!("NMI irq");
-        self.nmi = true;
-    }
-
-    pub fn clear_nmi(&mut self)
-    {
-        // TODO
-        self.nmi = false;
-    }
-
-    pub fn trigger_cia_irq(&mut self)
-    {
-        // TODO
-        //println!("CIA irq triggered");
-        self.cia_irq = true;
-    }
-
-    pub fn clear_cia_irq(&mut self)
-    {
-        // TODO
-        self.cia_irq = false;
-    }
-    
-    fn process_op(&mut self, opcode: u8) -> u8
-    {
-        //utils::debug_instruction(opcode, self);
-        self.prev_PC = self.PC;
-        match opcodes::get_instruction(opcode, self)
+        let a = self.A as u16;
+        let v = value as u16;
+        let mut res: u16 = (Wrapping(a) - Wrapping(v)).0;
+        
+        if !self.get_status_flag(StatusFlag::Carry)
         {
-            Some((instruction, num_cycles, addr_mode)) => {
-                //utils::debug_instruction(opcode, Some((&instruction, num_cycles, &addr_mode)), self);
-                instruction.run(&addr_mode, self);
-                num_cycles
-            },
-            None => panic!("No instruction - this should never happen! (0x{:02X} at ${:04X})", opcode, self.PC)
+            res = (Wrapping(res) - Wrapping(0x0001)).0;
         }
-    }
-
-    fn get_op_cycles(&mut self, opcode: u8) -> u8
-    {
-        let curr_pc = self.PC;
-        match opcodes::get_instruction(opcode, self)
+        
+        if self.get_status_flag(StatusFlag::DecimalMode)
         {
-            Some((_, num_cycles, _)) => {
-                self.PC = curr_pc;
-                num_cycles
-            },
-            None => panic!("No instruction - this should never happen! (0x{:02X} at ${:04X})", opcode, self.PC)
+            let mut lo = (Wrapping(a & 0xF) - Wrapping(v & 0xF)).0;
+            let mut hi = (Wrapping(a >> 4)  - Wrapping(v >> 4)).0;
+
+            if !self.get_status_flag(StatusFlag::Carry)
+            {
+                lo = (Wrapping(lo) - Wrapping(1)).0;
+            }
+            
+            if (lo & 0x10) != 0
+            {
+                lo = (Wrapping(lo) - Wrapping(6)).0;
+                hi = (Wrapping(hi) - Wrapping(1)).0;
+            }
+
+            if (hi & 0x10) != 0 { hi = (Wrapping(hi) - Wrapping(6)).0; }
+            let is_overflow = (a ^ res) & 0x80 != 0 && (a ^ v) & 0x80 == 0x80;
+            
+            self.set_status_flag(StatusFlag::Carry, (res & 0x0100) == 0);
+            self.set_status_flag(StatusFlag::Overflow, is_overflow);
+            self.set_zn_flags(res as u8);
+
+            self.A = ((hi << 4) | (lo & 0xF)) as u8;
+        }
+        else
+        {
+            // TODO: should operation wrap automatically here?
+            self.set_status_flag(StatusFlag::Carry, (res & 0x0100) == 0);
+            let is_overflow = (a ^ res) & 0x80 != 0 && (a ^ v) & 0x80 == 0x80;
+            self.set_status_flag(StatusFlag::Overflow, is_overflow);
+            self.A = res as u8;
+            self.set_zn_flags(res as u8);
         }
     }
 }
