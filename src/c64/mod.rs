@@ -193,7 +193,7 @@ impl C64
 
             if self.window.is_key_pressed(Key::F12, KeyRepeat::No)
             {
-                self.cpu.borrow_mut().reset();
+                self.reset();
             }
 
             self.cycle_count += 1;

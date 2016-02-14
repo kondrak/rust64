@@ -275,7 +275,7 @@ impl VIC
     // write to register - ignore callback to CPU
     pub fn write_register_nc(&mut self, addr: u16, value: u8)
     {
-        let mut ca = cpu::CallbackAction::None;
+        let mut ca = cpu::Callback::None;
         self.write_register(addr, value, &mut ca);
     }
 
@@ -286,7 +286,7 @@ impl VIC
     }
     
     // write to register - perform callback action on CPU
-    pub fn write_register(&mut self, addr: u16, value: u8, on_vic_write: &mut cpu::CallbackAction)
+    pub fn write_register(&mut self, addr: u16, value: u8, on_vic_write: &mut cpu::Callback)
     {
         self.dbg_check_regs(addr, value);
         
@@ -407,7 +407,7 @@ impl VIC
                 {
                     // normally we'd dereference the cpu directly but in Rust
                     // it's not possible due to RefCell already being borrowed (call by CPU)
-                    *on_vic_write = cpu::CallbackAction::ClearVICIrq;
+                    *on_vic_write = cpu::Callback::ClearVICIrq;
                 }
                 as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
             },
@@ -418,12 +418,12 @@ impl VIC
                 if (self.irq_flag & self.irq_mask) != 0
                 {
                     self.irq_flag |= 0x80;
-                    *on_vic_write = cpu::CallbackAction::TriggerVICIrq;
+                    *on_vic_write = cpu::Callback::TriggerVICIrq;
                 }
                 else
                 {
                     self.irq_flag &= 0x7F;
-                    *on_vic_write = cpu::CallbackAction::ClearVICIrq;
+                    *on_vic_write = cpu::Callback::ClearVICIrq;
                 }
 
                 as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
@@ -462,7 +462,7 @@ impl VIC
         self.write_register_nc(0xD018, vbase);
     }
 
-    pub fn raster_irq(&mut self) -> cpu::CallbackAction
+    pub fn raster_irq(&mut self) -> cpu::Callback
     {
         self.irq_flag |= 0x01;
  
@@ -472,11 +472,11 @@ impl VIC
 
             // TODO: when the time is right check if this works correctly (irq should be triggered here)
             //as_mut!(self.cpu_ref).set_vic_irq(true);
-            cpu::CallbackAction::TriggerVICIrq
+            cpu::Callback::TriggerVICIrq
         }
         else
         {
-            cpu::CallbackAction::None
+            cpu::Callback::None
         }
     }
 
@@ -1180,7 +1180,7 @@ impl VIC
                     if self.raster_cnt == self.raster_irq
                     {
                         match self.raster_irq() {
-                            cpu::CallbackAction::TriggerVICIrq => as_mut!(self.cpu_ref).set_vic_irq(true),
+                            cpu::Callback::TriggerVICIrq => as_mut!(self.cpu_ref).set_vic_irq(true),
                             _ => (),
                         }
                     }
@@ -1237,7 +1237,7 @@ impl VIC
                     if self.raster_irq == 0
                     {
                         match self.raster_irq() {
-                            cpu::CallbackAction::TriggerVICIrq => as_mut!(self.cpu_ref).set_vic_irq(true),
+                            cpu::Callback::TriggerVICIrq => as_mut!(self.cpu_ref).set_vic_irq(true),
                             _ => (),
                         }
                     }

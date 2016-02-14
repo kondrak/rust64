@@ -33,14 +33,30 @@ To run with double-sized window and debug windows enabled:
 ```
 cargo run --release x2 debugger tests/bgcolor.prg
 ```
+
+C64 and special key mappings
+-------------------
+```
+ESC   - Run/Stop
+END   - Restore
+LCTRL - C=
+F11   - start asm output to console (very slow!)
+F12   - reset C64
+
+In debugger window:
+PGUP/PGDWN - flip currently displayed memory page
+END - change currently displayed memory banks between RAM, Color RAM, VIC, CIA (and in the future: SID)
+```
+
 TODO
 ------------------
 - SID emulation
 - serial bus/disk drives (d64, t64)
+- implement remaining undocumented ops
 
 Known Issues
 ------------------
-Due to lack of any SID register or serial bus functionality, some programs may not perform correctly or get stuck in infinite loops.
+Due to lack of any SID register and serial bus handling, some programs may not perform correctly or get stuck in infinite loops.
 
 This is an on-off WIP project, so update frequency may vary.
 

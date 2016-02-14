@@ -166,10 +166,10 @@ pub struct Memory
     kernal:  MemBank,
 
     // bank switching flags
-    basic_on:   bool,
-    chargen_on: bool,
+    pub basic_on:   bool,
+    pub chargen_on: bool,
     pub io_on:  bool,
-    kernal_on:  bool,
+    pub kernal_on:  bool,
     cart_lo_on: bool, // cart flag - unused for now
     cart_hi_on: bool  // cart flag - unused for now
 }

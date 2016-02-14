@@ -1,6 +1,7 @@
 // The CPU
 #![allow(non_snake_case)]
-//extern crate sdl2;
+#![allow(dead_code)]
+
 use c64::opcodes;
 use c64::memory;
 use c64::vic;
@@ -28,7 +29,7 @@ pub enum StatusFlag
 }
 
 // action to perform on specific CIA and VIC events
-pub enum CallbackAction
+pub enum Callback
 {
     None,
     TriggerVICIrq,
@@ -309,7 +310,7 @@ impl CPU
 
     pub fn write_byte(&mut self, addr: u16, value: u8) -> bool
     {
-        let mut write_callback = CallbackAction::None;
+        let mut on_write = Callback::None;
         let mut mem_write_ok = true;
         let io_enabled = as_ref!(self.mem_ref).io_on;
 
@@ -319,7 +320,7 @@ impl CPU
             0xD000...0xD3FF => {
                 if io_enabled
                 {
-                    as_mut!(self.vic_ref).write_register(addr, value, &mut write_callback);
+                    as_mut!(self.vic_ref).write_register(addr, value, &mut on_write);
                 }
                 else
                 {
@@ -341,7 +342,7 @@ impl CPU
             0xDC00...0xDCFF => {
                 if io_enabled
                 {
-                    as_mut!(self.cia1_ref).write_register(addr, value, &mut write_callback);
+                    as_mut!(self.cia1_ref).write_register(addr, value, &mut on_write);
                 }
                 else
                 {
@@ -352,7 +353,7 @@ impl CPU
             0xDD00...0xDDFF => {
                 if io_enabled
                 {
-                    as_mut!(self.cia2_ref).write_register(addr, value, &mut write_callback);
+                    as_mut!(self.cia2_ref).write_register(addr, value, &mut on_write);
                 }
                 else
                 {
@@ -363,14 +364,14 @@ impl CPU
         }
 
         // on VIC/CIA register write perform necessary action on the CPU
-        match write_callback
+        match on_write
         {
-            CallbackAction::TriggerVICIrq => self.set_vic_irq(true),
-            CallbackAction::ClearVICIrq   => self.set_vic_irq(false),
-            CallbackAction::TriggerCIAIrq => self.set_cia_irq(true),
-            CallbackAction::ClearCIAIrq   => self.set_cia_irq(false),
-            CallbackAction::TriggerNMI    => self.set_nmi(true),
-            CallbackAction::ClearNMI      => self.set_nmi(false),
+            Callback::TriggerVICIrq => self.set_vic_irq(true),
+            Callback::ClearVICIrq   => self.set_vic_irq(false),
+            Callback::TriggerCIAIrq => self.set_cia_irq(true),
+            Callback::ClearCIAIrq   => self.set_cia_irq(false),
+            Callback::TriggerNMI    => self.set_nmi(true),
+            Callback::ClearNMI      => self.set_nmi(false),
             _ => (),
         }
 
@@ -385,7 +386,7 @@ impl CPU
     pub fn read_byte(&mut self, addr: u16) -> u8
     {
         let byte: u8;
-        let mut read_callback = CallbackAction::None;
+        let mut on_read = Callback::None;
         let io_enabled = as_ref!(self.mem_ref).io_on;
         match addr
         {
@@ -415,7 +416,7 @@ impl CPU
             0xDC00...0xDCFF => {
                 if io_enabled
                 {
-                    byte = as_mut!(self.cia1_ref).read_register(addr, &mut read_callback);
+                    byte = as_mut!(self.cia1_ref).read_register(addr, &mut on_read);
                 }
                 else
                 {
@@ -426,7 +427,7 @@ impl CPU
             0xDD00...0xDDFF => {
                 if io_enabled
                 {
-                    byte = as_mut!(self.cia2_ref).read_register(addr, &mut read_callback);
+                    byte = as_mut!(self.cia2_ref).read_register(addr, &mut on_read);
                 }
                 else
                 {
@@ -457,12 +458,12 @@ impl CPU
             _ => byte = as_mut!(self.mem_ref).read_byte(addr)
         }
 
-        match read_callback
+        match on_read
         {
-            CallbackAction::TriggerCIAIrq => self.set_cia_irq(true),
-            CallbackAction::ClearCIAIrq   => self.set_cia_irq(false),
-            CallbackAction::TriggerNMI    => self.set_nmi(true),
-            CallbackAction::ClearNMI      => self.set_nmi(false),
+            Callback::TriggerCIAIrq => self.set_cia_irq(true),
+            Callback::ClearCIAIrq   => self.set_cia_irq(false),
+            Callback::TriggerNMI    => self.set_nmi(true),
+            Callback::ClearNMI      => self.set_nmi(false),
             _ => (),
         }
 
