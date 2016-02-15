@@ -770,8 +770,10 @@ impl VIC
                                        ((self.fg_mask_buffer[fmbp+2] as u32) <<  8) |
                                        ((self.fg_mask_buffer[fmbp+3] as u32));
                 fg_mask <<= sshift;
-                // TODO: investigate this
-                //fg_mask |= (self.fg_mask_buffer[fmbp+4] as u32) >> (8-sshift);
+                if fmbp+4 < c64::SCREEN_WIDTH / 8
+                {
+                    fg_mask |= (self.fg_mask_buffer[fmbp+4] as u32) >> (8-sshift);
+                }
 
                 // is sprite X-expanded?
                 let mxe = self.read_register(0xD01D);
@@ -783,12 +785,23 @@ impl VIC
                     let mut sdata_l: u32;
                     let mut sdata_r: u32;
                     let mut fg_mask_r: u32 = ((self.fg_mask_buffer[fmbp+4] as u32) << 24) |
-                                             ((self.fg_mask_buffer[fmbp+5] as u32) << 16) |
-                                             ((self.fg_mask_buffer[fmbp+6] as u32) <<  8) |
-                                             ((self.fg_mask_buffer[fmbp+7] as u32));
+                                             ((self.fg_mask_buffer[fmbp+5] as u32) << 16);
+                    // TODO: Frodo doesn't mind buffer overflow??
+                    if fmbp+6 < c64::SCREEN_WIDTH / 8
+                    {
+                        fg_mask_r |= (self.fg_mask_buffer[fmbp+6] as u32) <<  8;
+                    }
+
+                    if fmbp+7 < c64::SCREEN_WIDTH / 8
+                    {
+                        fg_mask_r |= self.fg_mask_buffer[fmbp+7] as u32;
+                    }
                     fg_mask_r <<= sshift;
-                    // TODO: investigate this
-                    //fg_mask_r |= (self.fg_mask_buffer[fmbp+8] as u32) >> (8-sshift);
+
+                    if fmbp+8 < c64::SCREEN_WIDTH / 8
+                    {
+                        fg_mask_r |= (self.fg_mask_buffer[fmbp+8] as u32) >> (8-sshift);
+                    }
 
                     // multicolor?
                     let mmc = self.read_register(0xD01C);
