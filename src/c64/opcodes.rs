@@ -514,7 +514,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
             if cpu.ba_low { return false; }
             let v = cpu.get_operand();
             let a = cpu.A;
-            cpu.set_status_flag(cpu::StatusFlag::Negative, (v & 0x80) != 0); // TODO: is this ok?
+            cpu.set_status_flag(cpu::StatusFlag::Negative, (v as i8) < 0);
             cpu.set_status_flag(cpu::StatusFlag::Overflow, (v & 0x40) != 0);
             cpu.set_status_flag(cpu::StatusFlag::Zero,     (v & a)    == 0);
         },
@@ -1190,8 +1190,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         },
         Op::SLO => {
             let mut v = cpu.instruction.rmw_buffer;
-            let nc = (v & 0x80) != 0;
-            cpu.set_status_flag(cpu::StatusFlag::Carry, nc);
+            cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x80) != 0);
             v <<= 1;
             cpu.set_operand(v);
             let na = cpu.A | v;
@@ -1222,8 +1221,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         },
         Op::SRE => {
             let mut v = cpu.instruction.rmw_buffer;
-            let nc = (v & 0x01) != 0;
-            cpu.set_status_flag(cpu::StatusFlag::Carry, nc);
+            cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x01) != 0);
             v >>= 1;
             cpu.set_operand(v);
             let na = cpu.A ^ v;
@@ -1283,9 +1281,9 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         Op::DCP => {
             let v = (Wrapping(cpu.instruction.rmw_buffer) - Wrapping(0x01)).0;
             cpu.set_operand(v);
-            let diff = (Wrapping(cpu.A as u16) - Wrapping(v as u16)).0;
+            let diff = (Wrapping(cpu.A as i8) - Wrapping(v as i8)).0;
             cpu.set_zn_flags(diff as u8);
-            cpu.set_status_flag(cpu::StatusFlag::Carry, (diff & 0x0100) == 0);
+            cpu.set_status_flag(cpu::StatusFlag::Carry, diff >= 0);
         },
         Op::ISC => {
             cpu.instruction.rmw_buffer += 1;
