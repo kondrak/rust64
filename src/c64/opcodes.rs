@@ -1291,50 +1291,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
             cpu.instruction.rmw_buffer += 1;
             let v = cpu.instruction.rmw_buffer;
             cpu.set_operand(v);
-
-            // copy of SBC; TODO: common func?
-            let mut res: u16 = (Wrapping(cpu.A as u16) - Wrapping(v as u16)).0;
-            if !cpu.get_status_flag(cpu::StatusFlag::Carry)
-            {
-                res = (Wrapping(res) - Wrapping(0x0001)).0;
-            }
-            
-            if cpu.get_status_flag(cpu::StatusFlag::DecimalMode)
-            {
-                let mut lo = (Wrapping((cpu.A as u16) & 0xF) - Wrapping((v as u16) & 0xF)).0;
-                let mut hi = (Wrapping((cpu.A as u16) >> 4) - Wrapping((v as u16) >> 4)).0;
-
-                if !cpu.get_status_flag(cpu::StatusFlag::Carry)
-                {
-                    lo = (Wrapping(lo) - Wrapping(1)).0;
-                }
-                
-                if (lo & 0x10) != 0
-                {
-                    lo = (Wrapping(lo) - Wrapping(6)).0;
-                    hi = (Wrapping(hi) - Wrapping(1)).0;
-                }
-
-                if (hi & 0x10) != 0 { hi = (Wrapping(hi) - Wrapping(6)).0; }
-
-                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) == 0);
-                let res = res as u8;
-                let is_overflow = (cpu.A ^ res) & 0x80 != 0 && (cpu.A ^ v) & 0x80 == 0x80;
-                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
-                cpu.set_zn_flags(res);
-
-                cpu.A = ((hi << 4) | (lo & 0xF)) as u8;
-            }
-            else
-            {
-                // TODO: should operation wrap automatically here?
-                cpu.set_status_flag(cpu::StatusFlag::Carry, (res & 0x0100) == 0);
-                let res = res as u8;
-                let is_overflow = (cpu.A ^ res) & 0x80 != 0 && (cpu.A ^ v) & 0x80 == 0x80;
-                cpu.set_status_flag(cpu::StatusFlag::Overflow, is_overflow);
-                cpu.A = res;
-                cpu.set_zn_flags(res);
-            }
+            cpu.sbc(v);
         },
         _ => panic!("Unknown instruction: {} at ${:04X}", cpu.instruction, cpu.PC)
     }
