@@ -591,4 +591,52 @@ impl CPU
             self.set_zn_flags(res as u8);
         }
     }
+
+    pub fn branch(&mut self, flag_condition: bool, cycle: u8) -> bool
+    {
+        match cycle
+        {
+            3 => {
+                if self.ba_low { return false; }
+                if flag_condition
+                {
+                    let addr = self.instruction.operand_addr;
+                    let pc = self.PC;
+                    self.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
+                }
+                else
+                {
+                    // no branching - finish instruction after only 2 cycles
+                    self.instruction.cycles_to_run = 1;
+                }
+            },
+            2 => {
+                if !self.instruction.zp_crossed
+                {
+                    self.first_irq_cycle += 1;
+                    self.first_nmi_cycle += 1;
+                }
+                if self.ba_low { return false; }
+                
+                let pc = self.PC;
+                let addr = self.instruction.operand_addr;
+                self.read_idle(pc);
+                self.PC = addr;
+
+                if !self.instruction.zp_crossed
+                {
+                    // no page crossing - finish instruction after only 3 cycle
+                    self.instruction.cycles_to_run = 1;
+                }
+            },
+            1 => {
+                if self.ba_low { return false; }
+                let pc = self.PC;
+                self.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
+            },
+            _ => panic!("Wrong number of branching cycles"),
+        }
+
+        true
+    }
 }

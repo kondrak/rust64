@@ -359,19 +359,16 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
             cpu.set_zn_flags(ny);
         },
         Op::STA => {
-            let addr = cpu.instruction.operand_addr;
-            let val = cpu.A;
-            cpu.write_byte(addr, val);
+            let a = cpu.A;
+            cpu.set_operand(a);
         },
         Op::STX => {
-            let addr = cpu.instruction.operand_addr;
-            let val = cpu.X;
-            cpu.write_byte(addr, val);
+            let x = cpu.X;
+            cpu.set_operand(x);
         },
         Op::STY => {
-            let addr = cpu.instruction.operand_addr;
-            let val = cpu.Y;
-            cpu.write_byte(addr, val);
+            let y = cpu.Y;
+            cpu.set_operand(y);
         },
         Op::TAX => {
             if cpu.ba_low { return false; }
@@ -483,6 +480,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
                     cpu.read_idle(sp+1);
                 },
                 1 => {
+                    // TODO: opflags
                     let p = cpu.pop_byte();
                     cpu.P = p;
                 },
@@ -518,12 +516,12 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
             cpu.set_status_flag(cpu::StatusFlag::Overflow, (v & 0x40) != 0);
             cpu.set_status_flag(cpu::StatusFlag::Zero,     (v & a)    == 0);
         },
-        Op::ADC => { // TODO: test decimal mode, check if flag values are correct
+        Op::ADC => {
             if cpu.ba_low { return false; }
             let v = cpu.get_operand();
             cpu.adc(v);
         },
-        Op::SBC => { // TODO: test decimal mode, check if flag values are correct
+        Op::SBC => {
             if cpu.ba_low { return false; }
             let v = cpu.get_operand();
             cpu.sbc(v);
@@ -596,7 +594,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         Op::ASL => {
             if cpu.ba_low {
                 match cpu.instruction.addr_mode {
-                    AddrMode::Accumulator => {return false; },
+                    AddrMode::Accumulator => return false,
                     _ => (),
                 }
             }
@@ -609,7 +607,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         Op::LSR => {
             if cpu.ba_low {
                 match cpu.instruction.addr_mode {
-                    AddrMode::Accumulator => {return false; },
+                    AddrMode::Accumulator => return false,
                     _ => (),
                 }
             }
@@ -622,7 +620,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         Op::ROL => {
             if cpu.ba_low {
                 match cpu.instruction.addr_mode {
-                    AddrMode::Accumulator => {return false; },
+                    AddrMode::Accumulator => return false,
                     _ => (),
                 }
             }
@@ -640,7 +638,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         Op::ROR => {
             if cpu.ba_low {
                 match cpu.instruction.addr_mode {
-                    AddrMode::Accumulator => {return false; },
+                    AddrMode::Accumulator => return false,
                     _ => (),
                 }
             }
@@ -722,354 +720,75 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         // 3 cycles if branch is taken, no page crossed
         // 4 cycles if branch is taken, page crossed
         Op::BCC => {
-            match cpu.instruction.cycles_to_run
+            let flag_condition = !cpu.get_status_flag(cpu::StatusFlag::Carry);
+            let cycle = cpu.instruction.cycles_to_run;
+            if !cpu.branch(flag_condition, cycle)
             {
-                3 => {
-                    if cpu.ba_low { return false; }
-                    if !cpu.get_status_flag(cpu::StatusFlag::Carry)
-                    {
-                        let addr = cpu.instruction.operand_addr;
-                        let pc = cpu.PC;
-                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
-                    }
-                    else
-                    {
-                        // no branching - finish instruction after only 2 cycles
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                2 => {
-                    if !cpu.instruction.zp_crossed
-                    {
-                        cpu.first_irq_cycle += 1;
-                        cpu.first_nmi_cycle += 1;
-                    }
-                    if cpu.ba_low { return false; }
-                    
-                    let pc = cpu.PC;
-                    let addr = cpu.instruction.operand_addr;
-                    cpu.read_idle(pc);
-                    cpu.PC = addr;
-
-                    if !cpu.instruction.zp_crossed
-                    {
-                        // no page crossing - finish instruction after only 3 cycle
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                1 => {
-                    if cpu.ba_low { return false; }
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
-                },
-                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+                // ba_low is set - no cycle advancement
+                return false;
             }
         },
         Op::BCS => {
-            match cpu.instruction.cycles_to_run
+            let flag_condition = cpu.get_status_flag(cpu::StatusFlag::Carry);
+            let cycle = cpu.instruction.cycles_to_run;
+            if !cpu.branch(flag_condition, cycle)
             {
-                3 => {
-                    if cpu.ba_low { return false; }
-                    if cpu.get_status_flag(cpu::StatusFlag::Carry)
-                    {
-                        let addr = cpu.instruction.operand_addr;
-                        let pc = cpu.PC;
-                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
-                    }
-                    else
-                    {
-                        // no branching - finish instruction after only 2 cycles
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                2 => {
-                    if !cpu.instruction.zp_crossed
-                    {
-                        cpu.first_irq_cycle += 1;
-                        cpu.first_nmi_cycle += 1;
-                    }
-                    if cpu.ba_low { return false; }
-                    
-                    let pc = cpu.PC;
-                    let addr = cpu.instruction.operand_addr;
-                    cpu.read_idle(pc);
-                    cpu.PC = addr;
-
-                    if !cpu.instruction.zp_crossed
-                    {
-                        // no page crossing - finish instruction after only 3 cycle
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                1 => {
-                    if cpu.ba_low { return false; }
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
-                },
-                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+                // ba_low is set - no cycle advancement
+                return false;
             }
         },
         Op::BEQ => {
-            match cpu.instruction.cycles_to_run
+            let flag_condition = cpu.get_status_flag(cpu::StatusFlag::Zero);
+            let cycle = cpu.instruction.cycles_to_run;
+            if !cpu.branch(flag_condition, cycle)
             {
-                3 => {
-                    if cpu.ba_low { return false; }
-                    if cpu.get_status_flag(cpu::StatusFlag::Zero)
-                    {
-                        let addr = cpu.instruction.operand_addr;
-                        let pc = cpu.PC;
-                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
-                    }
-                    else
-                    {
-                        // no branching - finish instruction after only 2 cycles
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                2 => {
-                    if !cpu.instruction.zp_crossed
-                    {
-                        cpu.first_irq_cycle += 1;
-                        cpu.first_nmi_cycle += 1;
-                    }
-                    if cpu.ba_low { return false; }
-                    
-                    let pc = cpu.PC;
-                    let addr = cpu.instruction.operand_addr;
-                    cpu.read_idle(pc);
-                    cpu.PC = addr;
-
-                    if !cpu.instruction.zp_crossed
-                    {
-                        // no page crossing - finish instruction after only 3 cycle
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                1 => {
-                    if cpu.ba_low { return false; }
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
-                },
-                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+                // ba_low is set - no cycle advancement
+                return false;
             }
         },
         Op::BNE => {
-            match cpu.instruction.cycles_to_run
+            let flag_condition = !cpu.get_status_flag(cpu::StatusFlag::Zero);
+            let cycle = cpu.instruction.cycles_to_run;
+            if !cpu.branch(flag_condition, cycle)
             {
-                3 => {
-                    if cpu.ba_low { return false; }
-                    if !cpu.get_status_flag(cpu::StatusFlag::Zero)
-                    {
-                        let addr = cpu.instruction.operand_addr;
-                        let pc = cpu.PC;
-                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
-                    }
-                    else
-                    {
-                        // no branching - finish instruction after only 2 cycles
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                2 => {
-                    if !cpu.instruction.zp_crossed
-                    {
-                        cpu.first_irq_cycle += 1;
-                        cpu.first_nmi_cycle += 1;
-                    }
-                    if cpu.ba_low { return false; }
-                    
-                    let pc = cpu.PC;
-                    let addr = cpu.instruction.operand_addr;
-                    cpu.read_idle(pc);
-                    cpu.PC = addr;
-                    if !cpu.instruction.zp_crossed
-                    {
-                        // no page crossing - finish instruction after only 3 cycle
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                1 => {
-                    if cpu.ba_low { return false; }
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
-                },
-                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+                // ba_low is set - no cycle advancement
+                return false;
             }
         },
         Op::BMI => {
-            match cpu.instruction.cycles_to_run
+            let flag_condition = cpu.get_status_flag(cpu::StatusFlag::Negative);
+            let cycle = cpu.instruction.cycles_to_run;
+            if !cpu.branch(flag_condition, cycle)
             {
-                3 => {
-                    if cpu.ba_low { return false; }
-                    if cpu.get_status_flag(cpu::StatusFlag::Negative)
-                    {
-                        let addr = cpu.instruction.operand_addr;
-                        let pc = cpu.PC;
-                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
-                    }
-                    else
-                    {
-                        // no branching - finish instruction after only 2 cycles
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                2 => {
-                    if !cpu.instruction.zp_crossed
-                    {
-                        cpu.first_irq_cycle += 1;
-                        cpu.first_nmi_cycle += 1;
-                    }
-                    if cpu.ba_low { return false; }
-                    
-                    let pc = cpu.PC;
-                    let addr = cpu.instruction.operand_addr;
-                    cpu.read_idle(pc);
-                    cpu.PC = addr;
-
-                    if !cpu.instruction.zp_crossed
-                    {
-                        // no page crossing - finish instruction after only 3 cycle
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                1 => {
-                    if cpu.ba_low { return false; }
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
-                },
-                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+                // ba_low is set - no cycle advancement
+                return false;
             }
         },
         Op::BPL => {
-            match cpu.instruction.cycles_to_run
+            let flag_condition = !cpu.get_status_flag(cpu::StatusFlag::Negative);
+            let cycle = cpu.instruction.cycles_to_run;
+            if !cpu.branch(flag_condition, cycle)
             {
-                3 => {
-                    if cpu.ba_low { return false; }
-                    if !cpu.get_status_flag(cpu::StatusFlag::Negative)
-                    {
-                        let addr = cpu.instruction.operand_addr;
-                        let pc = cpu.PC;
-                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
-                    }
-                    else
-                    {
-                        // no branching - finish instruction after only 2 cycles
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                2 => {
-                    if !cpu.instruction.zp_crossed
-                    {
-                        cpu.first_irq_cycle += 1;
-                        cpu.first_nmi_cycle += 1;
-                    }
-                    if cpu.ba_low { return false; }
-                    
-                    let pc = cpu.PC;
-                    let addr = cpu.instruction.operand_addr;
-                    cpu.read_idle(pc);
-                    cpu.PC = addr;
-
-                    if !cpu.instruction.zp_crossed
-                    {
-                        // no page crossing - finish instruction after only 3 cycle
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                1 => {
-                    if cpu.ba_low { return false; }
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
-                },
-                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+                // ba_low is set - no cycle advancement
+                return false;
             }
         },
         Op::BVC => {
-            match cpu.instruction.cycles_to_run
+            let flag_condition = !cpu.get_status_flag(cpu::StatusFlag::Overflow);
+            let cycle = cpu.instruction.cycles_to_run;
+            if !cpu.branch(flag_condition, cycle)
             {
-                3 => {
-                    if cpu.ba_low { return false; }
-                    if !cpu.get_status_flag(cpu::StatusFlag::Overflow)
-                    {
-                        let addr = cpu.instruction.operand_addr;
-                        let pc = cpu.PC;
-                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
-                    }
-                    else
-                    {
-                        // no branching - finish instruction after only 2 cycles
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                2 => {
-                    if !cpu.instruction.zp_crossed
-                    {
-                        cpu.first_irq_cycle += 1;
-                        cpu.first_nmi_cycle += 1;
-                    }
-                    if cpu.ba_low { return false; }
-                    
-                    let pc = cpu.PC;
-                    let addr = cpu.instruction.operand_addr;
-                    cpu.read_idle(pc);
-                    cpu.PC = addr;
-
-                    if !cpu.instruction.zp_crossed
-                    {
-                        // no page crossing - finish instruction after only 3 cycle
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                1 => {
-                    if cpu.ba_low { return false; }
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
-                },
-                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+                // ba_low is set - no cycle advancement
+                return false;
             }
         },
         Op::BVS => {
-            match cpu.instruction.cycles_to_run
+            let flag_condition = cpu.get_status_flag(cpu::StatusFlag::Overflow);
+            let cycle = cpu.instruction.cycles_to_run;
+            if !cpu.branch(flag_condition, cycle)
             {
-                3 => {
-                    if cpu.ba_low { return false; }
-                    if cpu.get_status_flag(cpu::StatusFlag::Overflow)
-                    {
-                        let addr = cpu.instruction.operand_addr;
-                        let pc = cpu.PC;
-                        cpu.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
-                    }
-                    else
-                    {
-                        // no branching - finish instruction after only 2 cycles
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                2 => {
-                    if !cpu.instruction.zp_crossed
-                    {
-                        cpu.first_irq_cycle += 1;
-                        cpu.first_nmi_cycle += 1;
-                    }
-                    if cpu.ba_low { return false; }
-                    
-                    let pc = cpu.PC;
-                    let addr = cpu.instruction.operand_addr;
-                    cpu.read_idle(pc);
-                    cpu.PC = addr;
-
-                    if !cpu.instruction.zp_crossed
-                    {
-                        // no page crossing - finish instruction after only 3 cycle
-                        cpu.instruction.cycles_to_run = 1;
-                    }
-                },
-                1 => {
-                    if cpu.ba_low { return false; }
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
-                },
-                _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
+                // ba_low is set - no cycle advancement
+                return false;
             }
         },
         Op::CLC => {
@@ -1192,7 +911,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
             let mut v = cpu.instruction.rmw_buffer;
             cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x80) != 0);
             v <<= 1;
-            cpu.set_operand(v);
+            cpu.instruction.rmw_buffer = v;
             let na = cpu.A | v;
             cpu.A = na;
             cpu.set_zn_flags(na);
@@ -1214,7 +933,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
             }
 
             cpu.set_status_flag(cpu::StatusFlag::Carry, tmp != 0);
-            cpu.set_operand(v);
+            cpu.instruction.rmw_buffer = v;
             let na = cpu.A & v;
             cpu.A = na;
             cpu.set_zn_flags(na);
@@ -1223,7 +942,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
             let mut v = cpu.instruction.rmw_buffer;
             cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x01) != 0);
             v >>= 1;
-            cpu.set_operand(v);
+            cpu.instruction.rmw_buffer = v;
             let na = cpu.A ^ v;
             cpu.A = na;
             cpu.set_zn_flags(na);
@@ -1281,7 +1000,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         Op::DCP => {
             let v = (Wrapping(cpu.instruction.rmw_buffer) - Wrapping(0x01)).0;
             cpu.set_operand(v);
-            let diff = (Wrapping(cpu.A as i8) - Wrapping(v as i8)).0;
+            let diff = cpu.A as i16 - v as i16;
             cpu.set_zn_flags(diff as u8);
             cpu.set_status_flag(cpu::StatusFlag::Carry, diff >= 0);
         },
