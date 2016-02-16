@@ -29,7 +29,7 @@ pub struct C64
     cia1: cia::CIAShared,
     cia2: cia::CIAShared,
     vic: vic::VICShared,
-    sid: sid::SID,
+    sid: sid::SIDShared,
 
     debugger: Option<debugger::Debugger>,
     boot_complete: bool,
@@ -46,6 +46,7 @@ impl C64
         let cia1   = cia::CIA::new_shared(true);
         let cia2   = cia::CIA::new_shared(false);
         let cpu    = cpu::CPU::new_shared();
+        let sid    = sid::SID::new_shared();
 
         let mut c64 = C64
         {
@@ -57,7 +58,7 @@ impl C64
             cia1: cia1.clone(),
             cia2: cia2.clone(),
             vic: vic.clone(),
-            sid: sid::SID::new(),
+            sid: sid.clone(),
             debugger: if debugger_on { Some(debugger::Debugger::new()) } else { None },
             boot_complete: false,
             file_to_load: String::new(),
@@ -71,14 +72,15 @@ impl C64
         c64.cia1.borrow_mut().set_references(memory.clone(), cpu.clone(), vic.clone());
         c64.cia2.borrow_mut().set_references(memory.clone(), cpu.clone(), vic.clone());
         c64.vic.borrow_mut().set_references(memory.clone(), cpu.clone());
-        c64.sid.set_references(memory.clone());
-        c64.cpu.borrow_mut().set_references(memory.clone(), vic.clone(), cia1.clone(), cia2.clone());
+        c64.sid.borrow_mut().set_references(memory.clone());
+        c64.cpu.borrow_mut().set_references(memory.clone(), vic.clone(), cia1.clone(), cia2.clone(), sid.clone());
         
         drop(memory);
         drop(cia1);
         drop(cia2);
         drop(vic);
         drop(cpu);
+        drop(sid);
         
         c64
     }
@@ -137,7 +139,7 @@ impl C64
                 
                 if prg_file.len() > 0
                 {
-                    //if self.window.is_key_pressed(Key::F11, KeyRepeat::No) {
+                    //if self.window.is_key_pressed(Key::F9, KeyRepeat::No) {
                     self.boot_complete = true; self.load_prg(prg_file);
                     //}
                 }
@@ -150,7 +152,7 @@ impl C64
 
             if self.vic.borrow_mut().update(self.cycle_count, &mut should_trigger_vblank)
             {
-                self.sid.update();
+                self.sid.borrow_mut().update();
             }
 
             self.cia1.borrow_mut().process_irq();
@@ -185,7 +187,7 @@ impl C64
                 }
             }
 
-            if self.window.is_key_pressed(Key::F10, KeyRepeat::No)
+            if self.window.is_key_pressed(Key::F11, KeyRepeat::No)
             {
                 let di = self.cpu.borrow_mut().debug_instr;
                 self.cpu.borrow_mut().debug_instr = !di;

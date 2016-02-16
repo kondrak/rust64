@@ -6,6 +6,7 @@ use c64::opcodes;
 use c64::memory;
 use c64::vic;
 use c64::cia;
+use c64::sid;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::num::Wrapping;
@@ -66,6 +67,7 @@ pub struct CPU
     pub vic_ref: Option<vic::VICShared>,
     pub cia1_ref: Option<cia::CIAShared>,
     pub cia2_ref: Option<cia::CIAShared>,
+    pub sid_ref:  Option<sid::SIDShared>,
     pub instruction: opcodes::Instruction,
     pub ba_low: bool,  // is BA low?
     pub cia_irq: bool,
@@ -98,6 +100,7 @@ impl CPU
             vic_ref: None,
             cia1_ref: None,
             cia2_ref: None,
+            sid_ref: None,
             ba_low: false,
             cia_irq: false,
             vic_irq: false,
@@ -115,12 +118,13 @@ impl CPU
         }))
     }
 
-    pub fn set_references(&mut self, memref: memory::MemShared, vicref: vic::VICShared, cia1ref: cia::CIAShared, cia2ref: cia::CIAShared)
+    pub fn set_references(&mut self, memref: memory::MemShared, vicref: vic::VICShared, cia1ref: cia::CIAShared, cia2ref: cia::CIAShared, sidref: sid::SIDShared)
     {
         self.mem_ref = Some(memref);
         self.vic_ref = Some(vicref);
         self.cia1_ref = Some(cia1ref);
         self.cia2_ref = Some(cia2ref);
+        self.sid_ref  = Some(sidref);
     }    
     
     pub fn set_status_flag(&mut self, flag: StatusFlag, value: bool)
@@ -319,6 +323,7 @@ impl CPU
             match addr
             {
  /*   VIC-II  */ 0xD000...0xD3FF => as_mut!(self.vic_ref).write_register(addr, value, &mut on_write),
+ /*    SID    */ 0xD400...0xD7FF => as_mut!(self.sid_ref).write_register(addr, value, &mut on_write),
  /* color RAM */ 0xD800...0xDBFF => mem_write_ok = as_mut!(self.mem_ref).write_byte(addr, value & 0x0F),
  /*    CIA1   */ 0xDC00...0xDCFF => as_mut!(self.cia1_ref).write_register(addr, value, &mut on_write),
  /*    CIA2   */ 0xDD00...0xDDFF => as_mut!(self.cia2_ref).write_register(addr, value, &mut on_write),
@@ -361,6 +366,7 @@ impl CPU
             match addr
             {
    /*  VIC-II   */ 0xD000...0xD3FF => byte = as_mut!(self.vic_ref).read_register(addr),
+   /*   SID     */ 0xD400...0xD7FF => byte = as_mut!(self.sid_ref).read_register(addr),
    /* color RAM */ 0xD800...0xDBFF => byte = (as_ref!(self.mem_ref).read_byte(addr) & 0x0F) | (as_ref!(self.vic_ref).last_byte & 0xF0),
    /*   CIA1    */ 0xDC00...0xDCFF => byte = as_mut!(self.cia1_ref).read_register(addr, &mut on_read),
    /*   CIA2    */ 0xDD00...0xDDFF => byte = as_mut!(self.cia2_ref).read_register(addr, &mut on_read),
