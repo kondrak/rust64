@@ -12,7 +12,7 @@ Requires Rust 1.5.0 to compile and run.
 
 ![Screenshot](http://kondrak.info/images/rust64_github.png?raw=true)
 
-The emulator comes with a memory debugger - press PgUp/PgDwn to flip between memory pages and End to change memory banks (Ram, VIC registers, CIA registers, Color Ram). The VIC window is a ICU64-style raster debugger, each pixel representing one VIC cycle and events associated with it.
+The emulator comes with a memory debugger - press PgUp/PgDwn to flip between memory pages and Home/End to change memory banks (Ram, VIC registers, CIA registers, Color Ram). The VIC window is a ICU64-style raster debugger, each pixel representing one VIC cycle and events associated with it.
 
 Build instructions
 ------------------
@@ -74,3 +74,5 @@ The following has been used to create this emulator:
 - https://www.yoyogames.com/tech_blog/95
 - http://code.google.com/p/hmc-6502/source/browse/trunk/emu/testvectors/AllSuiteA.asm
 - https://t.co/J40UKu7RBf
+- http://www.waitingforfriday.com/index.php/Commodore_SID_6581_Datasheet
+- http://sta.c64.org/cbm64mem.html

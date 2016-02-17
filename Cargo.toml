@@ -1,10 +1,9 @@
 [package]
-
 name = "rust64"
 version = "0.0.1"
 authors = [ "Krzysztof Kondrak <krzysztof.kondrak@gmail.com>" ]
 
 [dependencies]
-
+minifb = "0.4.0"
+rand = "0.3.14"
 time = "0.1.34"
-minifb = "0.4.0" 
