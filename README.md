@@ -45,7 +45,7 @@ F12   - reset C64
 
 In debugger window:
 PGUP/PGDWN - flip currently displayed memory page
-END - change currently displayed memory banks between RAM, Color RAM, VIC, CIA (and in the future: SID)
+HOME/END   - change currently displayed memory banks between RAM, Color RAM, VIC, CIA and SID
 ```
 
 TODO

@@ -64,10 +64,32 @@ impl Debugger
         if self.debug_window.is_open() {
             self.draw_border();
 
-            if self.debug_window.is_key_pressed(Key::End, KeyRepeat::No)
+            let homePressed = self.debug_window.is_key_pressed(Key::Home, KeyRepeat::No);
+            let endPressed = self.debug_window.is_key_pressed(Key::End, KeyRepeat::No);
+
+            if homePressed || endPressed
             {
-                self.draw_mode += 1;
-                if self.draw_mode > 3 { self.draw_mode = 0; }
+                if homePressed {
+                    if self.draw_mode == 0
+                    {
+                        self.draw_mode = 4;
+                    }
+                    else
+                    {
+                        self.draw_mode -= 1;
+                    }
+                }
+
+                if endPressed {
+                    if self.draw_mode == 4
+                    {
+                        self.draw_mode = 0;
+                    }
+                    else
+                    {
+                        self.draw_mode += 1;
+                    }
+                }
 
                 // clear memdump
                 for y in 1..26
@@ -93,6 +115,7 @@ impl Debugger
                 1 => self.draw_vic(memory),
                 2 => self.draw_cia(cpu),
                 3 => self.draw_color_ram(memory),
+                4 => self.draw_sid(memory),
                 _ => ()
             }
 
@@ -203,6 +226,35 @@ impl Debugger
                 start += 1;
 
                 if start == 0xDE00 { return; }
+            }
+
+            hex_offset_x = 0;
+        }
+    }
+
+    fn draw_sid(&mut self, memory: &mut c64::memory::MemShared)
+    {
+        let mut start = 0xD400;
+
+        let mut title = Vec::new();
+        let _ = write!(&mut title, "SID ${:04x}-${:04x}", start, start + 0x03F);
+        self.font.draw_text(&mut self.window_buffer, DEBUG_W, 0, 0, &String::from_utf8(title).unwrap().to_owned()[..], 0x0A);
+        self.font.draw_text(&mut self.window_buffer, DEBUG_W, 34, 0, "*SID*", 0x0E);
+        
+        let mut hex_offset_x = 0;
+
+        for y in 0..25
+        {
+            for x in 0..40
+            {
+                let byte = memory.borrow_mut().get_ram_bank(c64::memory::MemType::IO).read(start);
+                self.font.draw_char(&mut self.window_buffer, DEBUG_W, 8*x as usize, 8 + 8*y as usize, byte, 0x05);
+
+                self.draw_hex(hex_offset_x + x as usize, 28 + y as usize, byte);
+                hex_offset_x += 1;
+                start += 1;
+
+                if start == 0xD500 { return; }
             }
 
             hex_offset_x = 0;
