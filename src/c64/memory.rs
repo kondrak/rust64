@@ -241,15 +241,16 @@ impl Memory
         self.write_byte(0x0001, 0x07); // enable kernal, chargen and basic ROMs
     }
 
-    fn update_bank_flags(&mut self)
+    fn update_memory_latch(&mut self)
     {
-        // latch state is determined by 3 least significant bits from this location
-        let latch = self.ram.read(0x0001) & 0x07;
+        let ddr = self.ram.read(0x0000);
+        let pr  = self.ram.read(0x0001);
+        let latch = !ddr | pr;
 
         self.chargen_on = ((latch & 0x04) == 0) && ((latch & 0x03) != 0); // %0xx except %000
         self.io_on      = ((latch & 0x04) != 0) && ((latch & 0x03) != 0); // %1xx except %100
-        self.basic_on   = (latch & 0x03) == 0x03;
-        self.kernal_on  = self.basic_on || ((latch & 0x03) == 0x02);
+        self.basic_on   = (latch & 0x03) == 3;
+        self.kernal_on  = (latch & 0x02) != 0;
     }
     
     // Write a byte to memory - returns whether RAM was written (true) or RAM under ROM (false)
@@ -268,7 +269,7 @@ impl Memory
         
         // update the bank switching flags here, since they can only change on memory write
         // latch byte changed - update bank switching flags
-        if addr == 0x0001 { self.update_bank_flags(); }
+        if addr < 0x0002 { self.update_memory_latch(); }
         
         return true;
     }
@@ -276,6 +277,14 @@ impl Memory
     // Read a byte from memory
     pub fn read_byte(&mut self, addr: u16) -> u8
     {
+        // special location: current memory latch settings
+        if addr == 0x0001
+        {
+            let ddr = self.ram.read(0x0000);
+            let pr  = self.ram.read(0x0001);
+            return (ddr & pr) | (!ddr & 0x17);
+        }
+        
         self.get_bank(addr).read(addr)
     }
 
