@@ -11,6 +11,7 @@ mod io;
 mod cia;
 pub mod vic;
 mod sid;
+mod sid_tables;
 
 pub const SCREEN_WIDTH:  usize = 384; // extend 20 pixels left and right for the borders
 pub const SCREEN_HEIGHT: usize = 272; // extend 36 pixels top and down for the borders
@@ -91,6 +92,7 @@ impl C64
         self.cpu.borrow_mut().reset();
         self.cia1.borrow_mut().reset();
         self.cia2.borrow_mut().reset();
+        self.sid.borrow_mut().reset();
     }
     
 
