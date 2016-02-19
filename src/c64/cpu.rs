@@ -323,7 +323,7 @@ impl CPU
             match addr
             {
  /*   VIC-II  */ 0xD000...0xD3FF => as_mut!(self.vic_ref).write_register(addr, value, &mut on_write),
- /*    SID    */ 0xD400...0xD7FF => as_mut!(self.sid_ref).write_register(addr, value, &mut on_write),
+ /*    SID    */ 0xD400...0xD7FF => as_mut!(self.sid_ref).write_register(addr, value),
  /* color RAM */ 0xD800...0xDBFF => mem_write_ok = as_mut!(self.mem_ref).write_byte(addr, value & 0x0F),
  /*    CIA1   */ 0xDC00...0xDCFF => as_mut!(self.cia1_ref).write_register(addr, value, &mut on_write),
  /*    CIA2   */ 0xDD00...0xDDFF => as_mut!(self.cia2_ref).write_register(addr, value, &mut on_write),

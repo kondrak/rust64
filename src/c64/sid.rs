@@ -1,7 +1,6 @@
 // SID
 extern crate rand;
 use c64::memory;
-use c64::cpu;
 use c64::sid_tables::*;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -12,7 +11,7 @@ pub type SIDShared = Rc<RefCell<SID>>;
 const SAMPLE_FREQ: u32 = 44100;  // output frequency
 const SID_FREQ:    u32 = 985248; // SID frequency in Hz
 const CALC_FREQ:   u32 = 50;     // frequency of calculating new buffer data (50Hz)
-pub const SID_CYCLES:  u32 = SID_FREQ/SAMPLE_FREQ;  // SID clocks/sample frame
+pub const SID_CYCLES:  u32 = SID_FREQ / SAMPLE_FREQ;  // SID clocks/sample frame
 const NUM_SAMPLES: usize = 624; // size of buffer for sampled voice
 
 enum WaveForm
@@ -21,10 +20,10 @@ enum WaveForm
     Triangle,
     Saw,
     TriSaw,
-    Rectangle,
-    TriRect,
-    SawRect,
-    TriSawRect,
+    Pulse,
+    TriPulse,
+    SawPulse,
+    TriSawPulse,
     Noise
 }
 
@@ -36,6 +35,7 @@ enum VoiceState
     Release
 }
 
+#[derive(PartialEq)]
 enum FilterType
 {
     None,
@@ -52,8 +52,8 @@ struct SIDVoice
 {
     wave: WaveForm,
     state: VoiceState,
-    modulator: u8,   // number of voice that modulates this voice
-    modulatee: u8,   // number of voice that this voice modulates
+    modulator: usize,   // number of voice that modulates this voice
+    modulatee: usize,   // number of voice that this voice modulates
     wf_cnt: u32,     // waveform counter
     wf_add: u32,     // value to add to wf_cnt each frame
     freq: u16,
@@ -321,7 +321,8 @@ impl SID
             _ => ()
         }
     }
-    
+
+    // TODO: maybe replacing with std::rand will suffice?
     fn get_rand(&mut self) -> u8
     {
         self.rng = self.rng * 1103515245 + 12345;
@@ -355,17 +356,183 @@ impl SID
         }
     }
     
-    pub fn write_register(&mut self, addr: u16, value: u8, on_sid_write: &mut cpu::Callback)
+    pub fn write_register(&mut self, addr: u16, value: u8)
     {
         self.last_sid_byte = value;
         match addr
         {
-            // TODO
-            0xD420...0xD7FF => self.write_register(0xD400 + (addr % 0x0020), value, on_sid_write),
-            _               => as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value)
+            0xD400 => {
+                self.voices[0].freq = (self.voices[0].freq & 0xFF00) | value as u16;
+                self.voices[0].attack_add = SID_CYCLES * self.voices[0].freq as u32;
+            },
+            0xD401 => {
+                self.voices[0].freq = (self.voices[0].freq & 0x00FF) | ((value as u16) << 8);
+                self.voices[0].attack_add = SID_CYCLES * self.voices[0].freq as u32;
+            },
+            0xD402 => {
+                self.voices[0].pw_val = (self.voices[0].pw_val & 0x0F00) | value as u16;
+            },
+            0xD403 => {
+                self.voices[0].pw_val = (self.voices[0].pw_val & 0x00FF) | (((value as u16) & 0x000F) << 8);
+            },
+            0xD404 => {
+                self.set_control_register(0, value);
+            },
+            0xD405 => {
+                self.voices[0].attack_add = EG_TABLE[ (value >> 4) as usize ];
+                self.voices[0].decay_sub  = EG_TABLE[ (value & 0x0F) as usize ];
+            },
+            0xD406 => {
+                self.voices[0].sustain_level = 0x111111 * (value >> 4) as u32;
+                self.voices[0].release_sub   = EG_TABLE[ (value & 0x0F) as usize ];
+            },
+            0xD407 => {
+                self.voices[1].freq = (self.voices[1].freq & 0xFF00) | value as u16;
+                self.voices[1].attack_add = SID_CYCLES * self.voices[1].freq as u32;
+            },
+            0xD408 => {
+                self.voices[1].freq = (self.voices[1].freq & 0x00FF) | ((value as u16) << 8);
+                self.voices[1].attack_add = SID_CYCLES * self.voices[1].freq as u32;
+            },
+            0xD409 => {
+                self.voices[1].pw_val = (self.voices[1].pw_val & 0x0F00) | value as u16;
+            },
+            0xD40A => {
+                self.voices[1].pw_val = (self.voices[1].pw_val & 0x00FF) | (((value as u16) & 0x000F) << 8);
+            },
+            0xD40B => {
+                self.set_control_register(1, value);
+            },
+            0xD40C => {
+                self.voices[1].attack_add = EG_TABLE[ (value >> 4) as usize ];
+                self.voices[1].decay_sub  = EG_TABLE[ (value & 0x0F) as usize ];
+            },
+            0xD40D => {
+                self.voices[1].sustain_level = 0x111111 * (value >> 4) as u32;
+                self.voices[1].release_sub   = EG_TABLE[ (value & 0x0F) as usize ];
+            },
+            0xD40E => {
+                self.voices[2].freq = (self.voices[2].freq & 0xFF00) | value as u16;
+                self.voices[2].attack_add = SID_CYCLES * self.voices[2].freq as u32;
+            },
+            0xD40F => {
+                self.voices[2].freq = (self.voices[2].freq & 0x00FF) | ((value as u16) << 8);
+                self.voices[2].attack_add = SID_CYCLES * self.voices[2].freq as u32;
+            },
+            0xD410 => {
+                self.voices[2].pw_val = (self.voices[2].pw_val & 0x0F00) | value as u16;
+            },
+            0xD411 => {
+                self.voices[2].pw_val = (self.voices[2].pw_val & 0x00FF) | (((value as u16) & 0x000F) << 8);
+            },
+            0xD412 => {
+                self.set_control_register(2, value);
+            },
+            0xD413 => {
+                self.voices[2].attack_add = EG_TABLE[ (value >> 4) as usize ];
+                self.voices[2].decay_sub  = EG_TABLE[ (value & 0x0F) as usize ];
+            },
+            0xD414 => {
+                self.voices[2].sustain_level = 0x111111 * (value >> 4) as u32;
+                self.voices[2].release_sub   = EG_TABLE[ (value & 0x0F) as usize ];
+            },
+            0xD416 => {
+                if self.filter_freq != value
+                {
+                    self.filter_freq = value;
+                    self.calculate_filter();
+                }
+            },
+            0xD417 => {
+                self.voices[0].filter = (value & 1) != 0;
+                self.voices[1].filter = (value & 2) != 0;
+                self.voices[2].filter = (value & 4) != 0;
+                
+                if self.filter_resonance != (value >> 4)
+                {
+                    self.filter_resonance = value >> 4;
+                    self.calculate_filter();
+                }
+            },
+            0xD418 => {
+                self.volume = value & 0x0F;
+                self.voices[2].mute = (value & 0x80) != 0;
+                let f_type = match (value >> 4) & 7 {
+                    0 => FilterType::None,
+                    1 => FilterType::Lowpass,
+                    2 => FilterType::Bandpass,
+                    3 => FilterType::LowBandpass,
+                    4 => FilterType::Highpass,
+                    5 => FilterType::Notch,
+                    6 => FilterType::HighBandpass,
+                    7 => FilterType::All,
+                    _ => panic!("Impossible filter combination!"),
+                };
+
+                if self.filter_type != f_type
+                {
+                    self.filter_type = f_type;
+                    self.xn1 = 0.0;
+                    self.xn2 = 0.0;
+                    self.yn1 = 0.0;
+                    self.yn2 = 0.0;
+                    self.calculate_filter();
+                }
+            },
+            // $D41D-$D41F are unusable, so just ignore it
+            0xD420...0xD7FF => self.write_register(0xD400 + (addr % 0x0020), value),
+            _               => (),
         }
 
-        *on_sid_write = cpu::Callback::None;
+        as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
+    }
+
+    fn set_control_register(&mut self, v_num: usize, value: u8)
+    {
+        self.voices[v_num].wave = match (value >> 4) & 0x0F {
+            0 => WaveForm::None,
+            1 => WaveForm::Triangle,
+            2 => WaveForm::Saw,
+            3 => WaveForm::TriSaw,
+            4 => WaveForm::Pulse,
+            5 => WaveForm::TriPulse,
+            6 => WaveForm::SawPulse,
+            7 => WaveForm::TriSawPulse,
+            8 => WaveForm::Noise,
+            _ => panic!("Impossible waveform value!"),
+        };
+        
+        let gate_on = (value & 1) != 0;
+        let sync_on = (value & 2) != 0;
+        let ring_on = (value & 4) != 0;
+        let test_on = (value & 8) != 0;
+        
+        if gate_on != self.voices[v_num].gate
+        {
+            if gate_on
+            {
+                self.voices[v_num].state = VoiceState::Attack;
+            }
+            else
+            {
+                match self.voices[v_num].state
+                {
+                    VoiceState::Idle => (),
+                    _                => self.voices[v_num].state = VoiceState::Release,
+                }
+            }
+
+            let modulator = self.voices[v_num].modulator;
+            self.voices[v_num].gate = gate_on;
+            self.voices[modulator].sync = sync_on;
+            self.voices[v_num].ring = ring_on;
+            self.voices[v_num].test = test_on;
+
+            if test_on
+            {
+                self.voices[v_num].wf_cnt = 0;
+            }
+        } 
     }
     
     pub fn update(&mut self)
