@@ -541,4 +541,170 @@ impl SID
         self.sample_buffer[idx] = self.volume;
         self.sample_idx = (self.sample_idx + 1) % NUM_SAMPLES;
     }
+
+    fn fill_audio_buffer(&mut self)
+    {
+        // TODO fill the real buffer here that will be passed to audio output
+        let sample_count = (self.sample_idx + NUM_SAMPLES/2) << 16;
+        let master_volume: u32 = self.sample_buffer[(sample_count >> 16) % NUM_SAMPLES] as u32;
+
+        let mut total_output: u32 = (SAMPLE_TABLE[master_volume as usize] as u32) << 8;
+        let mut total_output_filter: u32 = 0;
+        
+        for i in 0..3
+        {
+            let mut envelope: u16 = 0;
+
+            match self.voices[i].state
+            {
+                VoiceState::Attack => {
+                    self.voices[i].level += self.voices[i].attack_add;
+                    if self.voices[i].level > 0xFFFFFF
+                    {
+                        self.voices[i].level = 0xFFFFFF;
+                        self.voices[i].state = VoiceState::Decay;
+                    }
+                },
+                VoiceState::Decay => {
+                    if (self.voices[i].level <= self.voices[i].sustain_level) || (self.voices[i].level > 0xFFFFFF)
+                    {
+                        self.voices[i].level = self.voices[i].sustain_level;
+                    }
+                    else
+                    {
+                        self.voices[i].level -= self.voices[i].decay_sub >> EGDR_SHIFT[ (self.voices[i].level >> 16) as usize ];
+                        if (self.voices[i].level <= self.voices[i].sustain_level) || (self.voices[i].level > 0xFFFFFF)
+                        {
+                            self.voices[i].level = self.voices[i].sustain_level;
+                        }
+                    }
+                },
+                VoiceState::Release => {
+                    self.voices[i].level -= self.voices[i].release_sub >> EGDR_SHIFT[ (self.voices[i].level >> 16) as usize ];
+                    if self.voices[i].level > 0xFFFFFF
+                    {
+                        self.voices[i].level = 0;
+                        self.voices[i].state = VoiceState::Idle;
+                    }
+                },
+                VoiceState::Idle => {
+                    self.voices[i].level = 0;
+                },
+            }
+
+            envelope = ((self.voices[i].level * master_volume) >> 20) as u16;
+            let modulatee = self.voices[i].modulatee;
+            let modulator = self.voices[i].modulator;
+            
+            if self.voices[i].mute
+            {
+                continue;
+            }
+            
+            if !self.voices[i].test
+            {
+                self.voices[i].wf_cnt += self.voices[i].wf_add;
+            }
+
+            if self.voices[i].sync && (self.voices[i].wf_cnt > 0x1000000)
+            {
+                self.voices[modulatee].wf_cnt = 0;
+            }
+
+            self.voices[i].wf_cnt &= 0xFFFFFF;
+
+            let mut output: u16 = 0;
+            match self.voices[i].wave
+            {
+                WaveForm::Triangle => {
+                    unsafe {
+                        if self.voices[i].ring
+                        {
+                            output = TRI_TABLE[((self.voices[i].wf_cnt ^ (self.voices[modulator].wf_cnt & 0x800000)) >> 11) as usize];
+                        }
+                        else
+                        {
+                            output = TRI_TABLE[ (self.voices[i].wf_cnt >> 11) as usize ];
+                        }
+                    }
+                },
+                WaveForm::Saw => {
+                    output = (self.voices[i].wf_cnt >> 8) as u16;
+                },
+                WaveForm::Pulse => {
+                    if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
+                    {
+                        output = 0xFFFF;
+                    }
+                    /*else
+                    {
+                        output = 0;
+                    }*/
+                },
+                WaveForm::TriSaw => {
+                    output = TRI_SAW_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
+                },
+                WaveForm::TriPulse => {
+                    if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
+                    {
+                        output = TRI_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
+                    }
+                    /* else
+                    {
+                        output = 0;
+                    }*/
+                },
+                WaveForm::SawPulse => {
+                    if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
+                    {
+                        output = SAW_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
+                    }
+                    /* else
+                    {
+                        output = 0;
+                    }*/
+                },
+                WaveForm::TriSawPulse => {
+                    if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
+                    {
+                        output = TRI_SAW_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
+                    }
+                    /* else
+                    {
+                        output = 0;
+                    }*/
+                },
+                WaveForm::Noise => {
+                    if self.voices[i].wf_cnt > 0x100000
+                    {
+                        let rnd_noise = (self.get_rand() as u16) << 8;
+                        self.voices[i].noise = rnd_noise as u32;
+                        output = rnd_noise;
+                        self.voices[i].wf_cnt &= 0xFFFFF;
+                    }
+                    else
+                    {
+                        output = self.voices[i].noise as u16;
+                    }
+                },
+                WaveForm::None => {
+                    output = 0x8000;
+                }
+            }
+
+            if self.voices[i].filter
+            {
+                total_output_filter += (envelope * (output ^ 0x8000) as u16) as u32;
+            }
+            else
+            {
+                total_output += (envelope * (output ^ 0x8000) as u16) as u32;
+            }
+
+            // TODO: filter processing goes here
+            
+            // TODO: fill real audio buffer with this value
+            //(total_output + total_output_filter) >> 10
+        }
+    }
 }
