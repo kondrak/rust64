@@ -202,5 +202,7 @@ impl C64
 
             self.cycle_count += 1;
         }
+
+        self.sid.borrow_mut().update_audio();
     }
 }

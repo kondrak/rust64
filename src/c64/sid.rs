@@ -1,11 +1,12 @@
 // SID
 extern crate rand;
+extern crate cpal;
 use c64::memory;
 use c64::sid_tables::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::f32;
-
+use std;
 pub type SIDShared = Rc<RefCell<SID>>;
 
 const SAMPLE_FREQ: u32 = 44100;  // output frequency
@@ -151,12 +152,20 @@ pub struct SID
     sample_buffer: [u8; NUM_SAMPLES],
     sample_idx: usize,
     rng: u32,
+
+    audio_endpoint: cpal::Endpoint,
+    audio_format: cpal::Format,
+    audio_channel: cpal::Voice,
+    test_audio: Vec<f32>
 }
 
 impl SID
 {
     pub fn new_shared() -> SIDShared
     {
+        let endpoint = cpal::get_default_endpoint().expect("Failed to get default endpoint");
+        let format = endpoint.get_supported_formats_list().unwrap().next().expect("Failed to get endpoint format");
+
         let sid_shared = Rc::new(RefCell::new(SID
         {
             mem_ref: None,
@@ -177,9 +186,20 @@ impl SID
             yn2: 0.0,
             sample_buffer: [0; NUM_SAMPLES],
             sample_idx: 0,
-            rng: 1
+            rng: 1,
+            audio_endpoint: endpoint.clone(),
+            audio_format: format.clone(),
+            audio_channel: cpal::Voice::new(&endpoint, &format).expect("Failed to create a channel"),
+            test_audio: vec![0.0; 32768],
         }));
 
+        // TODO: test audio
+        for i in 0..32768
+        {
+            let v = i as f32;
+            sid_shared.borrow_mut().test_audio[i] = (v * 220.0 * 2.0 * 3.141592 / format.samples_rate.0 as f32).sin();
+        }
+        
         // calculate triangle table values
         unsafe
         {
@@ -719,5 +739,39 @@ impl SID
             // TODO: fill real audio buffer with this value
             //(total_output + total_output_filter) >> 10
         }
+    }
+
+    pub fn update_audio(&mut self)
+    {
+       let samples_rate = self.audio_format.samples_rate.0;
+        // Produce a sinusoid of maximum amplitude.
+      /*  let mut data_source = (0u32..).map(|t| t as f32 * 440.0 * 2.0 * 3.141592 / samples_rate as f32);     // 440 Hz
+           // .map(|t| t.sin());
+
+        data_source[0];*/
+        //loop {
+        match self.audio_channel.append_data(32768) {
+            cpal::UnknownTypeBuffer::U16(mut buffer) => {
+                for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio.iter()) {
+                    let value = ((*value * 0.5 + 0.5) * std::u16::MAX as f32) as u16;
+                    for out in sample.iter_mut() { *out = value; }
+                }
+            },
+
+            cpal::UnknownTypeBuffer::I16(mut buffer) => {
+                for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio.iter()) {
+                    let value = (*value * std::i16::MAX as f32) as i16;
+                    for out in sample.iter_mut() { *out = value; }
+                }
+            },
+
+            cpal::UnknownTypeBuffer::F32(mut buffer) => {
+                for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio.iter()) {
+                    for out in sample.iter_mut() { *out = *value; }
+                }
+            },
+        }
+
+        self.audio_channel.play();
     }
 }
