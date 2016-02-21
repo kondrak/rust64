@@ -542,9 +542,15 @@ impl SID
         self.sample_idx = (self.sample_idx + 1) % NUM_SAMPLES;
     }
 
+    // TODO fill the real buffer here that will be passed to audio output
     fn fill_audio_buffer(&mut self)
     {
-        // TODO fill the real buffer here that will be passed to audio output
+        let iir_att = self.iir_att;
+        let d1 = self.d1;
+        let d2 = self.d2;
+        let g1 = self.g1;
+        let g2 = self.g2;
+        
         let sample_count = (self.sample_idx + NUM_SAMPLES/2) << 16;
         let master_volume: u32 = self.sample_buffer[(sample_count >> 16) % NUM_SAMPLES] as u32;
 
@@ -701,7 +707,14 @@ impl SID
                 total_output += (envelope * (output ^ 0x8000) as u16) as u32;
             }
 
-            // TODO: filter processing goes here
+            // take filters into account
+            let xn = (total_output_filter * iir_att as u32) as f32;
+            let yn = xn + d1 * self.xn1 + d2 * self.xn2 - g1 * self.yn1 - g2 * self.yn2;
+            self.yn2 = self.yn1;
+            self.yn1 = yn;
+            self.xn2 = self.xn1;
+            self.xn1 = xn;
+            total_output_filter = yn as u32;
             
             // TODO: fill real audio buffer with this value
             //(total_output + total_output_filter) >> 10
