@@ -750,26 +750,29 @@ impl SID
 
         data_source[0];*/
         //loop {
-        match self.audio_channel.append_data(32768) {
-            cpal::UnknownTypeBuffer::U16(mut buffer) => {
-                for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio.iter()) {
-                    let value = ((*value * 0.5 + 0.5) * std::u16::MAX as f32) as u16;
-                    for out in sample.iter_mut() { *out = value; }
-                }
-            },
+        if self.audio_channel.get_pending_samples() == 0
+        {
+            match self.audio_channel.append_data(32768) {
+                cpal::UnknownTypeBuffer::U16(mut buffer) => {
+                    for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio.iter()) {
+                        let value = ((*value * 0.5 + 0.5) * std::u16::MAX as f32) as u16;
+                        for out in sample.iter_mut() { *out = value; }
+                    }
+                },
 
-            cpal::UnknownTypeBuffer::I16(mut buffer) => {
-                for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio.iter()) {
-                    let value = (*value * std::i16::MAX as f32) as i16;
-                    for out in sample.iter_mut() { *out = value; }
-                }
-            },
+                cpal::UnknownTypeBuffer::I16(mut buffer) => {
+                    for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio.iter()) {
+                        let value = (*value * std::i16::MAX as f32) as i16;
+                        for out in sample.iter_mut() { *out = value; }
+                    }
+                },
 
-            cpal::UnknownTypeBuffer::F32(mut buffer) => {
-                for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio.iter()) {
-                    for out in sample.iter_mut() { *out = *value; }
-                }
-            },
+                cpal::UnknownTypeBuffer::F32(mut buffer) => {
+                    for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio.iter()) {
+                        for out in sample.iter_mut() { *out = *value; }
+                    }
+                },
+            }
         }
 
         self.audio_channel.play();
