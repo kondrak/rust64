@@ -376,11 +376,11 @@ impl SID
         {
             0xD400 => {
                 self.voices[0].freq = (self.voices[0].freq & 0xFF00) | value as u16;
-                self.voices[0].attack_add = SID_CYCLES * self.voices[0].freq as u32;
+                self.voices[0].wf_add = SID_CYCLES * self.voices[0].freq as u32;
             },
             0xD401 => {
                 self.voices[0].freq = (self.voices[0].freq & 0x00FF) | ((value as u16) << 8);
-                self.voices[0].attack_add = SID_CYCLES * self.voices[0].freq as u32;
+                self.voices[0].wf_add = SID_CYCLES * self.voices[0].freq as u32;
             },
             0xD402 => {
                 self.voices[0].pw_val = (self.voices[0].pw_val & 0x0F00) | value as u16;
@@ -401,11 +401,11 @@ impl SID
             },
             0xD407 => {
                 self.voices[1].freq = (self.voices[1].freq & 0xFF00) | value as u16;
-                self.voices[1].attack_add = SID_CYCLES * self.voices[1].freq as u32;
+                self.voices[1].wf_add = SID_CYCLES * self.voices[1].freq as u32;
             },
             0xD408 => {
                 self.voices[1].freq = (self.voices[1].freq & 0x00FF) | ((value as u16) << 8);
-                self.voices[1].attack_add = SID_CYCLES * self.voices[1].freq as u32;
+                self.voices[1].wf_add = SID_CYCLES * self.voices[1].freq as u32;
             },
             0xD409 => {
                 self.voices[1].pw_val = (self.voices[1].pw_val & 0x0F00) | value as u16;
@@ -426,11 +426,11 @@ impl SID
             },
             0xD40E => {
                 self.voices[2].freq = (self.voices[2].freq & 0xFF00) | value as u16;
-                self.voices[2].attack_add = SID_CYCLES * self.voices[2].freq as u32;
+                self.voices[2].wf_add = SID_CYCLES * self.voices[2].freq as u32;
             },
             0xD40F => {
                 self.voices[2].freq = (self.voices[2].freq & 0x00FF) | ((value as u16) << 8);
-                self.voices[2].attack_add = SID_CYCLES * self.voices[2].freq as u32;
+                self.voices[2].wf_add = SID_CYCLES * self.voices[2].freq as u32;
             },
             0xD410 => {
                 self.voices[2].pw_val = (self.voices[2].pw_val & 0x0F00) | value as u16;
