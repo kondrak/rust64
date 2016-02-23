@@ -182,6 +182,7 @@ impl C64
                 self.io.update(&self.window, &mut self.cia1);
                 self.cia1.borrow_mut().count_tod();
                 self.cia2.borrow_mut().count_tod();
+                self.sid.borrow_mut().update_audio();
 
                 if self.io.check_restore_key(&self.window)
                 {
@@ -202,7 +203,5 @@ impl C64
 
             self.cycle_count += 1;
         }
-
-        self.sid.borrow_mut().update_audio();
     }
 }

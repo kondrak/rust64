@@ -190,16 +190,9 @@ impl SID
             audio_endpoint: endpoint.clone(),
             audio_format: format.clone(),
             audio_channel: cpal::Voice::new(&endpoint, &format).expect("Failed to create a channel"),
-            test_audio: vec![0.0; 32768],
+            test_audio: Vec::new()
         }));
-
-        // TODO: test audio
-        for i in 0..32768
-        {
-            let v = i as f32;
-            sid_shared.borrow_mut().test_audio[i] = (v * 220.0 * 2.0 * 3.141592 / format.samples_rate.0 as f32).sin();
-        }
-        
+       
         // calculate triangle table values
         unsafe
         {
@@ -563,168 +556,176 @@ impl SID
     }
 
     // TODO fill the real buffer here that will be passed to audio output
-    fn fill_audio_buffer(&mut self)
+    fn fill_audio_buffer(&mut self, num_samples: u16)
     {
         let iir_att = self.iir_att;
         let d1 = self.d1;
         let d2 = self.d2;
         let g1 = self.g1;
         let g2 = self.g2;
-        
-        let sample_count = (self.sample_idx + NUM_SAMPLES/2) << 16;
-        let master_volume: u32 = self.sample_buffer[(sample_count >> 16) % NUM_SAMPLES] as u32;
 
-        let mut total_output: u32 = (SAMPLE_TABLE[master_volume as usize] as u32) << 8;
-        let mut total_output_filter: u32 = 0;
-        
-        for i in 0..3
+        let mut count = num_samples;
+        let mut sample_count = (self.sample_idx + NUM_SAMPLES/2) << 16;
+
+        self.test_audio.clear();
+        count >>= 1;
+        while count > 0
         {
-            let mut envelope: u16 = 0;
+            let master_volume: u32 = self.sample_buffer[(sample_count >> 16) % NUM_SAMPLES] as u32;
 
-            match self.voices[i].state
+            sample_count += ((50 * NUM_SAMPLES/2) << 16) / SAMPLE_FREQ as usize;
+            let mut total_output: u32 = (SAMPLE_TABLE[master_volume as usize] as u32) << 8;
+            let mut total_output_filter: u32 = 0;
+            
+            for i in 0..3
             {
-                VoiceState::Attack => {
-                    self.voices[i].level += self.voices[i].attack_add;
-                    if self.voices[i].level > 0xFFFFFF
-                    {
-                        self.voices[i].level = 0xFFFFFF;
-                        self.voices[i].state = VoiceState::Decay;
-                    }
-                },
-                VoiceState::Decay => {
-                    if (self.voices[i].level <= self.voices[i].sustain_level) || (self.voices[i].level > 0xFFFFFF)
-                    {
-                        self.voices[i].level = self.voices[i].sustain_level;
-                    }
-                    else
-                    {
-                        self.voices[i].level -= self.voices[i].decay_sub >> EGDR_SHIFT[ (self.voices[i].level >> 16) as usize ];
+                let mut envelope: u16 = 0;
+
+                match self.voices[i].state
+                {
+                    VoiceState::Attack => {
+                        self.voices[i].level += self.voices[i].attack_add;
+                        if self.voices[i].level > 0xFFFFFF
+                        {
+                            self.voices[i].level = 0xFFFFFF;
+                            self.voices[i].state = VoiceState::Decay;
+                        }
+                    },
+                    VoiceState::Decay => {
                         if (self.voices[i].level <= self.voices[i].sustain_level) || (self.voices[i].level > 0xFFFFFF)
                         {
                             self.voices[i].level = self.voices[i].sustain_level;
                         }
-                    }
-                },
-                VoiceState::Release => {
-                    self.voices[i].level -= self.voices[i].release_sub >> EGDR_SHIFT[ (self.voices[i].level >> 16) as usize ];
-                    if self.voices[i].level > 0xFFFFFF
-                    {
-                        self.voices[i].level = 0;
-                        self.voices[i].state = VoiceState::Idle;
-                    }
-                },
-                VoiceState::Idle => {
-                    self.voices[i].level = 0;
-                },
-            }
-
-            envelope = ((self.voices[i].level * master_volume) >> 20) as u16;
-            let modulatee = self.voices[i].modulatee;
-            let modulator = self.voices[i].modulator;
-            
-            if self.voices[i].mute
-            {
-                continue;
-            }
-            
-            if !self.voices[i].test
-            {
-                self.voices[i].wf_cnt += self.voices[i].wf_add;
-            }
-
-            if self.voices[i].sync && (self.voices[i].wf_cnt > 0x1000000)
-            {
-                self.voices[modulatee].wf_cnt = 0;
-            }
-
-            self.voices[i].wf_cnt &= 0xFFFFFF;
-
-            let mut output: u16 = 0;
-            match self.voices[i].wave
-            {
-                WaveForm::Triangle => {
-                    unsafe {
-                        if self.voices[i].ring
+                        else
                         {
-                            output = TRI_TABLE[((self.voices[i].wf_cnt ^ (self.voices[modulator].wf_cnt & 0x800000)) >> 11) as usize];
+                            self.voices[i].level -= self.voices[i].decay_sub >> EGDR_SHIFT[ (self.voices[i].level >> 16) as usize ];
+                            if (self.voices[i].level <= self.voices[i].sustain_level) || (self.voices[i].level > 0xFFFFFF)
+                            {
+                                self.voices[i].level = self.voices[i].sustain_level;
+                            }
+                        }
+                    },
+                    VoiceState::Release => {
+                        self.voices[i].level -= self.voices[i].release_sub >> EGDR_SHIFT[ (self.voices[i].level >> 16) as usize ];
+                        if self.voices[i].level > 0xFFFFFF
+                        {
+                            self.voices[i].level = 0;
+                            self.voices[i].state = VoiceState::Idle;
+                        }
+                    },
+                    VoiceState::Idle => {
+                        self.voices[i].level = 0;
+                    },
+                }
+
+                envelope = ((self.voices[i].level * master_volume) >> 20) as u16;
+                let modulatee = self.voices[i].modulatee;
+                let modulator = self.voices[i].modulator;
+                
+                if self.voices[i].mute
+                {
+                    continue;
+                }
+                
+                if !self.voices[i].test
+                {
+                    self.voices[i].wf_cnt += self.voices[i].wf_add;
+                }
+
+                if self.voices[i].sync && (self.voices[i].wf_cnt > 0x1000000)
+                {
+                    self.voices[modulatee].wf_cnt = 0;
+                }
+
+                self.voices[i].wf_cnt &= 0xFFFFFF;
+
+                let mut output: u16 = 0;
+                match self.voices[i].wave
+                {
+                    WaveForm::Triangle => {
+                        unsafe {
+                            if self.voices[i].ring
+                            {
+                                output = TRI_TABLE[((self.voices[i].wf_cnt ^ (self.voices[modulator].wf_cnt & 0x800000)) >> 11) as usize];
+                            }
+                            else
+                            {
+                                output = TRI_TABLE[ (self.voices[i].wf_cnt >> 11) as usize ];
+                            }
+                        }
+                    },
+                    WaveForm::Saw => {
+                        output = (self.voices[i].wf_cnt >> 8) as u16;
+                    },
+                    WaveForm::Pulse => {
+                        if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
+                        {
+                            output = 0xFFFF;
+                        }
+                        /*else
+                        {
+                        output = 0;
+                    }*/
+                    },
+                    WaveForm::TriSaw => {
+                        output = TRI_SAW_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
+                    },
+                    WaveForm::TriPulse => {
+                        if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
+                        {
+                            output = TRI_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
+                        }
+                        /* else
+                        {
+                        output = 0;
+                    }*/
+                    },
+                    WaveForm::SawPulse => {
+                        if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
+                        {
+                            output = SAW_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
+                        }
+                        /* else
+                        {
+                        output = 0;
+                    }*/
+                    },
+                    WaveForm::TriSawPulse => {
+                        if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
+                        {
+                            output = TRI_SAW_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
+                        }
+                        /* else
+                        {
+                        output = 0;
+                    }*/
+                    },
+                    WaveForm::Noise => {
+                        if self.voices[i].wf_cnt > 0x100000
+                        {
+                            let rnd_noise = (self.get_rand() as u16) << 8;
+                            self.voices[i].noise = rnd_noise as u32;
+                            output = rnd_noise;
+                            self.voices[i].wf_cnt &= 0xFFFFF;
                         }
                         else
                         {
-                            output = TRI_TABLE[ (self.voices[i].wf_cnt >> 11) as usize ];
+                            output = self.voices[i].noise as u16;
                         }
+                    },
+                    WaveForm::None => {
+                        output = 0x8000;
                     }
-                },
-                WaveForm::Saw => {
-                    output = (self.voices[i].wf_cnt >> 8) as u16;
-                },
-                WaveForm::Pulse => {
-                    if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
-                    {
-                        output = 0xFFFF;
-                    }
-                    /*else
-                    {
-                        output = 0;
-                    }*/
-                },
-                WaveForm::TriSaw => {
-                    output = TRI_SAW_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
-                },
-                WaveForm::TriPulse => {
-                    if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
-                    {
-                        output = TRI_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
-                    }
-                    /* else
-                    {
-                        output = 0;
-                    }*/
-                },
-                WaveForm::SawPulse => {
-                    if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
-                    {
-                        output = SAW_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
-                    }
-                    /* else
-                    {
-                        output = 0;
-                    }*/
-                },
-                WaveForm::TriSawPulse => {
-                    if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
-                    {
-                        output = TRI_SAW_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
-                    }
-                    /* else
-                    {
-                        output = 0;
-                    }*/
-                },
-                WaveForm::Noise => {
-                    if self.voices[i].wf_cnt > 0x100000
-                    {
-                        let rnd_noise = (self.get_rand() as u16) << 8;
-                        self.voices[i].noise = rnd_noise as u32;
-                        output = rnd_noise;
-                        self.voices[i].wf_cnt &= 0xFFFFF;
-                    }
-                    else
-                    {
-                        output = self.voices[i].noise as u16;
-                    }
-                },
-                WaveForm::None => {
-                    output = 0x8000;
                 }
-            }
 
-            if self.voices[i].filter
-            {
-                total_output_filter += (envelope * (output ^ 0x8000) as u16) as u32;
-            }
-            else
-            {
-                total_output += (envelope * (output ^ 0x8000) as u16) as u32;
+                if self.voices[i].filter
+                {
+                    total_output_filter += (envelope * (output ^ 0x8000) as u16) as u32;
+                }
+                else
+                {
+                    total_output += (envelope * (output ^ 0x8000) as u16) as u32;
+                }
             }
 
             // take filters into account
@@ -737,38 +738,39 @@ impl SID
             total_output_filter = yn as u32;
             
             // TODO: fill real audio buffer with this value
-            //(total_output + total_output_filter) >> 10
+            self.test_audio.push((((total_output + total_output_filter) >> 10) as f32) / std::i16::MAX as f32);
+            count -= 1;
         }
     }
 
     pub fn update_audio(&mut self)
     {
-       let samples_rate = self.audio_format.samples_rate.0;
-        // Produce a sinusoid of maximum amplitude.
-      /*  let mut data_source = (0u32..).map(|t| t as f32 * 440.0 * 2.0 * 3.141592 / samples_rate as f32);     // 440 Hz
-           // .map(|t| t.sin());
+       //let samples_rate = self.audio_format.samples_rate.0;
 
-        data_source[0];*/
-        //loop {
         if self.audio_channel.get_pending_samples() == 0
         {
-            match self.audio_channel.append_data(32768) {
+            self.fill_audio_buffer(2*(SAMPLE_FREQ/50) as u16);
+            let count = self.test_audio.len();
+
+            match self.audio_channel.append_data(count) {
                 cpal::UnknownTypeBuffer::U16(mut buffer) => {
-                    for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio.iter()) {
-                        let value = ((*value * 0.5 + 0.5) * std::u16::MAX as f32) as u16;
-                        for out in sample.iter_mut() { *out = value; }
+                    for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio) {
+                        //   let value = ((*value * 0.5 + 0.5) * std::u16::MAX as f32) as u16;
+                        //   for out in sample.iter_mut() { *out = value; }
+                        panic!("add support");
                     }
                 },
 
                 cpal::UnknownTypeBuffer::I16(mut buffer) => {
-                    for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio.iter()) {
-                        let value = (*value * std::i16::MAX as f32) as i16;
-                        for out in sample.iter_mut() { *out = value; }
+                    for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio) {
+                        //  let value = (*value * std::i16::MAX as f32) as i16;
+                        //   for out in sample.iter_mut() { *out = value; }
+                        panic!("add support here too");
                     }
                 },
 
                 cpal::UnknownTypeBuffer::F32(mut buffer) => {
-                    for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio.iter()) {
+                    for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio) {
                         for out in sample.iter_mut() { *out = *value; }
                     }
                 },
