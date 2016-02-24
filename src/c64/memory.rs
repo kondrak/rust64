@@ -126,36 +126,6 @@ impl MemBank
     }    
 }
 
-/*impl Index<u16> for MemBank
-{
-    type Output = u8;
-
-    fn index<'a>(&'a self, _index: u16) -> &'a u8
-    {
-        &self.data[_index as usize]
-    }
-}
-
-impl Deref for MemBank
-{
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Vec<u8>
-    {
-        &self.data
-    }
-}
-
-impl DerefMut for MemBank
-{
-    fn deref_mut(&mut self) -> &mut Vec<u8>
-    {
-        &mut self.data
-    }
-}*/
-
-
-
 // collective memory storage with all the banks and bank switching support
 pub struct Memory
 {

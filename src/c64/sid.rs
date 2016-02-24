@@ -662,10 +662,6 @@ impl SID
                         {
                             output = 0xFFFF;
                         }
-                        /*else
-                        {
-                        output = 0;
-                    }*/
                     },
                     WaveForm::TriSaw => {
                         output = TRI_SAW_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
@@ -675,30 +671,18 @@ impl SID
                         {
                             output = TRI_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
                         }
-                        /* else
-                        {
-                        output = 0;
-                    }*/
                     },
                     WaveForm::SawPulse => {
                         if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
                         {
                             output = SAW_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
                         }
-                        /* else
-                        {
-                        output = 0;
-                    }*/
                     },
                     WaveForm::TriSawPulse => {
                         if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
                         {
                             output = TRI_SAW_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
                         }
-                        /* else
-                        {
-                        output = 0;
-                    }*/
                     },
                     WaveForm::Noise => {
                         if self.voices[i].wf_cnt > 0x100000
