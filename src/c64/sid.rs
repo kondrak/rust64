@@ -196,11 +196,11 @@ impl SID
         // calculate triangle table values
         unsafe
         {
-            for i in 0..8192
+            for i in 0..0x1000
             {
                 let val = ((i << 4) | (i >> 8)) as u16;
                 TRI_TABLE[i] = val;
-                TRI_TABLE[8191 - i] = val;
+                TRI_TABLE[0x1FFF - i] = val;
             }
         }
 
@@ -232,6 +232,11 @@ impl SID
         self.filter_type = FilterType::None;
         self.filter_freq = 0;
         self.filter_resonance = 0;
+        self.iir_att = 1.0;
+        self.d1 = 0.0;
+        self.d2 = 0.0;
+        self.g1 = 0.0;
+        self.g2 = 0.0;
         self.xn1 = 0.0;
         self.xn2 = 0.0;
         self.yn1 = 0.0;
@@ -250,7 +255,7 @@ impl SID
         let f2 = f * f;
         let f3 = f2 * f;
         let f4 = f3 * f;
-        227.755 - f - 1.7653 * f - 0.0176385 * f2 + 0.00333484 * f3 - 9.05683E-6 * f4
+        227.755 - 1.7635 * f - 0.0176385 * f2 + 0.00333484 * f3 - 9.05683E-6 * f4
     }
 
     fn highpass_resonance(&self, f: f32) -> f32
@@ -273,7 +278,7 @@ impl SID
                 self.d2 = 0.0;
                 self.g1 = 0.0;
                 self.g2 = 0.0;
-                self.iir_att = 1.0;
+                self.iir_att = 0.0;
                 return;
             },
             FilterType::All => {
@@ -281,7 +286,7 @@ impl SID
                 self.d2 = 0.0;
                 self.g1 = 0.0;
                 self.g2 = 0.0;
-                self.iir_att = 0.0;
+                self.iir_att = 1.0;
                 return;
             }
             FilterType::Lowpass | FilterType::LowBandpass => {
@@ -296,7 +301,7 @@ impl SID
         if arg > 0.99 { arg = 0.99; }
         if arg < 0.01 { arg = 0.01; }
 
-        self.g2 = 0.55 + 1.2 * arg * arg - 1.2 * arg + resonance * 0.0133333333;
+        self.g2 = 0.55 + 1.2 * arg * arg - 1.2 * arg +  0.0133333333 * self.filter_resonance as f32;
         self.g1 = -2.0 * self.g2.sqrt() * (f32::consts::PI * arg).cos();
 
         match self.filter_type {
@@ -312,7 +317,7 @@ impl SID
 
         match self.filter_type {
             FilterType::LowBandpass | FilterType::Lowpass => {
-                self.d1 = 0.0;
+                self.d1 = 2.0;
                 self.d2 = 1.0;
                 self.iir_att = 0.25 * (1.0 + self.g1 + self.g2);
             },
@@ -571,7 +576,7 @@ impl SID
         count >>= 1;
         while count > 0
         {
-            let master_volume: u32 = self.sample_buffer[(sample_count >> 16) % NUM_SAMPLES] as u32;
+            let master_volume: u8 = self.sample_buffer[(sample_count >> 16) % NUM_SAMPLES] as u8;
 
             sample_count += ((50 * NUM_SAMPLES/2) << 16) / SAMPLE_FREQ as usize;
             let mut total_output: u32 = (SAMPLE_TABLE[master_volume as usize] as u32) << 8;
@@ -618,7 +623,7 @@ impl SID
                     },
                 }
 
-                envelope = ((self.voices[i].level * master_volume) >> 20) as u16;
+                envelope = ((self.voices[i].level * master_volume as u32) >> 20) as u16;
                 let modulatee = self.voices[i].modulatee;
                 let modulator = self.voices[i].modulator;
                 
