@@ -4,7 +4,7 @@ version = "0.0.1"
 authors = [ "Krzysztof Kondrak <krzysztof.kondrak@gmail.com>" ]
 
 [dependencies]
-cpal = "0.2.9"
+sdl2 = "0.15.0"
 minifb = "0.4.0"
 rand = "0.3.14"
 time = "0.1.34"

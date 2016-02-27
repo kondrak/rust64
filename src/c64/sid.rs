@@ -1,6 +1,7 @@
 // SID
 extern crate rand;
-extern crate cpal;
+extern crate sdl2;
+use self::sdl2::audio::{AudioCallback, AudioSpecDesired};
 use c64::memory;
 use c64::sid_tables::*;
 use std::cell::RefCell;
@@ -128,7 +129,7 @@ impl SIDVoice
     }
 }
 
-pub struct SID
+struct SIDAudioDevice
 {
     mem_ref: Option<memory::MemShared>,
     last_sid_byte: u8,
@@ -152,22 +153,55 @@ pub struct SID
     sample_buffer: [u8; NUM_SAMPLES],
     sample_idx: usize,
     rng: u32,
-
-    audio_endpoint: cpal::Endpoint,
-    audio_format: cpal::Format,
-    audio_channel: cpal::Voice,
     test_audio: Vec<i16>
+}
+
+pub struct SID
+{
+    audio_device: SIDAudioDevice
 }
 
 impl SID
 {
     pub fn new_shared() -> SIDShared
     {
-        let endpoint = cpal::get_default_endpoint().expect("Failed to get default endpoint");
-        //let format = endpoint.get_supported_formats_list().unwrap().next().expect("Failed to get endpoint format");
-        let format = cpal::Format { channels: vec![cpal::ChannelPosition::FrontLeft, cpal::ChannelPosition::FrontRight], samples_rate: cpal::SamplesRate(48000), data_type: cpal::SampleFormat::I16 };
+        Rc::new(RefCell::new(SID
+        {
+            audio_device: SIDAudioDevice::new(),
+        }))
+    }
 
-        let sid_shared = Rc::new(RefCell::new(SID
+    pub fn set_references(&mut self, memref: memory::MemShared)
+    {
+        self.audio_device.set_references(memref);
+    }
+
+    pub fn reset(&mut self)
+    {
+        self.audio_device.reset();
+    }
+
+    pub fn read_register(&mut self, addr: u16) -> u8
+    {
+        self.audio_device.read_register(addr)
+    }
+
+    pub fn write_register(&mut self, addr: u16, value: u8)
+    {
+        self.audio_device.write_register(addr, value);
+    }
+
+    pub fn update(&mut self)
+    {
+        self.audio_device.update();
+    }
+}
+
+impl SIDAudioDevice
+{
+    pub fn new() -> SIDAudioDevice
+    {
+        let mut sid_audio_device = SIDAudioDevice
         {
             mem_ref: None,
             last_sid_byte: 0,
@@ -188,11 +222,8 @@ impl SID
             sample_buffer: [0; NUM_SAMPLES],
             sample_idx: 0,
             rng: 1,
-            audio_endpoint: endpoint.clone(),
-            audio_format: format.clone(),
-            audio_channel: cpal::Voice::new(&endpoint, &format).expect("Failed to create a channel"),
             test_audio: Vec::new()
-        }));
+        };
        
         // calculate triangle table values
         unsafe
@@ -205,14 +236,14 @@ impl SID
             }
         }
 
-        sid_shared.borrow_mut().voices[0].modulator = 2;
-        sid_shared.borrow_mut().voices[0].modulatee = 1;
-        sid_shared.borrow_mut().voices[1].modulator = 0;
-        sid_shared.borrow_mut().voices[1].modulatee = 2;
-        sid_shared.borrow_mut().voices[2].modulator = 1;
-        sid_shared.borrow_mut().voices[2].modulatee = 0;
+        sid_audio_device.voices[0].modulator = 2;
+        sid_audio_device.voices[0].modulatee = 1;
+        sid_audio_device.voices[1].modulator = 0;
+        sid_audio_device.voices[1].modulatee = 2;
+        sid_audio_device.voices[2].modulator = 1;
+        sid_audio_device.voices[2].modulatee = 0;
         
-        sid_shared
+        sid_audio_device
     }
 
     pub fn set_references(&mut self, memref: memory::MemShared)
@@ -731,42 +762,5 @@ impl SID
             self.test_audio.push(sample_value);
             count -= 1;
         }
-    }
-
-    pub fn update_audio(&mut self)
-    {
-       let samples_rate = self.audio_format.samples_rate.0;
-
-        //if self.audio_channel.get_pending_samples() == 0
-        {
-            self.fill_audio_buffer(samples_rate as u16); //2*(SAMPLE_FREQ/50) as u16);
-            let count = self.test_audio.len();
-
-            match self.audio_channel.append_data(count) {
-                cpal::UnknownTypeBuffer::U16(mut buffer) => {
-                    for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio) {
-                        //   let value = ((*value * 0.5 + 0.5) * std::u16::MAX as f32) as u16;
-                        //   for out in sample.iter_mut() { *out = value; }
-                        panic!("add support");
-                    }
-                },
-
-                cpal::UnknownTypeBuffer::I16(mut buffer) => {
-                    for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio) {
-                        //  let value = (*value * std::i16::MAX as f32) as i16;
-                        for out in sample.iter_mut() { *out = *value; } 
-                    }
-                },
-
-                cpal::UnknownTypeBuffer::F32(mut buffer) => {
-                    for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio) {
-                        //for out in sample.iter_mut() { *out = *value; }
-                        panic!("add support here too");
-                    }
-                },
-            }
-        }
-
-        self.audio_channel.play();
     }
 }
