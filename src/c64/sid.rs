@@ -576,11 +576,11 @@ impl SID
         count >>= 1;
         while count > 0
         {
-            let master_volume: u8 = self.sample_buffer[(sample_count >> 16) % NUM_SAMPLES] as u8;
+            let master_volume: u8 = self.sample_buffer[(sample_count >> 16) % NUM_SAMPLES];
 
             sample_count += ((50 * NUM_SAMPLES/2) << 16) / SAMPLE_FREQ as usize;
-            let mut total_output: u32 = (SAMPLE_TABLE[master_volume as usize] as u32) << 8;
-            let mut total_output_filter: u32 = 0;
+            let mut total_output: i32 = (SAMPLE_TABLE[master_volume as usize] as i32) << 8;
+            let mut total_output_filter: i32 = 0;
             
             for i in 0..3
             {
@@ -709,23 +709,23 @@ impl SID
 
                 if self.voices[i].filter
                 {
-                    total_output_filter += (envelope * (output ^ 0x8000) as u16) as u32;
+                    total_output_filter += (envelope * (output ^ 0x8000) as u16) as i32;
                 }
                 else
                 {
-                    total_output += (envelope * (output ^ 0x8000) as u16) as u32;
+                    total_output += (envelope * (output ^ 0x8000) as u16) as i32;
                 }
             }
 
             // take filters into account
-            let xn = (total_output_filter * iir_att as u32) as f32;
+            let xn = (total_output_filter * iir_att as i32) as f32;
             let yn = xn + d1 * self.xn1 + d2 * self.xn2 - g1 * self.yn1 - g2 * self.yn2;
             self.yn2 = self.yn1;
             self.yn1 = yn;
             self.xn2 = self.xn1;
             self.xn1 = xn;
-            total_output_filter = yn as u32;
-            
+            total_output_filter = yn as i32;
+
             // TODO: fill real audio buffer with this value
             self.test_audio.push((((total_output + total_output_filter) >> 10) as f32) / std::i16::MAX as f32);
             count -= 1;

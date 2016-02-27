@@ -166,7 +166,7 @@ pub const EGDR_SHIFT: [u8; 256] = [
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
         ];
 
-pub const SAMPLE_TABLE: [u16; 16] = [
+pub const SAMPLE_TABLE: [i16; 16] = [
     0x8000, 0x9111, 0xa222, 0xb333, 0xc444, 0xd555, 0xe666, 0xf777,
     0x0888, 0x1999, 0x2aaa, 0x3bbb, 0x4ccc, 0x5ddd, 0x6eee, 0x7fff,
     ];
