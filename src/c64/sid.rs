@@ -131,7 +131,6 @@ impl SIDVoice
 
 struct SIDAudioDevice
 {
-    mem_ref: Option<memory::MemShared>,
     last_sid_byte: u8,
     volume: u8,
     filter_type: FilterType,
@@ -158,42 +157,84 @@ struct SIDAudioDevice
 
 pub struct SID
 {
-    audio_device: SIDAudioDevice
+    mem_ref: Option<memory::MemShared>,
+    audio_device: sdl2::audio::AudioDevice<SIDAudioDevice>,
 }
 
 impl SID
 {
     pub fn new_shared() -> SIDShared
     {
+        let sdl_context = sdl2::init().unwrap();
+        let audio_subsystem = sdl_context.audio().unwrap();
+
+        let desired_spec = AudioSpecDesired {
+            freq: Some(44100),
+            channels: Some(1),  // mono
+            samples: Some(624), // default sample size
+        };
+        
         Rc::new(RefCell::new(SID
         {
-            audio_device: SIDAudioDevice::new(),
+            mem_ref: None,
+            audio_device: audio_subsystem.open_playback(None, &desired_spec, |spec| {
+                println!("{:?}", spec);
+                SIDAudioDevice::new()
+                }).unwrap()
         }))
     }
 
     pub fn set_references(&mut self, memref: memory::MemShared)
     {
-        self.audio_device.set_references(memref);
+        self.mem_ref = Some(memref);
     }
 
     pub fn reset(&mut self)
     {
-        self.audio_device.reset();
+        let mut lock = self.audio_device.lock();
+        (*lock).reset();
     }
 
     pub fn read_register(&mut self, addr: u16) -> u8
     {
-        self.audio_device.read_register(addr)
+        let mut rval = 0;
+        match addr
+        {
+            0xD419...0xD41A => {
+                let mut lock = self.audio_device.lock();
+                rval = (*lock).read_register(addr);
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, rval);
+            },
+            0xD41B...0xD41C => {
+                let mut lock = self.audio_device.lock();
+                rval = (*lock).read_register(addr);
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, rval);
+            },
+            0xD420...0xD7FF => { rval = self.read_register(0xD400 + (addr % 0x0020)); },
+            _               =>  {
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, rval);
+            }
+        }
+
+        rval
     }
 
     pub fn write_register(&mut self, addr: u16, value: u8)
     {
-        self.audio_device.write_register(addr, value);
+        let mut lock = self.audio_device.lock();
+        (*lock).write_register(addr, value);
+        as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
     }
 
     pub fn update(&mut self)
     {
-        self.audio_device.update();
+        let mut lock = self.audio_device.lock();
+        (*lock).update();
+    }
+
+    pub fn update_audio(&mut self)
+    {
+        self.audio_device.resume();
     }
 }
 
@@ -203,7 +244,6 @@ impl SIDAudioDevice
     {
         let mut sid_audio_device = SIDAudioDevice
         {
-            mem_ref: None,
             last_sid_byte: 0,
             voices: vec![SIDVoice::new(), SIDVoice::new(), SIDVoice::new()],
             volume: 0,
@@ -244,11 +284,6 @@ impl SIDAudioDevice
         sid_audio_device.voices[2].modulatee = 0;
         
         sid_audio_device
-    }
-
-    pub fn set_references(&mut self, memref: memory::MemShared)
-    {
-        self.mem_ref = Some(memref);
     }
 
     pub fn reset(&mut self)
@@ -388,19 +423,16 @@ impl SIDAudioDevice
             0xD419...0xD41A => {
                 self.last_sid_byte = 0;
                 let rval = 0xFF;
-                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, rval);
                 rval
             },
             0xD41B...0xD41C => {
                 self.last_sid_byte = 0;
                 let rval = rand::random::<u8>();
-                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, rval);
                 rval
             },
             0xD420...0xD7FF => self.read_register(0xD400 + (addr % 0x0020)),
             _               =>  {
                 let rval = self.last_sid_byte;
-                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, rval);
                 rval
             }
         }
@@ -533,8 +565,6 @@ impl SIDAudioDevice
             0xD420...0xD7FF => self.write_register(0xD400 + (addr % 0x0020), value),
             _               => (),
         }
-
-        as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
     }
 
     fn set_control_register(&mut self, v_num: usize, value: u8)
@@ -761,6 +791,16 @@ impl SIDAudioDevice
             let sample_value = ((total_output + total_output_filter) >> 10) as i16;
             self.test_audio.push(sample_value);
             count -= 1;
+        }
+    }
+}
+
+impl AudioCallback for SIDAudioDevice {
+    type Channel = i16;
+
+    fn callback(&mut self, out: &mut [i16]) {
+        println!("callback!");
+        for x in out.iter_mut() {
         }
     }
 }

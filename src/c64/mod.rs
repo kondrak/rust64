@@ -183,6 +183,8 @@ impl C64
                 self.cia1.borrow_mut().count_tod();
                 self.cia2.borrow_mut().count_tod();
 
+                self.sid.borrow_mut().update_audio();
+
                 if self.io.check_restore_key(&self.window)
                 {
                     self.cpu.borrow_mut().set_nmi(true);
