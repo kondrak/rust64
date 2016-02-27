@@ -156,7 +156,7 @@ pub struct SID
     audio_endpoint: cpal::Endpoint,
     audio_format: cpal::Format,
     audio_channel: cpal::Voice,
-    test_audio: Vec<f32>
+    test_audio: Vec<i16>
 }
 
 impl SID
@@ -164,7 +164,8 @@ impl SID
     pub fn new_shared() -> SIDShared
     {
         let endpoint = cpal::get_default_endpoint().expect("Failed to get default endpoint");
-        let format = endpoint.get_supported_formats_list().unwrap().next().expect("Failed to get endpoint format");
+        //let format = endpoint.get_supported_formats_list().unwrap().next().expect("Failed to get endpoint format");
+        let format = cpal::Format { channels: vec![cpal::ChannelPosition::FrontLeft, cpal::ChannelPosition::FrontRight], samples_rate: cpal::SamplesRate(48000), data_type: cpal::SampleFormat::I16 };
 
         let sid_shared = Rc::new(RefCell::new(SID
         {
@@ -573,7 +574,7 @@ impl SID
         let mut sample_count = (self.sample_idx + NUM_SAMPLES/2) << 16;
 
         self.test_audio.clear();
-        count >>= 1;
+        //count >>= 1;
         while count > 0
         {
             let master_volume: u8 = self.sample_buffer[(sample_count >> 16) % NUM_SAMPLES];
@@ -726,19 +727,19 @@ impl SID
             self.xn1 = xn;
             total_output_filter = yn as i32;
 
-            // TODO: fill real audio buffer with this value
-            self.test_audio.push((((total_output + total_output_filter) >> 10) as f32) / std::i16::MAX as f32);
+            let sample_value = ((total_output + total_output_filter) >> 10) as i16;
+            self.test_audio.push(sample_value);
             count -= 1;
         }
     }
 
     pub fn update_audio(&mut self)
     {
-       //let samples_rate = self.audio_format.samples_rate.0;
+       let samples_rate = self.audio_format.samples_rate.0;
 
-        if self.audio_channel.get_pending_samples() == 0
+        //if self.audio_channel.get_pending_samples() == 0
         {
-            self.fill_audio_buffer(2*(SAMPLE_FREQ/50) as u16);
+            self.fill_audio_buffer(samples_rate as u16); //2*(SAMPLE_FREQ/50) as u16);
             let count = self.test_audio.len();
 
             match self.audio_channel.append_data(count) {
@@ -753,14 +754,14 @@ impl SID
                 cpal::UnknownTypeBuffer::I16(mut buffer) => {
                     for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio) {
                         //  let value = (*value * std::i16::MAX as f32) as i16;
-                        //   for out in sample.iter_mut() { *out = value; }
-                        panic!("add support here too");
+                        for out in sample.iter_mut() { *out = *value; } 
                     }
                 },
 
                 cpal::UnknownTypeBuffer::F32(mut buffer) => {
                     for (sample, value) in buffer.chunks_mut(self.audio_format.channels.len()).zip(&mut self.test_audio) {
-                        for out in sample.iter_mut() { *out = *value; }
+                        //for out in sample.iter_mut() { *out = *value; }
+                        panic!("add support here too");
                     }
                 },
             }
