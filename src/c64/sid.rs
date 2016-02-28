@@ -7,12 +7,11 @@ use c64::sid_tables::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::f32;
-use std;
 pub type SIDShared = Rc<RefCell<SID>>;
 
 const SAMPLE_FREQ: u32 = 44100;  // output frequency
 const SID_FREQ:    u32 = 985248; // SID frequency in Hz
-const CALC_FREQ:   u32 = 50;     // frequency of calculating new buffer data (50Hz)
+//const CALC_FREQ:   u32 = 50;     // frequency of calculating new buffer data (50Hz)
 pub const SID_CYCLES:  u32 = SID_FREQ / SAMPLE_FREQ;  // SID clocks/sample frame
 const NUM_SAMPLES: usize = 624; // size of buffer for sampled voice
 
@@ -151,8 +150,7 @@ struct SIDAudioDevice
     voices: Vec<SIDVoice>,
     sample_buffer: [u8; NUM_SAMPLES],
     sample_idx: usize,
-    rng: u32,
-    test_audio: Vec<i16>
+    rng: u32
 }
 
 pub struct SID
@@ -261,8 +259,7 @@ impl SIDAudioDevice
             yn2: 0.0,
             sample_buffer: [0; NUM_SAMPLES],
             sample_idx: 0,
-            rng: 1,
-            test_audio: Vec::new()
+            rng: 1
         };
        
         // calculate triangle table values
@@ -335,8 +332,8 @@ impl SIDAudioDevice
     fn calculate_filter(&mut self)
     {
         let f = self.filter_freq as f32;
-        let mut resonance: f32 = 0.0;
-        let mut arg: f32 = 0.0;
+        let resonance: f32;
+        let mut arg: f32;
         
         match self.filter_type
         {
@@ -621,23 +618,22 @@ impl SIDAudioDevice
         self.sample_buffer[idx] = self.volume;
         self.sample_idx = (self.sample_idx + 1) % NUM_SAMPLES;
     }
+}
 
-    // TODO fill the real buffer here that will be passed to audio output
-    fn fill_audio_buffer(&mut self, num_samples: u16)
-    {
+impl AudioCallback for SIDAudioDevice {
+    type Channel = i16;
+
+    fn callback(&mut self, out: &mut [i16]) {
         let iir_att = self.iir_att;
         let d1 = self.d1;
         let d2 = self.d2;
         let g1 = self.g1;
         let g2 = self.g2;
 
-        let mut count = num_samples;
+        //let mut count = num_samples;
         let mut sample_count = (self.sample_idx + NUM_SAMPLES/2) << 16;
-
-        self.test_audio.clear();
-        //count >>= 1;
-        while count > 0
-        {
+        
+        for x in out.iter_mut() {
             let master_volume: u8 = self.sample_buffer[(sample_count >> 16) % NUM_SAMPLES];
 
             sample_count += ((50 * NUM_SAMPLES/2) << 16) / SAMPLE_FREQ as usize;
@@ -646,7 +642,7 @@ impl SIDAudioDevice
             
             for i in 0..3
             {
-                let mut envelope: u16 = 0;
+                let envelope: u16;
 
                 match self.voices[i].state
                 {
@@ -789,18 +785,7 @@ impl SIDAudioDevice
             total_output_filter = yn as i32;
 
             let sample_value = ((total_output + total_output_filter) >> 10) as i16;
-            self.test_audio.push(sample_value);
-            count -= 1;
-        }
-    }
-}
-
-impl AudioCallback for SIDAudioDevice {
-    type Channel = i16;
-
-    fn callback(&mut self, out: &mut [i16]) {
-        println!("callback!");
-        for x in out.iter_mut() {
+            *x = sample_value;
         }
     }
 }
