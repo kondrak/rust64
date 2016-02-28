@@ -169,7 +169,7 @@ impl SID
         let desired_spec = AudioSpecDesired {
             freq: Some(44100),
             channels: Some(1),  // mono
-            samples: Some(624), // default sample size
+            samples: Some(512), // default sample size
         };
         
         Rc::new(RefCell::new(SID
@@ -784,7 +784,7 @@ impl AudioCallback for SIDAudioDevice {
             self.xn1 = xn;
             total_output_filter = yn as i32;
 
-            let sample_value = ((total_output + total_output_filter) >> 10) as i16;
+            let sample_value = (((total_output + total_output_filter) & 0xFFFF) >> 3) as i16;
             *x = sample_value;
         }
     }
