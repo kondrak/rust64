@@ -18,7 +18,6 @@ install:
   - ps: 7z x SDL2-devel-2.0.4-mingw.tar.gz
   - ps: 7z x SDL2-devel-2.0.4-mingw.tar
   - ps: Copy-Item "SDL2-2.0.4\lib\${env:SDL_TARGET}\SDL2*.lib" "C:\Program Files (x86)\Rust\lib\rustlib\${env:SDL_COPY_TARGET}-pc-windows-msvc\lib\"
-  - ps: Check-Error
   - rustc -V
   - cargo -V
 build: false
