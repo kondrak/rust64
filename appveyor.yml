@@ -25,5 +25,5 @@ build: false
 test_script:
   - ps: New-Item c:\projects\rust64\target -type directory
   - ps: New-Item c:\projects\rust64\target\debug -type directory
-  - ps: Copy-Item SDL2-2.0.4\i686-w64-mingw32\lib\libSDL2.dll.a c:\projects\rust64\target\debug
+  - ps: Copy-Item SDL2-2.0.4\i686-w64-mingw32\bin\SDL2.dll c:\projects\rust64\target\debug
   - cargo test --verbose
