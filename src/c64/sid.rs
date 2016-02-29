@@ -642,7 +642,7 @@ impl AudioCallback for SIDAudioDevice {
             
             for i in 0..3
             {
-                let envelope: u16;
+                let envelope: f32;
 
                 match self.voices[i].state
                 {
@@ -681,7 +681,7 @@ impl AudioCallback for SIDAudioDevice {
                     },
                 }
 
-                envelope = ((self.voices[i].level * master_volume as u32) >> 20) as u16;
+                envelope = ((self.voices[i].level as f32) * master_volume as f32) / (0xFFFFFF * 0xF) as f32;
                 let modulatee = self.voices[i].modulatee;
                 let modulator = self.voices[i].modulator;
                 
@@ -767,11 +767,11 @@ impl AudioCallback for SIDAudioDevice {
 
                 if self.voices[i].filter
                 {
-                    total_output_filter += (envelope * (output ^ 0x8000) as u16) as i32;
+                    total_output_filter += (((envelope * output as f32) as i32) ^ 0x8000) as i32;
                 }
                 else
                 {
-                    total_output += (envelope * (output ^ 0x8000) as u16) as i32;
+                    total_output += (((envelope * output as f32) as i32) ^ 0x8000) as i32;
                 }
             }
 
