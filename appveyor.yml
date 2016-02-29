@@ -23,4 +23,5 @@ install:
 build: false
 
 test_script:
+  - ps: Copy-Item SDL2-2.0.4\i686-w64-mingw32\lib\libSDL2.dll.a c:\projects\rust64\target\debug
   - cargo test --verbose
