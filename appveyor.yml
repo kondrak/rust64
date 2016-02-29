@@ -1,14 +1,17 @@
 environment:
   matrix:
   - TARGET: x86_64-pc-windows-msvc
-    SDL_TARGET: x64
-    SDL_COPY_TARGET: x86_64
+    SDL_TARGET: lib\x64
+    SDL_COPY_PATTERN: SDL2*.lib
+    RUST_SUBFOLDER: lib
   - TARGET: i686-pc-windows-msvc
-    SDL_TARGET: x64
-    SDL_COPY_TARGET: i686
+    SDL_TARGET: lib\x86
+    SDL_COPY_PATTERN: SDL2*.lib
+    RUST_SUBFOLDER: lib
   - TARGET: i686-pc-windows-gnu
-    SDL_TARGET: x64
-    SDL_COPY_TARGET: i686
+    SDL_TARGET: i686-w64-mingw32\lib
+    SDL_COPY_PATTERN: libSDL2*.a
+    RUST_SUBFOLDER: bin
 install:
   - ps: Start-FileDownload "https://static.rust-lang.org/dist/rust-nightly-${env:TARGET}.exe"
   - rust-nightly-%TARGET%.exe /VERYSILENT /NORESTART /DIR="C:\Program Files (x86)\Rust"
@@ -17,7 +20,7 @@ install:
   - ps: Start-FileDownload "https://www.libsdl.org/release/SDL2-devel-2.0.4-mingw.tar.gz"
   - ps: 7z x SDL2-devel-2.0.4-mingw.tar.gz
   - ps: 7z x SDL2-devel-2.0.4-mingw.tar
-  - ps: Copy-Item "SDL2-2.0.4\lib\${env:SDL_TARGET}\SDL2*.lib" "C:\Program Files (x86)\Rust\lib\rustlib\${env:SDL_COPY_TARGET}-pc-windows-msvc\lib\"
+  - ps: Copy-Item "SDL2-2.0.4\${env:SDL_TARGET}\${env:SDL_COPY_PATTERN}" "C:\Program Files (x86)\Rust\${env:RUST_SUBFOLDER}\rustlib\${env:TARGET}\lib\"
   - rustc -V
   - cargo -V
 build: false
