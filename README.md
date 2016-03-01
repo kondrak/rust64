@@ -10,6 +10,12 @@ Dependencies
 
 Requires Rust 1.5.0 to compile and run.
 
+Youtube demo:
+
+[![Screenshot](http://kondrak.info/images/rust64_youtube.png?raw=true)](https://www.youtube.com/watch?v=b6OSsTPwLaE)
+
+Screenshot:
+
 ![Screenshot](http://kondrak.info/images/rust64_github.png?raw=true)
 
 The emulator comes with a memory debugger - press PgUp/PgDwn to flip between memory pages and Home/End to change memory banks (Ram, VIC registers, CIA registers, Color Ram). The VIC window is a ICU64-style raster debugger, each pixel representing one VIC cycle and events associated with it.
