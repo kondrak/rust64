@@ -1,6 +1,6 @@
 [package]
 name = "rust64"
-version = "0.0.1"
+version = "0.6.0"
 authors = [ "Krzysztof Kondrak <krzysztof.kondrak@gmail.com>" ]
 
 [dependencies]

@@ -16,7 +16,7 @@ pub enum MemType
 }
 
 // specific memory bank - RAM, ROM, IO
-struct MemBank
+pub struct MemBank
 {
     bank_type: MemType, // what am I?
     read_only: bool,    // RAM or ROM?
@@ -80,7 +80,6 @@ impl MemBank
         {
             MemType::RAM => self.data[(addr - self.offset) as usize] = val,
             MemType::IO => {
-                // TODO: IO access has specific behavior depending on address
                 match addr
                 {
                     0xD016          => self.data[(addr - self.offset) as usize] = 0xC0 | val,
@@ -103,7 +102,6 @@ impl MemBank
         match self.bank_type
         {
             MemType::IO => {
-                // TODO: IO access has specific behavior depending on address
                 match addr
                 {
                     0xD016          => 0xC0 | self.data[(addr - self.offset) as usize],

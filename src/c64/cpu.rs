@@ -349,11 +349,6 @@ impl CPU
 
         mem_write_ok
     }
-
-    pub fn read_idle(&mut self, addr: u16)
-    {
-        let _ = self.read_byte(addr);
-    }
     
     pub fn read_byte(&mut self, addr: u16) -> u8
     {
@@ -414,13 +409,9 @@ impl CPU
         {
             7 => {
                 if self.ba_low { return false; }
-                let pc = self.PC;
-                self.read_idle(pc);
             },
             6 => {
                 if self.ba_low { return false; }
-                let pc = self.PC;
-                self.read_idle(pc);
             },
             5 => {
                 let pc_hi = (self.PC >> 8) as u8;
@@ -624,9 +615,7 @@ impl CPU
                 }
                 if self.ba_low { return false; }
                 
-                let pc = self.PC;
                 let addr = self.instruction.operand_addr;
-                self.read_idle(pc);
                 self.PC = addr;
 
                 if !self.instruction.zp_crossed
@@ -637,8 +626,6 @@ impl CPU
             },
             1 => {
                 if self.ba_low { return false; }
-                let pc = self.PC;
-                self.read_idle(pc); // TODO: not sure if we shouldn't read different val here depending on branching fw/bckw
             },
             _ => panic!("Wrong number of branching cycles"),
         }
