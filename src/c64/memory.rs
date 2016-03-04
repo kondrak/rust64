@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 use utils;
-//use std::ops::{Index, Deref, DerefMut};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -114,8 +113,8 @@ impl MemBank
                         value
                     },
                     0xD020...0xD02E => 0xF0 | self.data[(addr - self.offset) as usize],
-                    0xD02F...0xD03F => 0xFF,                              // always returns 0xFF
-                    0xD040...0xD3FF => self.read(0xD000 + (addr % 0x0040)),          // same as 0xD000-0xD03F
+                    0xD02F...0xD03F => 0xFF,                                 // always returns 0xFF
+                    0xD040...0xD3FF => self.read(0xD000 + (addr % 0x0040)),  // same as 0xD000-0xD03F
                     _ => self.data[(addr - self.offset) as usize]
                 }
             },
@@ -136,10 +135,10 @@ pub struct Memory
     // bank switching flags
     pub basic_on:   bool,
     pub chargen_on: bool,
-    pub io_on:  bool,
+    pub io_on:      bool,
     pub kernal_on:  bool,
-    cart_lo_on: bool, // cart flag - unused for now
-    cart_hi_on: bool  // cart flag - unused for now
+    //cart_lo_on: bool, // cart flag - unused for now
+    //cart_hi_on: bool  // cart flag - unused for now
 }
 
 impl Memory
@@ -157,8 +156,6 @@ impl Memory
             chargen_on: false,
             io_on:      false,
             kernal_on:  false,
-            cart_lo_on: false, // unused for now
-            cart_hi_on: false, // unused for now
         }))
     }
     
@@ -267,15 +264,6 @@ impl Memory
         value_le
     }
 
-    // Read a word from memory (stored in big endian: swap low<->high)
-    pub fn read_word_be(&mut self, addr: u16) -> u16
-    {
-        let bank = self.get_bank(addr);
-        let value_le: u16 = ((bank.read(addr) as u16) << 8 & 0xFF00) |
-                            ((bank.read(addr + 0x0001) as u16) & 0x00FF);
-        value_le
-    }
-
     // Write word in little endian format (low/high)
     pub fn write_word_le(&mut self, addr: u16, value: u16) -> bool
     {
@@ -284,18 +272,6 @@ impl Memory
 
         let hi = self.write_byte(addr, value_le_lo);
         let lo = self.write_byte(addr + 0x0001, value_le_hi);
-
-        return hi && lo;
-    }
-
-    // Write word in big endian format (high/low)
-    pub fn write_word_be(&mut self, addr: u16, value: u16) -> bool
-    {
-        let value_le_lo: u8 = (((value << 8) & 0xFF00) >> 8 & 0xFF) as u8;
-        let value_le_hi: u8 = ((value >> 8) & 0x00FF) as u8;
-
-        let hi = self.write_byte(addr, value_le_hi);
-        let lo = self.write_byte(addr + 0x0001, value_le_lo);
 
         return hi && lo;
     }
