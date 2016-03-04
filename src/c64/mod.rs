@@ -1,4 +1,3 @@
-//extern crate sdl2;
 extern crate minifb;
 use minifb::*;
 use utils;
@@ -17,7 +16,7 @@ pub const SCREEN_WIDTH:  usize = 384; // extend 20 pixels left and right for the
 pub const SCREEN_HEIGHT: usize = 272; // extend 36 pixels top and down for the borders
 
 // PAL clock frequency in Hz
-const CLOCK_FREQ: f64 = 985248.0;
+const CLOCK_FREQ: f64 = 1.5 * 985248.0;
 
 
 pub struct C64
@@ -119,31 +118,10 @@ impl C64
             if self.boot_complete
             {
                 let prg_file = &self.file_to_load.to_owned()[..];
-                //let prg_file = "bcs-01.prg";     // ok
-                //let prg_file = "triad-01.prg";
-                //let prg_file = "dd-01.prg";    // sprites null
-                //let prg_file = "flt-01.prg";  // ok - blinking
-                //let prg_file = "esi-02.prg";   // ok - blinking
-                //let prg_file = "htl-03.prg";
-                //let prg_file = "ikari-02.prg"; // ok
-                //let prg_file = "img.prg";
-                //let prg_file ="tests/bgcolor.prg";
-                //let prg_file = "spritedemo.prg";
-                //let prg_file ="flapper.prg";
-                //let prg_file ="superball.prg";
-                //let prg_file = "flt-09.prg";    // bw - blinking
-                //let prg_file = "newage-03.prg"; // ok
-                //let prg_file = "orion-26.prg";  // ok
-                //let prg_file = "energy-09.prg";
-                //let prg_file = "jam-10.prg";  // ok
-                //let prg_file = "tpi-01.prg";
-                //let prg_file = "711-01.prg"; // ok - blinking
-                
+
                 if prg_file.len() > 0
                 {
-                    //if self.window.is_key_pressed(Key::F9, KeyRepeat::No) {
                     self.boot_complete = true; self.load_prg(prg_file);
-                    //}
                 }
             }
         }
@@ -183,8 +161,6 @@ impl C64
                 self.cia1.borrow_mut().count_tod();
                 self.cia2.borrow_mut().count_tod();
 
-                self.sid.borrow_mut().update_audio();
-
                 if self.io.check_restore_key(&self.window)
                 {
                     self.cpu.borrow_mut().set_nmi(true);
@@ -204,5 +180,7 @@ impl C64
 
             self.cycle_count += 1;
         }
+
+        self.sid.borrow_mut().update_audio();
     }
 }

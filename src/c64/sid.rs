@@ -11,7 +11,6 @@ pub type SIDShared = Rc<RefCell<SID>>;
 
 const SAMPLE_FREQ: u32 = 44100;  // output frequency
 const SID_FREQ:    u32 = 985248; // SID frequency in Hz
-//const CALC_FREQ:   u32 = 50;     // frequency of calculating new buffer data (50Hz)
 pub const SID_CYCLES:  u32 = SID_FREQ / SAMPLE_FREQ;  // SID clocks/sample frame
 const NUM_SAMPLES: usize = 624; // size of buffer for sampled voice
 
@@ -630,7 +629,6 @@ impl AudioCallback for SIDAudioDevice {
         let g1 = self.g1;
         let g2 = self.g2;
 
-        //let mut count = num_samples;
         let mut sample_count = (self.sample_idx + NUM_SAMPLES/2) << 16;
         
         for x in out.iter_mut() {
@@ -767,11 +765,11 @@ impl AudioCallback for SIDAudioDevice {
 
                 if self.voices[i].filter
                 {
-                    total_output_filter += (((envelope * output as f32) as i32) ^ 0x8000) as i32;
+                    total_output_filter += (envelope * ((output >> 3) ^ 0x8000) as f32) as i32;
                 }
                 else
                 {
-                    total_output += (((envelope * output as f32) as i32) ^ 0x8000) as i32;
+                    total_output += (envelope * ((output >> 3) ^ 0x8000) as f32) as i32;
                 }
             }
 
@@ -784,7 +782,7 @@ impl AudioCallback for SIDAudioDevice {
             self.xn1 = xn;
             total_output_filter = yn as i32;
 
-            let sample_value = (((total_output + total_output_filter) & 0xFFFF) >> 3) as i16;
+            let sample_value = (((total_output + total_output_filter)) >> 2) as i16;
             *x = sample_value;
         }
     }
