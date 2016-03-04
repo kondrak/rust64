@@ -2,7 +2,7 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/77otp2475g7v95mb?svg=true)](https://ci.appveyor.com/project/kondrak/rust64)
 
 # Rust64 - a C64 emulator written in Rust
-Some people learn a new language with "Hello world". I decided to write a Commodore 64 emulator. This is my attempt to learn the Rust programming language and have fun at the same time. The goal of this project is to present in a concise and non-obfuscated way how the C64 works and what's happening behind the scenes once you start a program.
+Some people learn a new language with "Hello world". I decided to write a Commodore 64 emulator. This is my attempt to study the Rust programming language and have fun at the same time. The goal of this project is to present in a concise and non-obfuscated way how the C64 works and what's happening behind the scenes once you start a program. Emulation is cycle based and fairly accurate at this point.
 
 Dependencies
 ------------------
@@ -17,7 +17,7 @@ Requires Rust 1.5.0 or higher to compile and run.
 ### Screenshot:
 [![Screenshot](http://kondrak.info/images/rust64_github_prev.png?raw=true)](http://kondrak.info/images/rust64_github.png?raw=true)
 
-The emulator comes with a memory debugger allowing you to view the current state of each memory page in RAM, VIC registers, CIA registers, Color RAM and SID. The VIC window is a ICU64-style raster debugger, each pixel representing one VIC cycle and events associated with it. For performance reasons, the windows are updated once per C64 frame.
+The emulator comes with a memory debugger letting you view the current state of each memory page in RAM, VIC registers, CIA registers, Color RAM and SID. The VIC window is a ICU64-style raster debugger, each pixel representing one VIC cycle and events associated with it. For performance reasons, the windows are updated once per C64 frame.
 
 Build instructions
 ------------------
