@@ -197,8 +197,6 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool
                     }
                 },
                 1 => { // if page crossed - add 0x100 to operand address
-                    let addr = cpu.instruction.operand_addr;
-                    cpu.read_idle(addr);
                     if cpu.instruction.zp_crossed { cpu.instruction.operand_addr += 0x100; }
                 },
                 _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
@@ -224,8 +222,6 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool
                     }
                 },
                 1 => { // if page crossed - add 0x100 to operand address
-                    let addr = cpu.instruction.operand_addr;
-                    cpu.read_idle(addr);
                     if cpu.instruction.zp_crossed { cpu.instruction.operand_addr += 0x100; }
                 },
                 _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
@@ -242,7 +238,6 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool
                 1 => {
                     let x = cpu.X as u16;
                     let base_addr = cpu.instruction.operand_addr;
-                    cpu.read_idle(base_addr);
                     cpu.instruction.operand_addr = ((Wrapping(base_addr) + Wrapping(x)).0 as u16) & 0xFF;
                 }
                 _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
@@ -256,7 +251,6 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool
                 1 => {
                     let y = cpu.Y as u16;
                     let base_addr = cpu.instruction.operand_addr;
-                    cpu.read_idle(base_addr);
                     cpu.instruction.operand_addr = ((Wrapping(base_addr) + Wrapping(y)).0 as u16) & 0xFF;
                 }
                 _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
@@ -268,8 +262,6 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool
                     cpu.instruction.index_addr = cpu.next_byte() as u16;
                 },
                 3 => {
-                    let addr = cpu.instruction.index_addr;
-                    cpu.read_idle(addr);
                     cpu.instruction.index_addr = (cpu.instruction.index_addr + cpu.X as u16) & 0xFF;
                 },
                 2 => {
@@ -309,8 +301,6 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool
                     }
                 },
                 1 => { // if page crossed - add 0x100 to operand address
-                    let addr = cpu.instruction.operand_addr;
-                    cpu.read_idle(addr);
                     if cpu.instruction.zp_crossed { cpu.instruction.operand_addr += 0x100; }
                 },
                 _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
@@ -372,48 +362,36 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         },
         Op::TAX => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.X = cpu.A;
             let x = cpu.X;
             cpu.set_zn_flags(x);
         },
         Op::TAY => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.Y = cpu.A;
             let y = cpu.Y;
             cpu.set_zn_flags(y);
         },
         Op::TXA => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.A = cpu.X;
             let a = cpu.A;
             cpu.set_zn_flags(a);
         },
         Op::TYA => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.A = cpu.Y;
             let a = cpu.A;
             cpu.set_zn_flags(a);
         },
         Op::TSX => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.X = cpu.SP;
             let x = cpu.X;
             cpu.set_zn_flags(x);
         },
         Op::TXS => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.SP = cpu.X;
         },
         Op::PHA => {
@@ -421,8 +399,6 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
             {
                 2 => {
                     if cpu.ba_low { return false; }
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc);
                 },
                 1 => {
                     let a = cpu.A;
@@ -436,8 +412,6 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
             {
                 2 => {
                     if cpu.ba_low { return false; }
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc);
                 },
                 1 => {
                     let p = cpu.P;
@@ -451,14 +425,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
             if cpu.ba_low { return false; }
             match cpu.instruction.cycles_to_run
             {
-                3 => {
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc);
-                },
-                2 => {
-                    let sp = cpu.SP as u16;
-                    cpu.read_idle(sp+1);
-                },
+                3 | 2 => {},
                 1 => {
                     let a = cpu.pop_byte();
                     cpu.A = a;
@@ -471,14 +438,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
             if cpu.ba_low { return false; }
             match cpu.instruction.cycles_to_run
             {
-                3 => {
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc);
-                },
-                2 => {
-                    let sp = cpu.SP as u16;
-                    cpu.read_idle(sp+1);
-                },
+                3 | 2 => {},
                 1 => {
                     // TODO: opflags
                     let p = cpu.pop_byte();
@@ -555,16 +515,12 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         },
         Op::INX => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.X = (Wrapping(cpu.X) + Wrapping(0x01)).0;
             let x = cpu.X;
             cpu.set_zn_flags(x);
         },
         Op::INY => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.Y = (Wrapping(cpu.Y) + Wrapping(0x01)).0;
             let y = cpu.Y;
             cpu.set_zn_flags(y);
@@ -577,16 +533,12 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         },
         Op::DEX => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.X = (Wrapping(cpu.X) - Wrapping(0x01)).0;
             let x = cpu.X;
             cpu.set_zn_flags(x);
         },
         Op::DEY => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.Y = (Wrapping(cpu.Y) - Wrapping(0x01)).0;
             let y = cpu.Y;
             cpu.set_zn_flags(y);
@@ -679,8 +631,6 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
                 },
                 1  => {
                     if cpu.ba_low { return false; }
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc);
                     cpu.PC = cpu.instruction.operand_addr;
                 },
                 _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
@@ -691,14 +641,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
 
             match cpu.instruction.cycles_to_run
             {
-                5 => {
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc);
-                },
-                4 => {
-                    let sp = cpu.SP as u16;
-                    cpu.read_idle(sp + 1);
-                },
+                5 | 4 => {},
                 3 => {
                     let pc_lo = cpu.pop_byte() as u16;
                     cpu.PC = pc_lo;
@@ -708,8 +651,6 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
                     cpu.PC |= pc_hi << 8;
                 },
                 1  => {
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc+1);
                     cpu.PC += 1;
                 },
                 _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
@@ -793,44 +734,30 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         },
         Op::CLC => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.set_status_flag(cpu::StatusFlag::Carry, false);
         },
         Op::CLD => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.set_status_flag(cpu::StatusFlag::DecimalMode, false);
         },
         Op::CLI => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.set_status_flag(cpu::StatusFlag::InterruptDisable, false);
         },
         Op::CLV => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.set_status_flag(cpu::StatusFlag::Overflow, false);
         },
         Op::SEC => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.set_status_flag(cpu::StatusFlag::Carry, true);
         },
         Op::SED => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.set_status_flag(cpu::StatusFlag::DecimalMode, true);
         },
         Op::SEI => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
             cpu.set_status_flag(cpu::StatusFlag::InterruptDisable, true);
         },
         Op::BRK => { // TODO: is this ok? do we have to break down new PC value to 2 cycles? read_word ok here?
@@ -838,8 +765,6 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
             {
                 6 => {
                     if cpu.ba_low { return false; }
-                    let pc = cpu.PC + 0x0001;
-                    cpu.read_idle(pc);
                 },
                 5 => {
                     let pc = cpu.PC + 0x0001;
@@ -872,22 +797,13 @@ pub fn run(cpu: &mut cpu::CPU) -> bool
         },
         Op::NOP => {
             if cpu.ba_low { return false; }
-            let pc = cpu.PC;
-            cpu.read_idle(pc);
         },
         Op::RTI => { // TODO is this ok?
             if cpu.ba_low { return false; }
 
             match cpu.instruction.cycles_to_run
             {
-                5 => {
-                    let pc = cpu.PC;
-                    cpu.read_idle(pc);
-                },
-                4 => {
-                    let sp = cpu.SP as u16;
-                    cpu.read_idle(sp + 1);
-                },
+                5 | 4 => {},
                 3 => {
                     let p = cpu.pop_byte();
                     cpu.P = p;

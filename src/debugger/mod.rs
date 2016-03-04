@@ -64,12 +64,12 @@ impl Debugger
         if self.debug_window.is_open() {
             self.draw_border();
 
-            let homePressed = self.debug_window.is_key_pressed(Key::Home, KeyRepeat::No);
-            let endPressed = self.debug_window.is_key_pressed(Key::End, KeyRepeat::No);
+            let home_pressed = self.debug_window.is_key_pressed(Key::Home, KeyRepeat::No);
+            let end_pressed = self.debug_window.is_key_pressed(Key::End, KeyRepeat::No);
 
-            if homePressed || endPressed
+            if home_pressed || end_pressed
             {
-                if homePressed {
+                if home_pressed {
                     if self.draw_mode == 0
                     {
                         self.draw_mode = 4;
@@ -80,7 +80,7 @@ impl Debugger
                     }
                 }
 
-                if endPressed {
+                if end_pressed {
                     if self.draw_mode == 4
                     {
                         self.draw_mode = 0;
@@ -92,7 +92,7 @@ impl Debugger
                 }
 
                 // clear memdump
-                for y in 1..26
+                for y in 0..26
                 {
                     for x in 0..40
                     {
@@ -101,7 +101,7 @@ impl Debugger
                 }
 
                 // clear hex region
-                for y in 29..54
+                for y in 28..54
                 {
                     for x in 0..80
                     {
@@ -218,6 +218,13 @@ impl Debugger
         {
             for x in 0..40
             {
+                if start >= 0xDC10 && start < 0xDD00
+                {
+                    hex_offset_x += 1;
+                    start += 1;
+                    continue;
+                }
+                
                 let byte = cpu.borrow_mut().read_byte(start);
                 self.font.draw_char(&mut self.window_buffer, DEBUG_W, 8*x as usize, 8 + 8*y as usize, byte, 0x05);
 
@@ -225,7 +232,7 @@ impl Debugger
                 hex_offset_x += 1;
                 start += 1;
 
-                if start == 0xDE00 { return; }
+                if start == 0xDD10 { return; }
             }
 
             hex_offset_x = 0;
@@ -254,7 +261,7 @@ impl Debugger
                 hex_offset_x += 1;
                 start += 1;
 
-                if start == 0xD500 { return; }
+                if start == 0xD420 { return; }
             }
 
             hex_offset_x = 0;

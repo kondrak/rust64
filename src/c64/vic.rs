@@ -168,8 +168,7 @@ pub struct VIC
 }
 
 impl VIC
-{    
-    //pub fn new_shared(renderer: &sdl2::render::Renderer) -> VICShared
+{
     pub fn new_shared() -> VICShared
     {
         Rc::new(RefCell::new(VIC

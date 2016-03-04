@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 use utils;
-//use std::ops::{Index, Deref, DerefMut};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -16,7 +15,7 @@ pub enum MemType
 }
 
 // specific memory bank - RAM, ROM, IO
-struct MemBank
+pub struct MemBank
 {
     bank_type: MemType, // what am I?
     read_only: bool,    // RAM or ROM?
@@ -80,7 +79,6 @@ impl MemBank
         {
             MemType::RAM => self.data[(addr - self.offset) as usize] = val,
             MemType::IO => {
-                // TODO: IO access has specific behavior depending on address
                 match addr
                 {
                     0xD016          => self.data[(addr - self.offset) as usize] = 0xC0 | val,
@@ -103,7 +101,6 @@ impl MemBank
         match self.bank_type
         {
             MemType::IO => {
-                // TODO: IO access has specific behavior depending on address
                 match addr
                 {
                     0xD016          => 0xC0 | self.data[(addr - self.offset) as usize],
@@ -116,8 +113,8 @@ impl MemBank
                         value
                     },
                     0xD020...0xD02E => 0xF0 | self.data[(addr - self.offset) as usize],
-                    0xD02F...0xD03F => 0xFF,                              // always returns 0xFF
-                    0xD040...0xD3FF => self.read(0xD000 + (addr % 0x0040)),          // same as 0xD000-0xD03F
+                    0xD02F...0xD03F => 0xFF,                                 // always returns 0xFF
+                    0xD040...0xD3FF => self.read(0xD000 + (addr % 0x0040)),  // same as 0xD000-0xD03F
                     _ => self.data[(addr - self.offset) as usize]
                 }
             },
@@ -125,36 +122,6 @@ impl MemBank
         }
     }    
 }
-
-/*impl Index<u16> for MemBank
-{
-    type Output = u8;
-
-    fn index<'a>(&'a self, _index: u16) -> &'a u8
-    {
-        &self.data[_index as usize]
-    }
-}
-
-impl Deref for MemBank
-{
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Vec<u8>
-    {
-        &self.data
-    }
-}
-
-impl DerefMut for MemBank
-{
-    fn deref_mut(&mut self) -> &mut Vec<u8>
-    {
-        &mut self.data
-    }
-}*/
-
-
 
 // collective memory storage with all the banks and bank switching support
 pub struct Memory
@@ -168,10 +135,10 @@ pub struct Memory
     // bank switching flags
     pub basic_on:   bool,
     pub chargen_on: bool,
-    pub io_on:  bool,
+    pub io_on:      bool,
     pub kernal_on:  bool,
-    cart_lo_on: bool, // cart flag - unused for now
-    cart_hi_on: bool  // cart flag - unused for now
+    //cart_lo_on: bool, // cart flag - unused for now
+    //cart_hi_on: bool  // cart flag - unused for now
 }
 
 impl Memory
@@ -189,8 +156,6 @@ impl Memory
             chargen_on: false,
             io_on:      false,
             kernal_on:  false,
-            cart_lo_on: false, // unused for now
-            cart_hi_on: false, // unused for now
         }))
     }
     
@@ -241,15 +206,16 @@ impl Memory
         self.write_byte(0x0001, 0x07); // enable kernal, chargen and basic ROMs
     }
 
-    fn update_bank_flags(&mut self)
+    fn update_memory_latch(&mut self)
     {
-        // latch state is determined by 3 least significant bits from this location
-        let latch = self.ram.read(0x0001) & 0x07;
+        let ddr = self.ram.read(0x0000);
+        let pr  = self.ram.read(0x0001);
+        let latch = !ddr | pr;
 
         self.chargen_on = ((latch & 0x04) == 0) && ((latch & 0x03) != 0); // %0xx except %000
         self.io_on      = ((latch & 0x04) != 0) && ((latch & 0x03) != 0); // %1xx except %100
-        self.basic_on   = (latch & 0x03) == 0x03;
-        self.kernal_on  = self.basic_on || ((latch & 0x03) == 0x02);
+        self.basic_on   = (latch & 0x03) == 3;
+        self.kernal_on  = (latch & 0x02) != 0;
     }
     
     // Write a byte to memory - returns whether RAM was written (true) or RAM under ROM (false)
@@ -268,7 +234,7 @@ impl Memory
         
         // update the bank switching flags here, since they can only change on memory write
         // latch byte changed - update bank switching flags
-        if addr == 0x0001 { self.update_bank_flags(); }
+        if addr < 0x0002 { self.update_memory_latch(); }
         
         return true;
     }
@@ -276,6 +242,14 @@ impl Memory
     // Read a byte from memory
     pub fn read_byte(&mut self, addr: u16) -> u8
     {
+        // special location: current memory latch settings
+        if addr == 0x0001
+        {
+            let ddr = self.ram.read(0x0000);
+            let pr  = self.ram.read(0x0001);
+            return (ddr & pr) | (!ddr & 0x17);
+        }
+        
         self.get_bank(addr).read(addr)
     }
 
@@ -290,15 +264,6 @@ impl Memory
         value_le
     }
 
-    // Read a word from memory (stored in big endian: swap low<->high)
-    pub fn read_word_be(&mut self, addr: u16) -> u16
-    {
-        let bank = self.get_bank(addr);
-        let value_le: u16 = ((bank.read(addr) as u16) << 8 & 0xFF00) |
-                            ((bank.read(addr + 0x0001) as u16) & 0x00FF);
-        value_le
-    }
-
     // Write word in little endian format (low/high)
     pub fn write_word_le(&mut self, addr: u16, value: u16) -> bool
     {
@@ -307,18 +272,6 @@ impl Memory
 
         let hi = self.write_byte(addr, value_le_lo);
         let lo = self.write_byte(addr + 0x0001, value_le_hi);
-
-        return hi && lo;
-    }
-
-    // Write word in big endian format (high/low)
-    pub fn write_word_be(&mut self, addr: u16, value: u16) -> bool
-    {
-        let value_le_lo: u8 = (((value << 8) & 0xFF00) >> 8 & 0xFF) as u8;
-        let value_le_hi: u8 = ((value >> 8) & 0x00FF) as u8;
-
-        let hi = self.write_byte(addr, value_le_hi);
-        let lo = self.write_byte(addr + 0x0001, value_le_lo);
 
         return hi && lo;
     }
