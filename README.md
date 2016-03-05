@@ -42,11 +42,24 @@ cargo run --release x2 debugger tests/bgcolor.prg
 C64 and special key mappings
 -------------------
 ```
-ESC   - Run/Stop
-END   - Restore
-LCTRL - C=
-F11   - start asm output to console (very slow!)
-F12   - reset C64
+ESC     - Run/Stop
+END     - Restore
+TAB     - Control
+LCTRL   - C=
+`       - <-
+-       - +
+INS     - &
+HOME    - CLR/Home
+[       - @
+]       - *
+DEL     - ^
+;       - :
+'       - ;
+\       - =
+F11     - start asm output to console (very slow!)
+F12     - reset C64
+RCTRL   - joystick fire button
+NUMLOCK - toggle between joystick ports 1 and 2 (default: port 2)
 
 In debugger window:
 PGUP/PGDWN - flip currently displayed memory page
@@ -63,6 +76,7 @@ Known Issues
 ------------------
 - Due to lack of any serial bus handling, some programs may not perform correctly or get stuck in infinite loops.
 - SID emulation still needs a lot of work
+- elaborate programs that require incredibly precise timing are not running correctly yet
 
 This is an on-off WIP project, so update frequency may vary.
 
@@ -82,3 +96,8 @@ The following has been used to create this emulator:
 - https://t.co/J40UKu7RBf
 - http://www.waitingforfriday.com/index.php/Commodore_SID_6581_Datasheet
 - http://sta.c64.org/cbm64mem.html
+
+Special thanks
+------------------
+- Daniel Collin and Magnus "Pantaloon" Sjöberg for excessive test programs
+- Jake Taylor for general Rust tips
