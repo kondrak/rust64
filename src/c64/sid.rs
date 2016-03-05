@@ -1,7 +1,7 @@
 // SID
 extern crate rand;
 extern crate sdl2;
-use self::sdl2::audio::{AudioCallback, AudioSpecDesired};
+use self::sdl2::audio::{ AudioCallback, AudioSpecDesired };
 use c64::memory;
 use c64::sid_tables::*;
 use std::cell::RefCell;
@@ -14,8 +14,7 @@ const SID_FREQ:    u32 = 985248; // SID frequency in Hz
 pub const SID_CYCLES:  u32 = SID_FREQ / SAMPLE_FREQ;  // SID clocks/sample frame
 const NUM_SAMPLES: usize = 624; // size of buffer for sampled voice
 
-enum WaveForm
-{
+enum WaveForm {
     None,
     Triangle,
     Saw,
@@ -27,8 +26,7 @@ enum WaveForm
     Noise
 }
 
-enum VoiceState
-{
+enum VoiceState {
     Idle,
     Attack,
     Decay,
@@ -36,8 +34,7 @@ enum VoiceState
 }
 
 #[derive(PartialEq)]
-enum FilterType
-{
+enum FilterType {
     None,
     Lowpass,
     Bandpass,
@@ -48,16 +45,15 @@ enum FilterType
     All
 }
 
-struct SIDVoice
-{
+struct SIDVoice {
     wave: WaveForm,
     state: VoiceState,
     modulator: usize,   // number of voice that modulates this voice
     modulatee: usize,   // number of voice that this voice modulates
-    wf_cnt: u32,     // waveform counter
-    wf_add: u32,     // value to add to wf_cnt each frame
+    wf_cnt: u32,        // waveform counter
+    wf_add: u32,        // value to add to wf_cnt each frame
     freq: u16,
-    pw_val: u16,     // pulse-width value
+    pw_val: u16,        // pulse-width value
     attack_add: u32,
     decay_sub: u32,
     release_sub: u32,
@@ -72,12 +68,9 @@ struct SIDVoice
     mute: bool     // only voice 3 can be muted
 }
 
-impl SIDVoice
-{
-    fn new() -> SIDVoice
-    {
-        SIDVoice
-        {
+impl SIDVoice {
+    fn new() -> SIDVoice {
+        SIDVoice {
             wave: WaveForm::None,
             state: VoiceState::Idle,
             modulator: 0,
@@ -102,18 +95,16 @@ impl SIDVoice
     }
 }
 
-impl SIDVoice
-{
-    fn reset(&mut self)
-    {
-        self.wave = WaveForm::None;
+impl SIDVoice {
+    fn reset(&mut self) {
+        self.wave  = WaveForm::None;
         self.state = VoiceState::Idle;
         self.wf_cnt = 0;
         self.wf_add = 0;
-        self.freq = 0;
+        self.freq   = 0;
         self.pw_val = 0;
-        self.attack_add = EG_TABLE[0];
-        self.decay_sub = EG_TABLE[0];
+        self.attack_add  = EG_TABLE[0];
+        self.decay_sub   = EG_TABLE[0];
         self.release_sub = EG_TABLE[0];
         self.sustain_level = 0;
         self.level = 0;
@@ -127,8 +118,7 @@ impl SIDVoice
     }
 }
 
-struct SIDAudioDevice
-{
+struct SIDAudioDevice {
     last_sid_byte: u8,
     volume: u8,
     filter_type: FilterType,
@@ -149,19 +139,15 @@ struct SIDAudioDevice
     voices: Vec<SIDVoice>,
     sample_buffer: [u8; NUM_SAMPLES],
     sample_idx: usize,
-    rng: u32
 }
 
-pub struct SID
-{
+pub struct SID {
     mem_ref: Option<memory::MemShared>,
     audio_device: sdl2::audio::AudioDevice<SIDAudioDevice>,
 }
 
-impl SID
-{
-    pub fn new_shared() -> SIDShared
-    {
+impl SID {
+    pub fn new_shared() -> SIDShared {
         let sdl_context = sdl2::init().unwrap();
         let audio_subsystem = sdl_context.audio().unwrap();
 
@@ -171,8 +157,7 @@ impl SID
             samples: Some(512), // default sample size
         };
         
-        Rc::new(RefCell::new(SID
-        {
+        Rc::new(RefCell::new(SID {
             mem_ref: None,
             audio_device: audio_subsystem.open_playback(None, &desired_spec, |spec| {
                 println!("{:?}", spec);
@@ -181,66 +166,57 @@ impl SID
         }))
     }
 
-    pub fn set_references(&mut self, memref: memory::MemShared)
-    {
+    pub fn set_references(&mut self, memref: memory::MemShared) {
         self.mem_ref = Some(memref);
     }
 
-    pub fn reset(&mut self)
-    {
+    pub fn reset(&mut self) {
         let mut lock = self.audio_device.lock();
         (*lock).reset();
     }
 
-    pub fn read_register(&mut self, addr: u16) -> u8
-    {
+    pub fn read_register(&mut self, addr: u16) -> u8 {
         let mut rval = 0;
-        match addr
-        {
+
+        match addr {
             0xD419...0xD41A => {
                 let mut lock = self.audio_device.lock();
                 rval = (*lock).read_register(addr);
-                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, rval);
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, rval);
             },
             0xD41B...0xD41C => {
                 let mut lock = self.audio_device.lock();
                 rval = (*lock).read_register(addr);
-                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, rval);
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, rval);
             },
-            0xD420...0xD7FF => { rval = self.read_register(0xD400 + (addr % 0x0020)); },
+            0xD420...0xD7FF =>  { rval = self.read_register(0xD400 + (addr % 0x0020)); },
             _               =>  {
-                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, rval);
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, rval);
             }
         }
 
         rval
     }
 
-    pub fn write_register(&mut self, addr: u16, value: u8)
-    {
+    pub fn write_register(&mut self, addr: u16, value: u8) {
         let mut lock = self.audio_device.lock();
         (*lock).write_register(addr, value);
-        as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
+        as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
     }
 
-    pub fn update(&mut self)
-    {
+    pub fn update(&mut self) {
         let mut lock = self.audio_device.lock();
         (*lock).update();
     }
 
-    pub fn update_audio(&mut self)
-    {
+    pub fn update_audio(&mut self) {
         self.audio_device.resume();
     }
 }
 
-impl SIDAudioDevice
-{
-    pub fn new() -> SIDAudioDevice
-    {
-        let mut sid_audio_device = SIDAudioDevice
-        {
+impl SIDAudioDevice {
+    pub fn new() -> SIDAudioDevice {
+        let mut sid_audio_device = SIDAudioDevice {
             last_sid_byte: 0,
             voices: vec![SIDVoice::new(), SIDVoice::new(), SIDVoice::new()],
             volume: 0,
@@ -257,15 +233,12 @@ impl SIDAudioDevice
             yn1: 0.0,
             yn2: 0.0,
             sample_buffer: [0; NUM_SAMPLES],
-            sample_idx: 0,
-            rng: 1
+            sample_idx: 0
         };
        
         // calculate triangle table values
-        unsafe
-        {
-            for i in 0..0x1000
-            {
+        unsafe {
+            for i in 0..0x1000 {
                 let val = ((i << 4) | (i >> 8)) as u16;
                 TRI_TABLE[i] = val;
                 TRI_TABLE[0x1FFF - i] = val;
@@ -282,12 +255,10 @@ impl SIDAudioDevice
         sid_audio_device
     }
 
-    pub fn reset(&mut self)
-    {
+    pub fn reset(&mut self) {
         self.last_sid_byte = 0;
 
-        for i in 0..self.voices.len()
-        {
+        for i in 0..self.voices.len() {
             self.voices[i].reset();
         }
 
@@ -307,35 +278,30 @@ impl SIDAudioDevice
         self.sample_idx = 0;
         self.calculate_filter();
 
-        for i in 0..NUM_SAMPLES
-        {
+        for i in 0..NUM_SAMPLES {
             self.sample_buffer[i] = 0;
         }
     }
 
-    fn lowpass_resonance(&self, f: f32) -> f32
-    {
+    fn lowpass_resonance(&self, f: f32) -> f32 {
         let f2 = f * f;
         let f3 = f2 * f;
         let f4 = f3 * f;
         227.755 - 1.7635 * f - 0.0176385 * f2 + 0.00333484 * f3 - 9.05683E-6 * f4
     }
 
-    fn highpass_resonance(&self, f: f32) -> f32
-    {
+    fn highpass_resonance(&self, f: f32) -> f32 {
         let f2 = f * f;
         let f3 = f2 * f;
         366.374 - 14.0052 * f + 0.603212 * f2 - 0.000880196 * f3
     }    
 
-    fn calculate_filter(&mut self)
-    {
+    fn calculate_filter(&mut self) {
         let f = self.filter_freq as f32;
         let resonance: f32;
         let mut arg: f32;
         
-        match self.filter_type
-        {
+        match self.filter_type {
             FilterType::None => {
                 self.d1 = 0.0;
                 self.d2 = 0.0;
@@ -372,8 +338,7 @@ impl SIDAudioDevice
             _ => ()
         }
 
-        if self.g1.abs() >= (self.g2 + 1.0)
-        {
+        if self.g1.abs() >= (self.g2 + 1.0) {
             if self.g1 > 0.0 { self.g1 = self.g2 + 0.99;    }
             else             { self.g1 = -(self.g2 + 0.99); }
         }
@@ -402,20 +367,11 @@ impl SIDAudioDevice
             _ => ()
         }
     }
-
-    // TODO: maybe replacing with std::rand will suffice?
-    fn get_rand(&mut self) -> u8
-    {
-        self.rng = self.rng * 1103515245 + 12345;
-        (self.rng >> 16) as u8
-    }
     
-    pub fn read_register(&mut self, addr: u16) -> u8
-    {
+    pub fn read_register(&mut self, addr: u16) -> u8 {
         // most SID registers are write-only. The write to IO RAM is performed
         // so that the debugger can print out the value fetched by the CPU
-        match addr
-        {
+        match addr {
             0xD419...0xD41A => {
                 self.last_sid_byte = 0;
                 let rval = 0xFF;
@@ -434,11 +390,10 @@ impl SIDAudioDevice
         }
     }
     
-    pub fn write_register(&mut self, addr: u16, value: u8)
-    {
+    pub fn write_register(&mut self, addr: u16, value: u8) {
         self.last_sid_byte = value;
-        match addr
-        {
+
+        match addr {
             0xD400 => {
                 self.voices[0].freq = (self.voices[0].freq & 0xFF00) | value as u16;
                 self.voices[0].wf_add = SID_CYCLES * self.voices[0].freq as u32;
@@ -515,8 +470,7 @@ impl SIDAudioDevice
                 self.voices[2].release_sub   = EG_TABLE[ (value & 0x0F) as usize ];
             },
             0xD416 => {
-                if self.filter_freq != value
-                {
+                if self.filter_freq != value {
                     self.filter_freq = value;
                     self.calculate_filter();
                 }
@@ -526,8 +480,7 @@ impl SIDAudioDevice
                 self.voices[1].filter = (value & 2) != 0;
                 self.voices[2].filter = (value & 4) != 0;
                 
-                if self.filter_resonance != (value >> 4)
-                {
+                if self.filter_resonance != (value >> 4) {
                     self.filter_resonance = value >> 4;
                     self.calculate_filter();
                 }
@@ -547,8 +500,7 @@ impl SIDAudioDevice
                     _ => panic!("Impossible filter combination!"),
                 };
 
-                if self.filter_type != f_type
-                {
+                if self.filter_type != f_type {
                     self.filter_type = f_type;
                     self.xn1 = 0.0;
                     self.xn2 = 0.0;
@@ -563,8 +515,7 @@ impl SIDAudioDevice
         }
     }
 
-    fn set_control_register(&mut self, v_num: usize, value: u8)
-    {
+    fn set_control_register(&mut self, v_num: usize, value: u8) {
         self.voices[v_num].wave = match (value >> 4) & 0x0F {
             0 => WaveForm::None,
             1 => WaveForm::Triangle,
@@ -583,16 +534,12 @@ impl SIDAudioDevice
         let ring_on = (value & 4) != 0;
         let test_on = (value & 8) != 0;
         
-        if gate_on != self.voices[v_num].gate
-        {
-            if gate_on
-            {
+        if gate_on != self.voices[v_num].gate {
+            if gate_on {
                 self.voices[v_num].state = VoiceState::Attack;
             }
-            else
-            {
-                match self.voices[v_num].state
-                {
+            else {
+                match self.voices[v_num].state {
                     VoiceState::Idle => (),
                     _                => self.voices[v_num].state = VoiceState::Release,
                 }
@@ -604,15 +551,13 @@ impl SIDAudioDevice
             self.voices[v_num].ring = ring_on;
             self.voices[v_num].test = test_on;
 
-            if test_on
-            {
+            if test_on {
                 self.voices[v_num].wf_cnt = 0;
             }
         } 
     }
     
-    pub fn update(&mut self)
-    {
+    pub fn update(&mut self) {
         let idx = self.sample_idx;
         self.sample_buffer[idx] = self.volume;
         self.sample_idx = (self.sample_idx + 1) % NUM_SAMPLES;
@@ -638,38 +583,32 @@ impl AudioCallback for SIDAudioDevice {
             let mut total_output: i32 = (SAMPLE_TABLE[master_volume as usize] as i32) << 8;
             let mut total_output_filter: i32 = 0;
             
-            for i in 0..3
-            {
+            for i in 0..3 {
                 let envelope: f32;
 
                 match self.voices[i].state
                 {
                     VoiceState::Attack => {
                         self.voices[i].level += self.voices[i].attack_add;
-                        if self.voices[i].level > 0xFFFFFF
-                        {
+                        if self.voices[i].level > 0xFFFFFF {
                             self.voices[i].level = 0xFFFFFF;
                             self.voices[i].state = VoiceState::Decay;
                         }
                     },
                     VoiceState::Decay => {
-                        if (self.voices[i].level <= self.voices[i].sustain_level) || (self.voices[i].level > 0xFFFFFF)
-                        {
+                        if (self.voices[i].level <= self.voices[i].sustain_level) || (self.voices[i].level > 0xFFFFFF) {
                             self.voices[i].level = self.voices[i].sustain_level;
                         }
-                        else
-                        {
+                        else {
                             self.voices[i].level -= self.voices[i].decay_sub >> EGDR_SHIFT[ (self.voices[i].level >> 16) as usize ];
-                            if (self.voices[i].level <= self.voices[i].sustain_level) || (self.voices[i].level > 0xFFFFFF)
-                            {
+                            if (self.voices[i].level <= self.voices[i].sustain_level) || (self.voices[i].level > 0xFFFFFF) {
                                 self.voices[i].level = self.voices[i].sustain_level;
                             }
                         }
                     },
                     VoiceState::Release => {
                         self.voices[i].level -= self.voices[i].release_sub >> EGDR_SHIFT[ (self.voices[i].level >> 16) as usize ];
-                        if self.voices[i].level > 0xFFFFFF
-                        {
+                        if self.voices[i].level > 0xFFFFFF {
                             self.voices[i].level = 0;
                             self.voices[i].state = VoiceState::Idle;
                         }
@@ -683,34 +622,28 @@ impl AudioCallback for SIDAudioDevice {
                 let modulatee = self.voices[i].modulatee;
                 let modulator = self.voices[i].modulator;
                 
-                if self.voices[i].mute
-                {
+                if self.voices[i].mute {
                     continue;
                 }
                 
-                if !self.voices[i].test
-                {
+                if !self.voices[i].test {
                     self.voices[i].wf_cnt += self.voices[i].wf_add;
                 }
 
-                if self.voices[i].sync && (self.voices[i].wf_cnt > 0x1000000)
-                {
+                if self.voices[i].sync && (self.voices[i].wf_cnt > 0x1000000) {
                     self.voices[modulatee].wf_cnt = 0;
                 }
 
                 self.voices[i].wf_cnt &= 0xFFFFFF;
 
                 let mut output: u16 = 0;
-                match self.voices[i].wave
-                {
+                match self.voices[i].wave {
                     WaveForm::Triangle => {
                         unsafe {
-                            if self.voices[i].ring
-                            {
+                            if self.voices[i].ring {
                                 output = TRI_TABLE[((self.voices[i].wf_cnt ^ (self.voices[modulator].wf_cnt & 0x800000)) >> 11) as usize];
                             }
-                            else
-                            {
+                            else {
                                 output = TRI_TABLE[ (self.voices[i].wf_cnt >> 11) as usize ];
                             }
                         }
@@ -719,8 +652,7 @@ impl AudioCallback for SIDAudioDevice {
                         output = (self.voices[i].wf_cnt >> 8) as u16;
                     },
                     WaveForm::Pulse => {
-                        if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
-                        {
+                        if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32 {
                             output = 0xFFFF;
                         }
                     },
@@ -728,33 +660,28 @@ impl AudioCallback for SIDAudioDevice {
                         output = TRI_SAW_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
                     },
                     WaveForm::TriPulse => {
-                        if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
-                        {
+                        if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32 {
                             output = TRI_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
                         }
                     },
                     WaveForm::SawPulse => {
-                        if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
-                        {
+                        if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32 {
                             output = SAW_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
                         }
                     },
                     WaveForm::TriSawPulse => {
-                        if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32
-                        {
+                        if self.voices[i].wf_cnt > (self.voices[i].pw_val << 12) as u32 {
                             output = TRI_SAW_RECT_TABLE[ (self.voices[i].wf_cnt >> 16) as usize ];
                         }
                     },
                     WaveForm::Noise => {
-                        if self.voices[i].wf_cnt > 0x100000
-                        {
-                            let rnd_noise = (self.get_rand() as u16) << 8;
+                        if self.voices[i].wf_cnt > 0x100000 {
+                            let rnd_noise = rand::random::<u16>() << 8;
                             self.voices[i].noise = rnd_noise as u32;
                             output = rnd_noise;
                             self.voices[i].wf_cnt &= 0xFFFFF;
                         }
-                        else
-                        {
+                        else {
                             output = self.voices[i].noise as u16;
                         }
                     },
@@ -763,12 +690,10 @@ impl AudioCallback for SIDAudioDevice {
                     }
                 }
 
-                if self.voices[i].filter
-                {
+                if self.voices[i].filter {
                     total_output_filter += (envelope * ((output >> 3) ^ 0x8000) as f32) as i32;
                 }
-                else
-                {
+                else {
                     total_output += (envelope * ((output >> 3) ^ 0x8000) as f32) as i32;
                 }
             }

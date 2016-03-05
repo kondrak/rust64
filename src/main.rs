@@ -9,25 +9,21 @@ mod debugger;
 
 use minifb::*;
 
-fn main()
-{
-    let args: Vec<String>  = env::args().collect();
+fn main() {
+    let args: Vec<String> = env::args().collect();
 
     let mut load_prg = String::new();
     let mut debugger_on = false;
     let mut window_scale = Scale::X1;
-    for i in 1..args.len()
-    {
-        if args[i] == "debugger"
-        {
+
+    for i in 1..args.len() {
+        if args[i] == "debugger" {
             debugger_on = true;
         }
-        else if args[i] == "x2"
-        {
+        else if args[i] == "x2" {
             window_scale = Scale::X2;
         }
-        else
-        {
+        else {
             load_prg = args[i].clone();
         }
     }
@@ -36,8 +32,7 @@ fn main()
     c64.file_to_load = load_prg;
     c64.reset();
 
-    while c64.window.is_open()
-    {
+    while c64.window.is_open() {
         c64.run();
     }
 }

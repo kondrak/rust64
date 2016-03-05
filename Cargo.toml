@@ -5,6 +5,6 @@ authors = [ "Krzysztof Kondrak <krzysztof.kondrak@gmail.com>" ]
 
 [dependencies]
 sdl2 = "0.15.0"
-minifb = "0.4.0"
+minifb = "0.5.0"
 rand = "0.3.14"
 time = "0.1.34"

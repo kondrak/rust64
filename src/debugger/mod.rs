@@ -18,8 +18,7 @@ const VIC_WRITE_COLOR: u32 = 0x00FF0000;
 const RASTER_COLOR: u32    = 0x000000FF;
 const BADLINE_COLOR: u32   = 0x0000FF00;
 
-pub struct Debugger
-{
+pub struct Debugger {
     debug_window: minifb::Window,
     raster_window: minifb::Window,
     font: font::SysFont,
@@ -29,10 +28,8 @@ pub struct Debugger
     draw_mode: u8,
 }
 
-impl Debugger
-{
-    pub fn new() -> Debugger
-    {
+impl Debugger {
+    pub fn new() -> Debugger {
         let mut dbg = Debugger {
             debug_window: Window::new("Debug window", DEBUG_W, DEBUG_H, WindowOptions { scale: Scale::X2, ..Default::default() }).unwrap(),
             raster_window: Window::new("VIC", RASTER_DEBUG_W, RASTER_DEBUG_H, WindowOptions::default()).unwrap(),
@@ -46,65 +43,52 @@ impl Debugger
         dbg.debug_window.set_position(480, 20);
         dbg.raster_window.set_position(270, 340);
 
-        for y in 1..26
-        {
-            for x in 0..40
-            {
+        for y in 1..26 {
+            for x in 0..40 {
                 dbg.font.draw_char_rgb(&mut dbg.window_buffer, DEBUG_W, 8*x as usize, 8 + 8*y as usize, 102, 0x00101010);
             }
         }
 
-        dbg.draw_raster_window_txt();
-        
+        dbg.draw_raster_window_txt();        
         dbg
     }
 
-    pub fn render(&mut self, cpu: &mut c64::cpu::CPUShared, memory: &mut c64::memory::MemShared)
-    {
+    pub fn render(&mut self, cpu: &mut c64::cpu::CPUShared, memory: &mut c64::memory::MemShared) {
         if self.debug_window.is_open() {
             self.draw_border();
 
             let home_pressed = self.debug_window.is_key_pressed(Key::Home, KeyRepeat::No);
-            let end_pressed = self.debug_window.is_key_pressed(Key::End, KeyRepeat::No);
+            let end_pressed  = self.debug_window.is_key_pressed(Key::End, KeyRepeat::No);
 
-            if home_pressed || end_pressed
-            {
+            if home_pressed || end_pressed {
                 if home_pressed {
-                    if self.draw_mode == 0
-                    {
+                    if self.draw_mode == 0 {
                         self.draw_mode = 4;
                     }
-                    else
-                    {
+                    else {
                         self.draw_mode -= 1;
                     }
                 }
 
                 if end_pressed {
-                    if self.draw_mode == 4
-                    {
+                    if self.draw_mode == 4 {
                         self.draw_mode = 0;
                     }
-                    else
-                    {
+                    else {
                         self.draw_mode += 1;
                     }
                 }
 
                 // clear memdump
-                for y in 0..26
-                {
-                    for x in 0..40
-                    {
+                for y in 0..26 {
+                    for x in 0..40 {
                         self.font.draw_char_rgb(&mut self.window_buffer, DEBUG_W, 8*x as usize, 8 + 8*y as usize, 102, 0x00101010);
                     }
                 }
 
                 // clear hex region
-                for y in 28..54
-                {
-                    for x in 0..80
-                    {
+                for y in 28..54 {
+                    for x in 0..80 {
                         self.clear_char(x, y);
                     }
                 }
@@ -132,17 +116,20 @@ impl Debugger
         }
     }
 
-    fn draw_ram(&mut self, memory: &mut c64::memory::MemShared)
-    {
-        if self.debug_window.is_key_pressed(Key::PageUp, KeyRepeat::Yes)
-        {
+    fn draw_ram(&mut self, memory: &mut c64::memory::MemShared) {
+        if self.debug_window.is_key_pressed(Key::PageUp, KeyRepeat::Yes) {
             self.mempage_offset += 0x400;
-            if self.mempage_offset > 0xFC00 { self.mempage_offset = 0; }
+
+            if self.mempage_offset > 0xFC00 {
+                self.mempage_offset = 0;
+            }
         }
 
-        if self.debug_window.is_key_pressed(Key::PageDown, KeyRepeat::Yes)
-        {
-            if self.mempage_offset == 0x0000 { self.mempage_offset = 0x10000; }
+        if self.debug_window.is_key_pressed(Key::PageDown, KeyRepeat::Yes) {
+            if self.mempage_offset == 0x0000 {
+                self.mempage_offset = 0x10000;
+            }
+
             self.mempage_offset -= 0x400;
         }
         
@@ -156,11 +143,9 @@ impl Debugger
 
         let mut hex_offset_x = 0;
 
-        for y in 0..26
-        {
-            for x in 0..40
-            {
-                let byte = memory.borrow_mut().get_ram_bank(c64::memory::MemType::RAM).read(start);
+        for y in 0..26 {
+            for x in 0..40 {
+                let byte = memory.borrow_mut().get_ram_bank(c64::memory::MemType::Ram).read(start);
                 self.font.draw_char(&mut self.window_buffer, DEBUG_W, 8*x as usize, 8 + 8*y as usize, byte, 0x05);
 
                 self.draw_hex(hex_offset_x + x as usize, 28 + y as usize, byte);
@@ -174,8 +159,7 @@ impl Debugger
         }
     }
 
-    fn draw_vic(&mut self, memory: &mut c64::memory::MemShared)
-    {
+    fn draw_vic(&mut self, memory: &mut c64::memory::MemShared) {
         let mut start = 0xD000;
 
         let mut title = Vec::new();
@@ -185,26 +169,25 @@ impl Debugger
         
         let mut hex_offset_x = 0;
 
-        for y in 0..25
-        {
-            for x in 0..40
-            {
-                let byte = memory.borrow_mut().get_ram_bank(c64::memory::MemType::IO).read(start);
+        for y in 0..25 {
+            for x in 0..40 {
+                let byte = memory.borrow_mut().get_ram_bank(c64::memory::MemType::Io).read(start);
                 self.font.draw_char(&mut self.window_buffer, DEBUG_W, 8*x as usize, 8 + 8*y as usize, byte, 0x05);
 
                 self.draw_hex(hex_offset_x + x as usize, 28 + y as usize, byte);
                 hex_offset_x += 1;
                 start += 1;
 
-                if start == 0xD040 { return; }
+                if start == 0xD040 {
+                    return;
+                }
             }
 
             hex_offset_x = 0;
         }
     }
 
-    fn draw_cia(&mut self, cpu: &mut c64::cpu::CPUShared)
-    {
+    fn draw_cia(&mut self, cpu: &mut c64::cpu::CPUShared) {
         let mut start = 0xDC00;
 
         let mut title = Vec::new();
@@ -214,12 +197,9 @@ impl Debugger
         
         let mut hex_offset_x = 0;
 
-        for y in 0..25
-        {
-            for x in 0..40
-            {
-                if start >= 0xDC10 && start < 0xDD00
-                {
+        for y in 0..25 {
+            for x in 0..40 {
+                if start >= 0xDC10 && start < 0xDD00 {
                     hex_offset_x += 1;
                     start += 1;
                     continue;
@@ -232,15 +212,16 @@ impl Debugger
                 hex_offset_x += 1;
                 start += 1;
 
-                if start == 0xDD10 { return; }
+                if start == 0xDD10 {
+                    return;
+                }
             }
 
             hex_offset_x = 0;
         }
     }
 
-    fn draw_sid(&mut self, memory: &mut c64::memory::MemShared)
-    {
+    fn draw_sid(&mut self, memory: &mut c64::memory::MemShared) {
         let mut start = 0xD400;
 
         let mut title = Vec::new();
@@ -250,26 +231,25 @@ impl Debugger
         
         let mut hex_offset_x = 0;
 
-        for y in 0..25
-        {
-            for x in 0..40
-            {
-                let byte = memory.borrow_mut().get_ram_bank(c64::memory::MemType::IO).read(start);
+        for y in 0..25 {
+            for x in 0..40 {
+                let byte = memory.borrow_mut().get_ram_bank(c64::memory::MemType::Io).read(start);
                 self.font.draw_char(&mut self.window_buffer, DEBUG_W, 8*x as usize, 8 + 8*y as usize, byte, 0x05);
 
                 self.draw_hex(hex_offset_x + x as usize, 28 + y as usize, byte);
                 hex_offset_x += 1;
                 start += 1;
 
-                if start == 0xD420 { return; }
+                if start == 0xD420 {
+                    return;
+                }
             }
 
             hex_offset_x = 0;
         }
     }
 
-    fn draw_color_ram(&mut self, memory: &mut c64::memory::MemShared)
-    {
+    fn draw_color_ram(&mut self, memory: &mut c64::memory::MemShared) {
         let mut start = 0xD800;
 
         let mut title = Vec::new();
@@ -279,43 +259,44 @@ impl Debugger
         
         let mut hex_offset_x = 0;
 
-        for y in 0..25
-        {
-            for x in 0..40
-            {
-                let byte = memory.borrow_mut().get_ram_bank(c64::memory::MemType::IO).read(start);
+        for y in 0..25 {
+            for x in 0..40 {
+                let byte = memory.borrow_mut().get_ram_bank(c64::memory::MemType::Io).read(start);
                 self.font.draw_char(&mut self.window_buffer, DEBUG_W, 8*x as usize, 8 + 8*y as usize, byte, 0x05);
 
                 self.draw_hex(hex_offset_x + x as usize, 28 + y as usize, byte);
                 hex_offset_x += 1;
                 start += 1;
 
-                if start == 0xDC00 { return; }
+                if start == 0xDC00 {
+                    return;
+                }
             }
 
             hex_offset_x = 0;
         }
     }
 
-    fn draw_hex(&mut self, x_pos: usize, y_pos: usize, byte: u8 )
-    {
+    fn draw_hex(&mut self, x_pos: usize, y_pos: usize, byte: u8 ) {
         let mut hex_value = Vec::new();
         let _ = write!(&mut hex_value, "{:02X}", byte);
         
         let mut base_color = utils::fetch_c64_color_rgba(byte >> 4);
-        if base_color == 0 { base_color = 0x00333333; }
-        //self.set_saturation(&mut base_color, (byte >> 4) as f64 / 15.0);
+        if base_color == 0 {
+            base_color = 0x00333333;
+        }
         
         // all black? make it at least somewhat visible
-        if byte == 0 { base_color = 0x00101010; }
+        if byte == 0 {
+            base_color = 0x00101010;
+        }
         
         self.font.draw_text_rgb(&mut self.window_buffer, DEBUG_W, x_pos, y_pos, &String::from_utf8(hex_value).unwrap().to_owned()[..], base_color);        
     }
 
-    fn draw_data(&mut self, memory: &mut c64::memory::MemShared)
-    {
-        let d018 = memory.borrow_mut().get_ram_bank(c64::memory::MemType::IO).read(0xD018);
-        let dd00 = memory.borrow_mut().get_ram_bank(c64::memory::MemType::IO).read(0xDD00);
+    fn draw_data(&mut self, memory: &mut c64::memory::MemShared) {
+        let d018 = memory.borrow_mut().get_ram_bank(c64::memory::MemType::Io).read(0xD018);
+        let dd00 = memory.borrow_mut().get_ram_bank(c64::memory::MemType::Io).read(0xDD00);
         
         let mut vmatrix_txt = Vec::new();
         let mut char_txt = Vec::new();
@@ -335,10 +316,9 @@ impl Debugger
         self.font.draw_text(&mut self.window_buffer, DEBUG_W, 51, 6, &String::from_utf8(bank_txt).unwrap().to_owned()[..], 0x0E);
     }
 
-    fn draw_gfx_mode(&mut self, memory: &mut c64::memory::MemShared)
-    {
-        let d011 = memory.borrow_mut().get_ram_bank(c64::memory::MemType::IO).read(0xD011);
-        let d016 = memory.borrow_mut().get_ram_bank(c64::memory::MemType::IO).read(0xD016);
+    fn draw_gfx_mode(&mut self, memory: &mut c64::memory::MemShared) {
+        let d011 = memory.borrow_mut().get_ram_bank(c64::memory::MemType::Io).read(0xD011);
+        let d016 = memory.borrow_mut().get_ram_bank(c64::memory::MemType::Io).read(0xD016);
         let ecm_on = (d011 & 0x40) != 0;
         let mcm_on = (d016 & 0x10) != 0;
         let bmp_on = (d011 & 0x20) != 0;
@@ -349,8 +329,7 @@ impl Debugger
         self.font.draw_text(&mut self.window_buffer, DEBUG_W, 67, 1, "MCM", if mcm_on { 0x0A } else { 0x0B });
     }
 
-    fn draw_latch_status(&mut self, memory: &mut c64::memory::MemShared)
-    {
+    fn draw_latch_status(&mut self, memory: &mut c64::memory::MemShared) {
         let basic_on = memory.borrow_mut().basic_on;
         let chargen_on = memory.borrow_mut().chargen_on;
         let io_on = memory.borrow_mut().io_on;
@@ -362,8 +341,7 @@ impl Debugger
         self.font.draw_text(&mut self.window_buffer, DEBUG_W, 68, 25, "KERNAL", if kernal_on { 0x0A } else { 0x0B });
     }    
 
-    fn draw_cpu(&mut self, cpu: &mut c64::cpu::CPUShared)
-    {
+    fn draw_cpu(&mut self, cpu: &mut c64::cpu::CPUShared) {
         let mut pc_txt = Vec::new();
         let mut a_txt = Vec::new();
         let mut x_txt = Vec::new();
@@ -391,16 +369,13 @@ impl Debugger
         self.font.draw_text(&mut self.window_buffer, DEBUG_W, 61, 23, &String::from_utf8(p_txt).unwrap().to_owned()[..], 0x0E);
     }
 
-    fn draw_border(&mut self)
-    {
-        for x in 0..80
-        {
+    fn draw_border(&mut self) {
+        for x in 0..80 {
             self.font.draw_char(&mut self.window_buffer, DEBUG_W, 8*x as usize, 0, 64, 0x0B);
             self.font.draw_char(&mut self.window_buffer, DEBUG_W, 8*x as usize, 8*27, 64, 0x0B);
         }
         
-        for y in 1..27
-        {
+        for y in 1..27 {
             self.font.draw_char(&mut self.window_buffer, DEBUG_W, 8*40, 8*y as usize, 66, 0x0B);
         }
 
@@ -408,11 +383,11 @@ impl Debugger
         self.font.draw_char(&mut self.window_buffer, DEBUG_W, 8*40, 8*27, 113, 0x0B);
     }
 
-    pub fn update_raster_window(&mut self, vic: &mut c64::vic::VICShared)
-    {
+    pub fn update_raster_window(&mut self, vic: &mut c64::vic::VICShared) {
         if !self.raster_window.is_open() {
             return;
         }
+
         let x = vic.borrow_mut().curr_cycle;
         let y = vic.borrow_mut().raster_cnt;
         let is_bad_line = vic.borrow_mut().is_bad_line;
@@ -429,8 +404,7 @@ impl Debugger
     }
 
     // one-time text draw for VIC raster window
-    fn draw_raster_window_txt(&mut self)
-    {    
+    fn draw_raster_window_txt(&mut self) {    
         self.font.draw_text_rgb(&mut self.raster_buffer, RASTER_DEBUG_W, 10, 3, "*VIC events*", utils::fetch_c64_color_rgba(0x0F));
         self.font.draw_text_rgb(&mut self.raster_buffer, RASTER_DEBUG_W, 11, 5, "Border on", BORDER_COLOR);
         self.font.draw_text_rgb(&mut self.raster_buffer, RASTER_DEBUG_W, 11, 6, "Bad line", BADLINE_COLOR);
@@ -438,14 +412,12 @@ impl Debugger
         self.font.draw_text_rgb(&mut self.raster_buffer, RASTER_DEBUG_W, 11, 8, "Raster IRQ", RASTER_COLOR);
     }
     
-    fn clear_char(&mut self, x_pos: usize, y_pos: usize)
-    {
+    fn clear_char(&mut self, x_pos: usize, y_pos: usize) {
         self.font.draw_text(&mut self.window_buffer, DEBUG_W, x_pos, y_pos, " ", 0x00);
     }
 
 
-    fn mix_colors(&self, new: u32, old: u32, alpha: f32) -> u32
-    {
+    fn mix_colors(&self, new: u32, old: u32, alpha: f32) -> u32 {
         let rn = ((new >> 16) & 0xFF) as f32;
         let gn = ((new >> 8) & 0xFF) as f32;
         let bn = (new & 0xFF) as f32;

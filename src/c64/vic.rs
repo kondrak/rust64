@@ -7,27 +7,27 @@ use std::num::Wrapping;
 use c64;
 use utils;
 
-static SKIP_FRAMES: u16 = 2;
+const SKIP_FRAMES: u16 = 2;
 
 pub type VICShared = Rc<RefCell<VIC>>;
 
 // number of rasterlines for PAL (0x138)
-static NUM_RASTERLINES: u16 = 312;
+const NUM_RASTERLINES: u16 = 312;
 
-static FIRST_DISP_LINE: u16 = 0x10;
-static LAST_DISP_LINE: u16 = 0x11f;
+const FIRST_DISP_LINE: u16 = 0x10;
+const LAST_DISP_LINE: u16 = 0x11f;
 
 // first and last possible lines for bad lines
-static FIRST_DMA_LINE: u16 = 0x30;
-static LAST_DMA_LINE: u16  = 0xF7;
+const FIRST_BADLINE: u16 = 0x30;
+const LAST_BADLINE: u16  = 0xF7;
 
-static ROW25_YSTART: u16 = 0x33;
-static ROW25_YSTOP:  u16 = 0xFB;
-static ROW24_YSTART: u16 = 0x37;
-static ROW24_YSTOP:  u16 = 0xF7;
+const ROW25_YSTART: u16 = 0x33;
+const ROW25_YSTOP:  u16 = 0xFB;
+const ROW24_YSTART: u16 = 0x37;
+const ROW24_YSTOP:  u16 = 0xF7;
 
 // sprite X expansion tables
-static EXP_TABLE: [u16; 256] = [
+const EXP_TABLE: [u16; 256] = [
     0x0000, 0x0003, 0x000C, 0x000F, 0x0030, 0x0033, 0x003C, 0x003F,
     0x00C0, 0x00C3, 0x00CC, 0x00CF, 0x00F0, 0x00F3, 0x00FC, 0x00FF,
     0x0300, 0x0303, 0x030C, 0x030F, 0x0330, 0x0333, 0x033C, 0x033F,
@@ -62,7 +62,7 @@ static EXP_TABLE: [u16; 256] = [
     0xFFC0, 0xFFC3, 0xFFCC, 0xFFCF, 0xFFF0, 0xFFF3, 0xFFFC, 0xFFFF
         ];
 
-static MULTI_EXP_TABLE: [u16; 256] = [
+const MULTI_EXP_TABLE: [u16; 256] = [
     0x0000, 0x0005, 0x000A, 0x000F, 0x0050, 0x0055, 0x005A, 0x005F,
     0x00A0, 0x00A5, 0x00AA, 0x00AF, 0x00F0, 0x00F5, 0x00FA, 0x00FF,
     0x0500, 0x0505, 0x050A, 0x050F, 0x0550, 0x0555, 0x055A, 0x055F,
@@ -97,8 +97,7 @@ static MULTI_EXP_TABLE: [u16; 256] = [
     0xFFA0, 0xFFA5, 0xFFAA, 0xFFAF, 0xFFF0, 0xFFF5, 0xFFFA, 0xFFFF
         ];
 
-pub struct VIC
-{
+pub struct VIC {
     mem_ref: Option<memory::MemShared>,
     cpu_ref: Option<cpu::CPUShared>,
 
@@ -167,12 +166,9 @@ pub struct VIC
     pub dbg_reg_changed: bool,
 }
 
-impl VIC
-{
-    pub fn new_shared() -> VICShared
-    {
-        Rc::new(RefCell::new(VIC
-        {
+impl VIC {
+    pub fn new_shared() -> VICShared {
+        Rc::new(RefCell::new(VIC {
             mem_ref: None,
             cpu_ref: None,
             window_buffer: vec![0; c64::SCREEN_WIDTH * c64::SCREEN_HEIGHT],
@@ -236,30 +232,24 @@ impl VIC
         }))
     }
     
-    pub fn set_references(&mut self, memref: memory::MemShared, cpuref: cpu::CPUShared)
-    {
+    pub fn set_references(&mut self, memref: memory::MemShared, cpuref: cpu::CPUShared) {
         self.mem_ref = Some(memref);
         self.cpu_ref = Some(cpuref);
     }
     
-    pub fn read_register(&self, addr: u16) -> u8
-    {
-        match addr
-        {
-            0xD000...0xD00F =>
-            {
+    pub fn read_register(&self, addr: u16) -> u8 {
+        match addr {
+            0xD000...0xD00F => {
                 let idx = ((addr & 0x000F) >> 1) as usize;
-                if (addr % 2) == 0
-                {
+                if (addr % 2) == 0 {
                     self.mx[idx] as u8
                 }
-                else
-                {
+                else {
                     self.my[idx]
                 }
             },
             0xD011 => {
-                let curr_val = as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).read(addr);
+                let curr_val = as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).read(addr);
                 // bit 7 in $d011 is bit 8 of $d012
                 (curr_val & 0x7F) | ((self.raster_cnt & 0x100) >> 1) as u8
             },
@@ -267,184 +257,155 @@ impl VIC
             0xD019          => self.irq_flag | 0x70,
             0xD01A          => self.irq_mask | 0xF0,
             0xD040...0xD3FF => self.read_register(0xD000 + (addr % 0x0040)),
-            _               => as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).read(addr)
+            _               => as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).read(addr)
         }
     }
 
     // write to register - ignore callback to CPU
-    pub fn write_register_nc(&mut self, addr: u16, value: u8)
-    {
+    pub fn write_register_nc(&mut self, addr: u16, value: u8) {
         let mut ca = cpu::Callback::None;
         self.write_register(addr, value, &mut ca);
     }
 
     // check if register status has changed - used for visual debugger
-    fn dbg_check_regs(&mut self, addr: u16, value: u8)
-    {
-        self.dbg_reg_changed = as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).read(addr) != value;
+    fn dbg_check_regs(&mut self, addr: u16, value: u8) {
+        self.dbg_reg_changed = as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Io).read(addr) != value;
     }
     
     // write to register - perform callback action on CPU
-    pub fn write_register(&mut self, addr: u16, value: u8, on_vic_write: &mut cpu::Callback)
-    {
+    pub fn write_register(&mut self, addr: u16, value: u8, on_vic_write: &mut cpu::Callback) {
         self.dbg_check_regs(addr, value);
         
-        match addr
-        {
-            0xD000...0xD00F =>
-            {
+        match addr {
+            0xD000...0xD00F => {
                 let idx = ((addr & 0x000F) >> 1) as usize;
-                if (addr % 2) == 0
-                {
+                
+                if (addr % 2) == 0 {
                     self.mx[idx] = (self.mx[idx] & 0xFF00) | value as u16;
-                    as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, self.mx[idx] as u8);
+                    as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, self.mx[idx] as u8);
                 }
-                else
-                {
+                else {
                     self.my[idx] = value;
-                    as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
+                    as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
                 }
             },
-            0xD010 =>
-            {
+            0xD010 => {
                 let mut j = 1;
                 
-                for i in 0..8
-                {
-                    if (value & j) != 0
-                    {
+                for i in 0..8 {
+                    if (value & j) != 0 {
                         self.mx[i] |= 0x100;
                     }
-                    else
-                    {
+                    else {
                         self.mx[i] &= 0x00FF;
                     }
 
                     j <<= 1;
                 }
                 
-                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
             },
-            0xD011 =>
-            {
+            0xD011 => {
                 self.y_scroll = (value & 7) as u16;
 
                 let new_raster_irq = (self.raster_irq & 0xFF) | ((0x80 & value as u16) << 1);
-                if (self.raster_irq != new_raster_irq) && (self.raster_cnt == new_raster_irq)
-                {
+                if (self.raster_irq != new_raster_irq) && (self.raster_cnt == new_raster_irq) {
                     *on_vic_write = self.raster_irq();
                 }
 
                 self.raster_irq = new_raster_irq;
 
-                if (value & 8) != 0
-                {
+                if (value & 8) != 0 {
                     self.dy_start = ROW25_YSTART;
                     self.dy_stop = ROW25_YSTOP;
                 }
-                else
-                {
+                else {
                     self.dy_start = ROW24_YSTART;
                     self.dy_stop = ROW24_YSTOP;
                 }
 
-                if (self.raster_cnt == 0x30) && ((value & 0x10) != 0)
-                {
+                if (self.raster_cnt == 0x30) && ((value & 0x10) != 0) {
                     self.bad_lines_on = true;
                 }
 
-                self.is_bad_line = (self.raster_cnt >= FIRST_DMA_LINE) &&
-                                   (self.raster_cnt <= LAST_DMA_LINE) &&
+                self.is_bad_line = (self.raster_cnt >= FIRST_BADLINE) &&
+                                   (self.raster_cnt <= LAST_BADLINE) &&
                                    ((self.raster_cnt & 7) == self.y_scroll) && self.bad_lines_on;
                 let ctrl2 = self.read_register(0xD016);
                 self.display_mode = (((value & 0x60) | (ctrl2 & 0x10)) >> 4) as u16;
                 
-                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
             },
-            0xD012 =>
-            {
+            0xD012 => {
                 let new_raster_irq = (self.raster_irq & 0xFF00) | value as u16;
 
-                if (self.raster_irq != new_raster_irq) && (self.raster_cnt == new_raster_irq)
-                {
+                if (self.raster_irq != new_raster_irq) && (self.raster_cnt == new_raster_irq) {
                     *on_vic_write = self.raster_irq();
                 }
 
                 self.raster_irq = new_raster_irq;
-                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
             },
-            0xD016 =>
-            {
+            0xD016 => {
                 let ctrl1 = self.read_register(0xD011);
                 self.x_scroll = (value & 7) as u16;
                 self.display_mode = (((ctrl1 & 0x60) | (value & 0x10)) >> 4) as u16;
 
-                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
             },
-            0xD017 =>
-            {
+            0xD017 => {
                 self.sprite_y_exp |= !value;
-                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
             },
-            0xD018 =>
-            {
+            0xD018 => {
                 self.matrix_base = ((value & 0xF0) as u16) << 6;
                 self.char_base   = ((value & 0x0E) as u16) << 10;
                 self.bitmap_base = ((value & 0x08) as u16) << 10;
                 
-                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
             },
-            0xD019 =>
-            {
+            0xD019 => {
                 self.irq_flag = self.irq_flag & (!value & 0x0F);
                 
-                if (self.irq_flag & self.irq_mask) != 0
-                {
+                if (self.irq_flag & self.irq_mask) != 0 {
                     self.irq_flag |= 0x80;
                 }
-                else
-                {
+                else {
                     // normally we'd dereference the cpu directly but in Rust
                     // it's not possible due to RefCell already being borrowed (call by CPU)
                     *on_vic_write = cpu::Callback::ClearVICIrq;
                 }
-                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
             },
-            0xD01A =>
-            {
+            0xD01A => {
                 self.irq_mask = value & 0x0F;
 
-                if (self.irq_flag & self.irq_mask) != 0
-                {
+                if (self.irq_flag & self.irq_mask) != 0 {
                     self.irq_flag |= 0x80;
                     *on_vic_write = cpu::Callback::TriggerVICIrq;
                 }
-                else
-                {
+                else {
                     self.irq_flag &= 0x7F;
                     *on_vic_write = cpu::Callback::ClearVICIrq;
                 }
 
-                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value);
+                as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
             },
             0xD040...0xD3FF => { self.write_register(0xD000 + (addr % 0x0040), value, on_vic_write); },
-            _ => as_mut!(self.mem_ref).get_ram_bank(memory::MemType::IO).write(addr, value),
+            _ => as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value),
         }
     }
     
-    pub fn trigger_lp_irq(&mut self)
-    {
+    pub fn trigger_lp_irq(&mut self) {
         // lightpen triggers only once per frame
-        if !self.lp_triggered
-        {
+        if !self.lp_triggered {
             self.lp_triggered = true;
             
             let lpx = self.raster_x >> 1;
             let lpy = self.raster_cnt;
             
             self.irq_flag |= 0x08;
-            if (self.irq_mask & 0x08) != 0
-            {
+            if (self.irq_mask & 0x08) != 0 {
                 self.irq_flag |= 0x80;
                 as_mut!(self.cpu_ref).set_vic_irq(true);
             }
@@ -454,87 +415,69 @@ impl VIC
         }
     }
 
-    pub fn on_va_change(&mut self, new_va: u8)
-    {
+    pub fn on_va_change(&mut self, new_va: u8) {
         self.cia_vabase = (new_va as u16) << 14;
         let vbase = self.read_register(0xD018);
         self.write_register_nc(0xD018, vbase);
     }
 
-    pub fn raster_irq(&mut self) -> cpu::Callback
-    {
+    pub fn raster_irq(&mut self) -> cpu::Callback {
         self.irq_flag |= 0x01;
  
-        if (self.irq_mask & 0x01) != 0
-        {
+        if (self.irq_mask & 0x01) != 0 {
             self.irq_flag |= 0x80;
 
-            // TODO: when the time is right check if this works correctly (irq should be triggered here)
-            //as_mut!(self.cpu_ref).set_vic_irq(true);
             cpu::Callback::TriggerVICIrq
         }
-        else
-        {
+        else {
             cpu::Callback::None
         }
     }
 
-    pub fn read_byte(&mut self, addr: u16) -> u8
-    {
+    pub fn read_byte(&mut self, addr: u16) -> u8 {
         let va = addr | self.cia_vabase;
 
-        if (va & 0x7000) == 0x1000
-        {
+        if (va & 0x7000) == 0x1000 {
             let addr = 0xD000 + (va & 0x0FFF);
-            self.last_byte = as_mut!(self.mem_ref).get_rom_bank(memory::MemType::CHARGEN).read(addr);
+            self.last_byte = as_mut!(self.mem_ref).get_rom_bank(memory::MemType::Chargen).read(addr);
         }
-        else
-        {
-            self.last_byte = as_mut!(self.mem_ref).get_ram_bank(memory::MemType::RAM).read(va);
+        else {
+            self.last_byte = as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Ram).read(va);
         }
 
         self.last_byte
     }
 
-    pub fn matrix_access(&mut self, c64_cycle_cnt: u32)
-    {
-        if as_ref!(self.cpu_ref).ba_low
-        {
-            if (c64_cycle_cnt - self.first_ba_cycle) < 3
-            {
+    pub fn matrix_access(&mut self, c64_cycle_cnt: u32) {
+        if as_ref!(self.cpu_ref).ba_low {
+            if (c64_cycle_cnt - self.first_ba_cycle) < 3 {
                 self.color_line[self.ml_idx]  = 0xFF;
                 self.matrix_line[self.ml_idx] = 0xFF;
             }
-            else
-            {
+            else {
                 let addr = (self.video_cnt & 0x03FF) | self.matrix_base;
                 self.matrix_line[self.ml_idx] = self.read_byte(addr);
 
                 // assign value from color ram
-                self.color_line[self.ml_idx] = as_ref!(self.mem_ref).get_ram_bank(memory::MemType::IO).read(0xD800 + (addr & 0x03FF));
+                self.color_line[self.ml_idx] = as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).read(0xD800 + (addr & 0x03FF));
             }
         }
     }
 
-    pub fn graphics_access(&mut self)
-    {
+    pub fn graphics_access(&mut self) {
         let ctrl1 = self.read_register(0xD011);
         
-        if self.display_state
-        {
+        if self.display_state {
             let mut addr: u16;
 
-            if (ctrl1 & 0x20) != 0 // bitmap
-            {
+            if (ctrl1 & 0x20) != 0 { // bitmap
                 addr = ((self.video_cnt & 0x03FF) << 3) | self.bitmap_base | self.row_cnt;
             }
-            else // text
-            {
+            else { // text
                 addr = ((self.matrix_line[self.ml_idx] as u16) << 3) | self.char_base | self.row_cnt;
             }
 
-            if (ctrl1 & 0x40) != 0 // ECM
-            {
+            if (ctrl1 & 0x40) != 0 { // ECM
                 addr &= 0xF9FF;
             }
 
@@ -545,8 +488,7 @@ impl VIC
             self.ml_idx += 1;
             self.video_cnt += 1;
         }
-        else
-        {
+        else {
             // display is off
             self.gfx_data = self.read_byte(if (ctrl1 & 0x40) != 0 { 0x39FF } else { 0x3FFF });
             self.char_data = 0;
@@ -554,14 +496,14 @@ impl VIC
         }
     }
 
-    pub fn draw_background(&mut self)
-    {
+    pub fn draw_background(&mut self) {
         let dst_color: u8;
 
-        if !self.draw_this_line { return }
+        if !self.draw_this_line {
+            return;
+        }
         
-        match self.display_mode
-        {
+        match self.display_mode {
             // standard text, multicolor text, multicolor bitmap
             0 | 1 | 3 => {
                 dst_color = self.read_register(0xD021);
@@ -572,25 +514,19 @@ impl VIC
             },
             // ECM text
             4 => {
-                if (self.last_char_data & 0x80) != 0
-                {
-                    if (self.last_char_data & 0x40) != 0
-                    {
+                if (self.last_char_data & 0x80) != 0 {
+                    if (self.last_char_data & 0x40) != 0 {
                         dst_color = self.read_register(0xD024);
                     }
-                    else
-                    {
+                    else {
                         dst_color = self.read_register(0xD023);
                     }
                 }
-                else
-                {
-                    if (self.last_char_data & 0x40) != 0
-                    {
+                else {
+                    if (self.last_char_data & 0x40) != 0 {
                         dst_color = self.read_register(0xD022);
                     }
-                    else
-                    {
+                    else {
                         dst_color = self.read_register(0xD021);
                     }
                 }
@@ -602,36 +538,33 @@ impl VIC
         utils::memset8(&mut self.window_buffer, self.screen_chunk_offset, color_rgba);
     }
     
-    pub fn draw_graphics(&mut self)
-    {
-        if !self.draw_this_line { return }
+    pub fn draw_graphics(&mut self) {
+        if !self.draw_this_line {
+            return;
+        }
         
-        if self.ud_border_on
-        {
+        if self.ud_border_on {
             self.draw_background();
-            return
+            return;
         }
 
         let mut dst_color = [0;4];
 
-        match self.display_mode
-        {
+        match self.display_mode {
             0 => { // standard text
                 dst_color[0] = self.read_register(0xD021);
                 dst_color[1] = self.color_data;
                 self.draw_std(&dst_color);
             },
             1 => { // multicolor text
-                if (self.color_data & 8) != 0
-                {
+                if (self.color_data & 8) != 0 {
                     dst_color[0] = self.read_register(0xD021);
                     dst_color[1] = self.read_register(0xD022);
                     dst_color[2] = self.read_register(0xD023);
                     dst_color[3] = self.color_data & 7;
                     self.draw_multi(&dst_color);
                 }
-                else
-                {
+                else {
                     dst_color[0] = self.read_register(0xD021);
                     dst_color[1] = self.color_data;
                     self.draw_std(&dst_color);
@@ -650,25 +583,19 @@ impl VIC
                 self.draw_multi(&dst_color);
             },
             4 => { // ECM text
-                if (self.char_data & 0x80) != 0
-                {
-                    if (self.char_data & 0x40) != 0
-                    {
+                if (self.char_data & 0x80) != 0 {
+                    if (self.char_data & 0x40) != 0 {
                         dst_color[0] = self.read_register(0xD024);
                     }
-                    else
-                    {
+                    else {
                         dst_color[0] = self.read_register(0xD023);
                     }
                 }
-                else
-                {
-                    if (self.char_data & 0x40) != 0
-                    {
+                else {
+                    if (self.char_data & 0x40) != 0 {
                         dst_color[0] = self.read_register(0xD022);
                     }
-                    else
-                    {
+                    else {
                         dst_color[0] = self.read_register(0xD021);
                     }
                 }
@@ -679,13 +606,11 @@ impl VIC
             5 => { // invalid multicolor text
                 utils::memset8(&mut self.window_buffer, self.screen_chunk_offset + self.x_scroll as usize, 0);
 
-                if (self.color_data & 8) != 0
-                {
+                if (self.color_data & 8) != 0 {
                     self.fg_mask_buffer[self.fg_mask_offset  ] |= ((self.gfx_data & 0xAA) | (self.gfx_data & 0xAA) >> 1) >> self.x_scroll;
                     self.fg_mask_buffer[self.fg_mask_offset+1] |= ((self.gfx_data & 0xAA) | (self.gfx_data & 0xAA) >> 1) << (8 - self.x_scroll);
                 }
-                else
-                {
+                else {
                     self.fg_mask_buffer[self.fg_mask_offset  ] |= self.gfx_data >> self.x_scroll;
                     self.fg_mask_buffer[self.fg_mask_offset+1] |= self.gfx_data << (7 - self.x_scroll);
                 }
@@ -705,8 +630,7 @@ impl VIC
     }
 
     /* *** helper functions for draw_graphics *** */
-    fn draw_std(&mut self, color: &[u8])
-    {
+    fn draw_std(&mut self, color: &[u8]) {
         let screen_pos = self.screen_chunk_offset + self.x_scroll as usize;
         
         self.fg_mask_buffer[self.fg_mask_offset     ] |= self.gfx_data >> self.x_scroll;
@@ -723,8 +647,7 @@ impl VIC
         self.window_buffer[screen_pos    ] = utils::fetch_c64_color_rgba(color[data as usize]);
     }
 
-    fn draw_multi(&mut self, color: &[u8])
-    {
+    fn draw_multi(&mut self, color: &[u8]) {
         let screen_pos = self.screen_chunk_offset + self.x_scroll as usize;
 
         self.fg_mask_buffer[self.fg_mask_offset  ] |= ((self.gfx_data & 0xAA) | (self.gfx_data & 0xAA) >> 1) >> self.x_scroll;
@@ -741,8 +664,7 @@ impl VIC
         self.window_buffer[screen_pos    ] = self.window_buffer[screen_pos + 1];
     }
     
-    pub fn draw_sprites(&mut self)
-    {
+    pub fn draw_sprites(&mut self) {
         let mut sbit = 1;
         let mut spr_coll = 0;
         let mut gfx_coll = 0;
@@ -769,8 +691,7 @@ impl VIC
                                        ((self.fg_mask_buffer[fmbp+2] as u32) <<  8) |
                                        ((self.fg_mask_buffer[fmbp+3] as u32));
                 fg_mask <<= sshift;
-                if fmbp+4 < c64::SCREEN_WIDTH / 8
-                {
+                if fmbp+4 < c64::SCREEN_WIDTH / 8 {
                     fg_mask |= (self.fg_mask_buffer[fmbp+4] as u32) >> (8-sshift);
                 }
 
@@ -785,20 +706,18 @@ impl VIC
                     let mut sdata_r: u32;
                     let mut fg_mask_r: u32 = ((self.fg_mask_buffer[fmbp+4] as u32) << 24) |
                                              ((self.fg_mask_buffer[fmbp+5] as u32) << 16);
+
                     // TODO: Frodo doesn't mind buffer overflow??
-                    if fmbp+6 < c64::SCREEN_WIDTH / 8
-                    {
+                    if fmbp+6 < c64::SCREEN_WIDTH / 8 {
                         fg_mask_r |= (self.fg_mask_buffer[fmbp+6] as u32) <<  8;
                     }
 
-                    if fmbp+7 < c64::SCREEN_WIDTH / 8
-                    {
+                    if fmbp+7 < c64::SCREEN_WIDTH / 8 {
                         fg_mask_r |= self.fg_mask_buffer[fmbp+7] as u32;
                     }
                     fg_mask_r <<= sshift;
 
-                    if fmbp+8 < c64::SCREEN_WIDTH / 8
-                    {
+                    if fmbp+8 < c64::SCREEN_WIDTH / 8 {
                         fg_mask_r |= (self.fg_mask_buffer[fmbp+8] as u32) >> (8-sshift);
                     }
 
@@ -1069,57 +988,45 @@ impl VIC
 
 
     /* ***helper functions *** */
-
-    fn set_ba_low(&mut self, c64_cycle_cnt: u32)
-    {
-        if !as_mut!(self.cpu_ref).ba_low
-        {
+    fn set_ba_low(&mut self, c64_cycle_cnt: u32) {
+        if !as_mut!(self.cpu_ref).ba_low {
             self.first_ba_cycle = c64_cycle_cnt;
             as_mut!(self.cpu_ref).ba_low = true;
         }   
     }
 
-    fn display_if_bad_line(&mut self)
-    {
-        if self.is_bad_line
-        {
+    fn display_if_bad_line(&mut self) {
+        if self.is_bad_line {
             self.display_state = true;
         }
     }
 
-    fn fetch_if_bad_line(&mut self, c64_cycle_cnt: u32)
-    {
-        if self.is_bad_line
-        {
+    fn fetch_if_bad_line(&mut self, c64_cycle_cnt: u32) {
+        if self.is_bad_line {
             self.display_state = true;
             self.set_ba_low(c64_cycle_cnt);
         }
     }
 
-    fn rc_if_bad_line(&mut self, c64_cycle_cnt: u32)
-    {
-        if self.is_bad_line
-        {
+    fn rc_if_bad_line(&mut self, c64_cycle_cnt: u32) {
+        if self.is_bad_line {
             self.display_state = true;
             self.row_cnt = 0;
             self.set_ba_low(c64_cycle_cnt);
         }
     }
 
-    fn idle_access(&mut self)
-    {
+    fn idle_access(&mut self) {
         self.read_byte(0x3FFF);
     }
 
-    fn refresh_access(&mut self)
-    {
+    fn refresh_access(&mut self){
         let ref_cnt = self.refresh_cnt as u16;
         self.read_byte(0x3F00 | ref_cnt);
         self.refresh_cnt = (Wrapping(self.refresh_cnt) - Wrapping(1)).0;
     }
 
-    fn check_sprite_dma(&mut self)
-    {
+    fn check_sprite_dma(&mut self){
         let mut mask = 1;
         let me = self.read_register(0xD015);
         let mye = self.read_register(0xD017);
@@ -1136,14 +1043,12 @@ impl VIC
         }
     }
 
-    fn sprite_ptr_access(&mut self, num: usize)
-    {
+    fn sprite_ptr_access(&mut self, num: usize) {
         let addr = self.matrix_base | 0x03F8 | num as u16;
         self.sprite_ptr[num] = (self.read_byte(addr) as u16) << 6;
     }
 
-    fn sprite_data_access(&mut self, num: usize, bytenum: usize)
-    {
+    fn sprite_data_access(&mut self, num: usize, bytenum: usize) {
         if (self.sprite_dma_on & (1 << num as u8)) != 0 {
             let addr = self.mc[num] & 0x3F | self.sprite_ptr[num];
             self.sprite_data[num][bytenum] = self.read_byte(addr);
@@ -1154,12 +1059,9 @@ impl VIC
         }
     }
 
-    fn sample_border(&mut self)
-    {
-        if self.draw_this_line
-        {
-            if self.border_on
-            {
+    fn sample_border(&mut self) {
+        if self.draw_this_line {
+            if self.border_on {
                 self.border_color_sample[(self.curr_cycle-13) as usize] = self.read_register(0xD020);
             }
             
@@ -1170,40 +1072,34 @@ impl VIC
     
     /* *** main VIC-II loop *** */
     // returns true if VBlank is to be triggered
-    pub fn update(&mut self, c64_cycle_cnt: u32, should_trigger_vblank: &mut bool) -> bool
-    {
+    pub fn update(&mut self, c64_cycle_cnt: u32, should_trigger_vblank: &mut bool) -> bool {
         let mut mask: u8;
         let mut line_finished = false;
         self.dbg_reg_changed = false;
 
-        match self.curr_cycle
-        {
+        match self.curr_cycle {
             // fetch sprite pointer 3, inc raster counter, trigger raster irq,
             // test for bad line, reset BA if sprites 3 and 4 are off, read data of sprite 3
             1 => {
-                if self.raster_cnt == (NUM_RASTERLINES - 1)
-                {
+                if self.raster_cnt == (NUM_RASTERLINES - 1) {
                     self.trigger_vblank = true;
                 }
-                else
-                {
+                else {
                     self.raster_cnt += 1;
 
-                    if self.raster_cnt == self.raster_irq
-                    {
+                    if self.raster_cnt == self.raster_irq {
                         match self.raster_irq() {
                             cpu::Callback::TriggerVICIrq => as_mut!(self.cpu_ref).set_vic_irq(true),
                             _ => (),
                         }
                     }
                     
-                    if self.raster_cnt == 0x30
-                    {
+                    if self.raster_cnt == 0x30 {
                         self.bad_lines_on = (self.read_register(0xD011) & 0x10) != 0;
                     }
 
-                    self.is_bad_line = (self.raster_cnt >= FIRST_DMA_LINE) &&
-                                       (self.raster_cnt <= LAST_DMA_LINE)  &&
+                    self.is_bad_line = (self.raster_cnt >= FIRST_BADLINE) &&
+                                       (self.raster_cnt <= LAST_BADLINE)  &&
                                        ((self.raster_cnt & 7) == self.y_scroll) &&
                                         self.bad_lines_on;
 
@@ -1217,15 +1113,13 @@ impl VIC
                 self.sprite_data_access(3, 0);
                 self.display_if_bad_line();
 
-                if (self.sprite_dma_on & 0x18) == 0
-                {
+                if (self.sprite_dma_on & 0x18) == 0 {
                     as_ref!(self.cpu_ref).ba_low = false;
                 }
             },
             // set BA for sprite 5, read data of sprite 3
             2 => {
-                if self.trigger_vblank
-                {
+                if self.trigger_vblank {
                     self.raster_cnt = 0;
                     self.video_cnt_base = 0;
 
@@ -1236,8 +1130,7 @@ impl VIC
                     self.skip_cnt -= 1;
                     self.frame_skipped = self.skip_cnt == 0;
 
-                    if self.frame_skipped
-                    {
+                    if self.frame_skipped {
                         self.skip_cnt = SKIP_FRAMES;
                     }
                     
@@ -1246,8 +1139,7 @@ impl VIC
                     
                     self.line_start_offset = 0;
                     
-                    if self.raster_irq == 0
-                    {
+                    if self.raster_irq == 0 {
                         match self.raster_irq() {
                             cpu::Callback::TriggerVICIrq => as_mut!(self.cpu_ref).set_vic_irq(true),
                             _ => (),
@@ -1263,8 +1155,7 @@ impl VIC
                 self.sprite_data_access(3, 2);
                 self.display_if_bad_line();
 
-                if (self.sprite_dma_on & 0x20) != 0
-                {
+                if (self.sprite_dma_on & 0x20) != 0 {
                     self.set_ba_low(c64_cycle_cnt);
                 }
             },
@@ -1274,8 +1165,7 @@ impl VIC
                 self.sprite_data_access(4, 0);
                 self.display_if_bad_line();
 
-                if (self.sprite_dma_on & 0x30) == 0
-                {
+                if (self.sprite_dma_on & 0x30) == 0 {
                     as_mut!(self.cpu_ref).ba_low = false;
                 }
             },
@@ -1285,8 +1175,7 @@ impl VIC
                 self.sprite_data_access(4, 2);
                 self.display_if_bad_line();
 
-                if (self.sprite_dma_on & 0x40) != 0
-                {
+                if (self.sprite_dma_on & 0x40) != 0 {
                     self.set_ba_low(c64_cycle_cnt);
                 }
             },
@@ -1296,8 +1185,7 @@ impl VIC
                 self.sprite_data_access(5, 0);
                 self.display_if_bad_line();
 
-                if (self.sprite_dma_on & 0x60) == 0
-                {
+                if (self.sprite_dma_on & 0x60) == 0 {
                     as_mut!(self.cpu_ref).ba_low = false;
                 }
             },
@@ -1307,8 +1195,7 @@ impl VIC
                 self.sprite_data_access(5, 2);
                 self.display_if_bad_line();
 
-                if (self.sprite_dma_on & 0x80) != 0
-                {
+                if (self.sprite_dma_on & 0x80) != 0 {
                     self.set_ba_low(c64_cycle_cnt);
                 }
             },
@@ -1318,8 +1205,7 @@ impl VIC
                 self.sprite_data_access(6, 0);
                 self.display_if_bad_line();
 
-                if (self.sprite_dma_on & 0xC0) == 0
-                {
+                if (self.sprite_dma_on & 0xC0) == 0 {
                     as_mut!(self.cpu_ref).ba_low = false;
                 }
             },
@@ -1335,8 +1221,7 @@ impl VIC
                 self.sprite_data_access(7, 0);
                 self.display_if_bad_line();
 
-                if (self.sprite_dma_on & 0x80) == 0
-                {
+                if (self.sprite_dma_on & 0x80) == 0 {
                     as_mut!(self.cpu_ref).ba_low = false;
                 }
             },
@@ -1380,10 +1265,8 @@ impl VIC
                 self.refresh_access();
                 self.fetch_if_bad_line(c64_cycle_cnt);
 
-                for i in 0..8
-                {
-                    if (self.sprite_y_exp & (1 << i)) != 0
-                    {
+                for i in 0..8 {
+                    if (self.sprite_y_exp & (1 << i)) != 0 {
                         self.mc_base[i] = (Wrapping(self.mc_base[i]) + Wrapping(2)).0;
                     }
                 }
@@ -1400,15 +1283,12 @@ impl VIC
 
                 mask = 1;
 
-                for i in 0..8
-                {
-                    if (self.sprite_y_exp & mask) != 0
-                    {
+                for i in 0..8 {
+                    if (self.sprite_y_exp & mask) != 0 {
                         self.mc_base[i] = (Wrapping(self.mc_base[i]) + Wrapping(1)).0;
                     }
 
-                    if (self.mc_base[i] & 0x3F) == 0x3F
-                    {
+                    if (self.mc_base[i] & 0x3F) == 0x3F {
                         self.sprite_dma_on &= !mask;
                     }
 
@@ -1423,33 +1303,24 @@ impl VIC
                 let ctrl1 = self.read_register(0xD011);
                 let ctrl2 = self.read_register(0xD016);
 
-                if (ctrl2 & 8) != 0
-                {
-                    if self.raster_cnt == self.dy_stop
-                    {
+                if (ctrl2 & 8) != 0 {
+                    if self.raster_cnt == self.dy_stop {
                         self.ud_border_on = true;
                     }
-                    else
-                    {
-                        if (ctrl1 & 0x10) != 0
-                        {
-                            if self.raster_cnt == self.dy_start
-                            {
+                    else {
+                        if (ctrl1 & 0x10) != 0 {
+                            if self.raster_cnt == self.dy_start {
                                 self.border_on = false;
                                 self.ud_border_on = false;
                             }
-                            else
-                            {
-                                if !self.ud_border_on
-                                {
+                            else {
+                                if !self.ud_border_on {
                                     self.border_on = false;
                                 }
                             }
                         }
-                        else
-                        {
-                            if !self.ud_border_on
-                            {
+                        else {
+                            if !self.ud_border_on {
                                 self.border_on = false;
                             }
                         }
@@ -1470,33 +1341,24 @@ impl VIC
                 let ctrl1 = self.read_register(0xD011);
                 let ctrl2 = self.read_register(0xD016);
 
-                if (ctrl2 & 8) == 0
-                {
-                    if self.raster_cnt == self.dy_stop
-                    {
+                if (ctrl2 & 8) == 0 {
+                    if self.raster_cnt == self.dy_stop {
                         self.ud_border_on = true;
                     }
-                    else
-                    {
-                        if (ctrl1 & 0x10) != 0
-                        {
-                            if self.raster_cnt == self.dy_start
-                            {
+                    else {
+                        if (ctrl1 & 0x10) != 0 {
+                            if self.raster_cnt == self.dy_start {
                                 self.border_on = false;
                                 self.ud_border_on = false;
                             }
-                            else
-                            {
-                                if !self.ud_border_on
-                                {
+                            else {
+                                if !self.ud_border_on {
                                     self.border_on = false;
                                 }
                             }
                         }
-                        else
-                        {
-                            if !self.ud_border_on
-                            {
+                        else {
+                            if !self.ud_border_on {
                                 self.border_on = false;
                             }
                         }
@@ -1532,10 +1394,8 @@ impl VIC
                 let mye = self.read_register(0xD017);
                 
                 mask = 1;
-                for _ in 0..8
-                {
-                    if (mye & mask) != 0
-                    {
+                for _ in 0..8 {
+                    if (mye & mask) != 0 {
                         self.sprite_y_exp ^= mask;
                     }
                     
@@ -1544,12 +1404,10 @@ impl VIC
                 
                 self.check_sprite_dma();
 
-                if (self.sprite_dma_on & 0x01) != 0
-                {
+                if (self.sprite_dma_on & 0x01) != 0 {
                     self.set_ba_low(c64_cycle_cnt);
                 }
-                else
-                {
+                else {
                     as_mut!(self.cpu_ref).ba_low = false;
                 }
             },
@@ -1558,8 +1416,7 @@ impl VIC
             56 => {
                 let ctrl2 = self.read_register(0xD016);
 
-                if (ctrl2 & 8) == 0
-                {
+                if (ctrl2 & 8) == 0 {
                     self.border_on = true;
                 }
 
@@ -1571,8 +1428,7 @@ impl VIC
                 self.display_if_bad_line();
                 self.check_sprite_dma();
 
-                if (self.sprite_dma_on & 0x01) != 0
-                {
+                if (self.sprite_dma_on & 0x01) != 0 {
                     self.set_ba_low(c64_cycle_cnt);
                 }
             },
@@ -1580,25 +1436,21 @@ impl VIC
             57 => {
                 let ctrl2 = self.read_register(0xD016);
 
-                if (ctrl2 & 8) != 0
-                {
+                if (ctrl2 & 8) != 0 {
                     self.border_on = true;
                 }
 
                 self.border_on_sample[4] = self.border_on;
 
                 self.sprite_draw = self.sprite_display_on;
-                if self.sprite_draw != 0
-                {
+                if self.sprite_draw != 0 {
                     self.sprite_draw_data = self.sprite_data;
                 }
 
                 mask = 1;
 
-                for _ in 0..8
-                {
-                    if ((self.sprite_display_on & mask) != 0) && ((self.sprite_dma_on & mask) == 0)
-                    {
+                for _ in 0..8 {
+                    if ((self.sprite_display_on & mask) != 0) && ((self.sprite_dma_on & mask) == 0) {
                         self.sprite_display_on &= !mask;
                     }
 
@@ -1610,8 +1462,7 @@ impl VIC
                 self.idle_access();
                 self.display_if_bad_line();
 
-                if (self.sprite_dma_on & 0x02) != 0
-                {
+                if (self.sprite_dma_on & 0x02) != 0 {
                     self.set_ba_low(c64_cycle_cnt);
                 }
             },
@@ -1623,13 +1474,11 @@ impl VIC
 
                 mask = 1;
 
-                for i in 0..8
-                {
+                for i in 0..8 {
                     self.mc[i] = self.mc_base[i];
 
                     // TODO: fetch data from registers $D001-0F properly here
-                    if ((self.sprite_dma_on & mask) != 0) && ((self.raster_cnt & 0x00FF) == self.my[i] as u16)
-                    {
+                    if ((self.sprite_dma_on & mask) != 0) && ((self.raster_cnt & 0x00FF) == self.my[i] as u16) {
                         self.sprite_display_on |= mask;
                     }
 
@@ -1639,14 +1488,12 @@ impl VIC
                 self.sprite_ptr_access(0);
                 self.sprite_data_access(0, 0);
 
-                if self.row_cnt == 7
-                {
+                if self.row_cnt == 7 {
                     self.video_cnt_base = self.video_cnt;
                     self.display_state = false;
                 }
 
-                if self.is_bad_line || self.display_state
-                {
+                if self.is_bad_line || self.display_state {
                     self.display_state = true;
                     self.row_cnt = (self.row_cnt + 1) & 7;
                 }
@@ -1659,8 +1506,7 @@ impl VIC
                 self.sprite_data_access(0, 2);
                 self.display_if_bad_line();
 
-                if (self.sprite_dma_on & 0x04) != 0
-                {
+                if (self.sprite_dma_on & 0x04) != 0 {
                     self.set_ba_low(c64_cycle_cnt);
                 }
             },
@@ -1670,49 +1516,42 @@ impl VIC
                 self.draw_background();
                 self.sample_border();
 
-                if self.draw_this_line
-                {
-                    if self.sprite_draw != 0 { self.draw_sprites(); }
+                if self.draw_this_line {
+                    if self.sprite_draw != 0 {
+                        self.draw_sprites();
+                    }
 
                     // left border01
-                    if self.border_on_sample[0]
-                    {
-                        for i in 0..4
-                        {
+                    if self.border_on_sample[0] {
+                        for i in 0..4 {
                             let color_rgba = utils::fetch_c64_color_rgba(self.border_color_sample[i]);
                             utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8 as usize, color_rgba);
                         }
                     }
 
                     // top and bottom - first 8 pixels
-                    if self.border_on_sample[1]
-                    {
+                    if self.border_on_sample[1] {
                         let color_rgba = utils::fetch_c64_color_rgba(self.border_color_sample[4]);
                         utils::memset8(&mut self.window_buffer, self.line_start_offset + 4*8, color_rgba);
                     }
 
                     // top and bottom
-                    if self.border_on_sample[2]
-                    {
-                        for i in 5..43
-                        {
+                    if self.border_on_sample[2] {
+                        for i in 5..43 {
                             let color_rgba = utils::fetch_c64_color_rgba(self.border_color_sample[i]);
                             utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8, color_rgba);
                         }
                     }
 
                     // top and bottom - last 8 pixels
-                    if self.border_on_sample[3]
-                    {
+                    if self.border_on_sample[3] {
                         let color_rgba = utils::fetch_c64_color_rgba(self.border_color_sample[43]);
                         utils::memset8(&mut self.window_buffer, self.line_start_offset + 43*8, color_rgba);
                     }
 
                     // right border
-                    if self.border_on_sample[4]
-                    {
-                        for i in 44..c64::SCREEN_WIDTH/8
-                        {
+                    if self.border_on_sample[4] {
+                        for i in 44..c64::SCREEN_WIDTH/8 {
                             let color_rgba = utils::fetch_c64_color_rgba(self.border_color_sample[i]);
                             utils::memset8(&mut self.window_buffer, self.line_start_offset + i*8, color_rgba);
                         }
@@ -1725,8 +1564,7 @@ impl VIC
                 self.sprite_data_access(1, 0);
                 self.display_if_bad_line();
 
-                if (self.sprite_dma_on & 0x06) == 0
-                {
+                if (self.sprite_dma_on & 0x06) == 0 {
                     as_ref!(self.cpu_ref).ba_low = false;
                 }
             },
@@ -1736,8 +1574,7 @@ impl VIC
                 self.sprite_data_access(1, 2);
                 self.display_if_bad_line();
 
-                if (self.sprite_dma_on & 0x08) != 0
-                {
+                if (self.sprite_dma_on & 0x08) != 0 {
                     self.set_ba_low(c64_cycle_cnt);
                 }
             },
@@ -1747,8 +1584,7 @@ impl VIC
                 self.sprite_data_access(2, 0);
                 self.display_if_bad_line();
 
-                if (self.sprite_dma_on & 0x0C) == 0
-                {
+                if (self.sprite_dma_on & 0x0C) == 0 {
                     as_ref!(self.cpu_ref).ba_low = false;
                 }
             },
@@ -1758,22 +1594,18 @@ impl VIC
                 self.sprite_data_access(2, 2);
                 self.display_if_bad_line();
 
-                if self.raster_cnt == self.dy_stop
-                {
+                if self.raster_cnt == self.dy_stop {
                     self.ud_border_on = true;
                 }
-                else
-                {
+                else {
                     let ctrl1 = self.read_register(0xD011);
 
-                    if ((ctrl1 & 0x10) != 0) && (self.raster_cnt == self.dy_start)
-                    {
+                    if ((ctrl1 & 0x10) != 0) && (self.raster_cnt == self.dy_start) {
                         self.ud_border_on = false;
                     }
                 }
                 
-                if (self.sprite_dma_on & 0x10) != 0
-                {
+                if (self.sprite_dma_on & 0x10) != 0 {
                     self.set_ba_low(c64_cycle_cnt);
                 }
 
@@ -1784,7 +1616,13 @@ impl VIC
 
         // next cycle
         self.raster_x = (Wrapping(self.raster_x) + Wrapping(8)).0;
-        if line_finished { self.curr_cycle = 1; } else { self.curr_cycle += 1; }
+
+        if line_finished {
+            self.curr_cycle = 1;
+        }
+        else {
+            self.curr_cycle += 1;
+        }
 
         line_finished
     }

@@ -16,27 +16,23 @@ use c64::cia;
   1  |  LSHIFT   E   S     Z      4     A       W        3
   0  |  CRSR-DN  F5  F3    F1     F7  CRSR-RT  RETURN  DELETE
 */
-pub struct IO
-{
+
+pub struct IO {
     keyboard_state: [bool; 0xFF], // key states, including shift presses
     joystick_state: [bool; 0x0A], // 9 directions (num-pad) + 1 fire button
-    joy_port1: bool,
+    joy_port1: bool,  // is joystick plugged to port 1?
 }
 
-impl IO
-{
-    pub fn new() -> IO
-    {
-        IO
-        {
+impl IO {
+    pub fn new() -> IO {
+        IO {
             keyboard_state: [false; 0xFF],
             joystick_state: [false; 0x0A],
-            joy_port1: true
+            joy_port1: false
         }
     }
     
-    pub fn update(&mut self, window: &Window, cia1: &mut cia::CIAShared)
-    {
+    pub fn update(&mut self, window: &Window, cia1: &mut cia::CIAShared) {
         /* Keyboard processing */
         // iterating over all keys is crawling-slow, so check individual keys
         self.process_key(window.is_key_down(Key::Key0), Key::Key0, cia1);
@@ -128,16 +124,13 @@ impl IO
 
         /* helper keys */
         // toggle between joystick ports 1 and 2
-        if window.is_key_pressed(Key::NumLock, KeyRepeat::No)
-        {
+        if window.is_key_pressed(Key::NumLock, KeyRepeat::No) {
             self.joy_port1 = !self.joy_port1;
 
-            if self.joy_port1
-            {
+            if self.joy_port1 {
                 cia1.borrow_mut().joystick_2 = 0xFF;
             }
-            else
-            {
+            else {
                 cia1.borrow_mut().joystick_1 = 0xFF;
             }
             
@@ -145,26 +138,21 @@ impl IO
         }
     }
 
-    pub fn check_restore_key(&self, window: &Window) -> bool
-    {
+    pub fn check_restore_key(&self, window: &Window) -> bool {
         // End will serve as the Restore key
         window.is_key_pressed(Key::End, KeyRepeat::No)
     }
 
-    fn process_key(&mut self, key_pressed: bool, keycode: Key, cia1: &mut cia::CIAShared)
-    {   
-        if key_pressed
-        {
+    fn process_key(&mut self, key_pressed: bool, keycode: Key, cia1: &mut cia::CIAShared) {   
+        if key_pressed {
             self.on_key_press(keycode, cia1);
         }
-        else
-        {
+        else {
             self.on_key_release(keycode, cia1);
         }
     }    
     
-    fn on_key_press(&mut self, keycode: Key, cia1: &mut cia::CIAShared)
-    {
+    fn on_key_press(&mut self, keycode: Key, cia1: &mut cia::CIAShared) {
         let c64_keycode = self.keycode_to_c64(keycode);
 
         if self.keyboard_state[c64_keycode as usize] || c64_keycode == 0xFF
@@ -188,13 +176,11 @@ impl IO
         cia1.borrow_mut().rev_matrix[c64_bit as usize]  &= !(1 << c64_byte);
     }
 
-    fn on_key_release(&mut self, keycode: Key, cia1: &mut cia::CIAShared)
-    {
+    fn on_key_release(&mut self, keycode: Key, cia1: &mut cia::CIAShared) {
         let c64_keycode = self.keycode_to_c64(keycode);
 
-        if !self.keyboard_state[c64_keycode as usize] || c64_keycode == 0xFF
-        {
-            return
+        if !self.keyboard_state[c64_keycode as usize] || c64_keycode == 0xFF {
+            return;
         }
         
         self.keyboard_state[c64_keycode as usize] = false;
@@ -203,8 +189,7 @@ impl IO
         let c64_byte = (c64_keycode >> 3) & 7;
         
         // key is shifted?
-        if (c64_keycode & 0x80) != 0
-        {
+        if (c64_keycode & 0x80) != 0 {
             cia1.borrow_mut().key_matrix[6] |= 0x10;
             cia1.borrow_mut().rev_matrix[4] |= 0x40;
         }
@@ -213,24 +198,19 @@ impl IO
         cia1.borrow_mut().rev_matrix[c64_bit as usize]  |= 1 << c64_byte;
     }
 
-    fn process_joystick(&mut self, key_pressed: bool, keycode: Key, cia1: &mut cia::CIAShared)
-    {
-        if key_pressed
-          {
+    fn process_joystick(&mut self, key_pressed: bool, keycode: Key, cia1: &mut cia::CIAShared) {
+        if key_pressed {
             self.on_joy_press(keycode, cia1);
         }
-        else
-        {
+        else {
             self.on_joy_release(keycode, cia1);
         }
     }
 
-    fn on_joy_press(&mut self, keycode: Key, cia1: &mut cia::CIAShared)
-    {
+    fn on_joy_press(&mut self, keycode: Key, cia1: &mut cia::CIAShared) {
         let mut joystate = if self.joy_port1 { cia1.borrow_mut().joystick_1 } else { cia1.borrow_mut().joystick_2 };
-        
-        match keycode
-        {
+
+        match keycode {
             // down-left
             Key::NumPad1 => { self.joystick_state[0] = true; joystate = (joystate | 0x09) & !0x06; },
             // down
@@ -254,27 +234,22 @@ impl IO
             _ => (),
         }
 
-        if self.joy_port1
-        {
+        if self.joy_port1 {
             cia1.borrow_mut().joystick_1 = joystate;
         }
-        else
-        {
+        else {
             cia1.borrow_mut().joystick_2 = joystate;
         }
     }
 
-    fn on_joy_release(&mut self, keycode: Key, cia1: &mut cia::CIAShared)
-    {
+    fn on_joy_release(&mut self, keycode: Key, cia1: &mut cia::CIAShared) {
         let mut joystate = if self.joy_port1 { cia1.borrow_mut().joystick_1 } else { cia1.borrow_mut().joystick_2 };
 
-        if joystate == 0xFF
-        {
-            return
+        if joystate == 0xFF {
+            return;
         }
         
-        match keycode
-        {
+        match keycode {
             // down-left
             Key::NumPad1 => if self.joystick_state[0] { joystate |= 0x06; self.joystick_state[0] = false; },
             // down
@@ -298,25 +273,21 @@ impl IO
             _ => (),
         }
 
-        if self.joy_port1
-        {
+        if self.joy_port1 {
             cia1.borrow_mut().joystick_1 = joystate;
             cia1.borrow_mut().joystick_2 = 0xFF;
         }
-        else
-        {
+        else {
             cia1.borrow_mut().joystick_1 = 0xFF;
             cia1.borrow_mut().joystick_2 = joystate;
         }
     }
 
-    fn keycode_to_c64(&self, keycode: Key) -> u8
-    {
+    fn keycode_to_c64(&self, keycode: Key) -> u8 {
         // fetch key's bit combination as represented in C64 keyboard matrix
         let to_c64 = |row_bit: u8, col_bit: u8| (row_bit << 3) | col_bit;
         
-        match keycode
-        {
+        match keycode {
             Key::Key0 => to_c64(4, 3),
             Key::Key1 => to_c64(7, 0),
             Key::Key2 => to_c64(7, 3),
@@ -384,13 +355,13 @@ impl IO
             // Pound key
             Key::Insert => to_c64(6, 0),
             // CLR/Home key
-            Key::Home => to_c64(6, 3),
+            Key::Home   => to_c64(6, 3),
+            // Home key
+            Key::Delete => to_c64(6, 6),            
             // @ key
             Key::LeftBracket  => to_c64(5, 6),
             // * key
             Key::RightBracket => to_c64(6, 1),
-            // Home key
-            Key::Delete => to_c64(6, 6),
             // Colon key
             Key::Semicolon  => to_c64(5, 5),
             // Semicolon key

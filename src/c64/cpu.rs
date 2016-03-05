@@ -17,8 +17,7 @@ pub type CPUShared = Rc<RefCell<CPU>>;
 
 
 // status flags for P register
-pub enum StatusFlag
-{
+pub enum StatusFlag {
     Carry            = 1 << 0,
     Zero             = 1 << 1,
     InterruptDisable = 1 << 2,
@@ -30,8 +29,7 @@ pub enum StatusFlag
 }
 
 // action to perform on specific CIA and VIC events
-pub enum Callback
-{
+pub enum Callback {
     None,
     TriggerVICIrq,
     ClearVICIrq,
@@ -41,12 +39,11 @@ pub enum Callback
     ClearNMI
 }
 
-pub static NMI_VECTOR:   u16 = 0xFFFA;
-pub static RESET_VECTOR: u16 = 0xFFFC;
-pub static IRQ_VECTOR:   u16 = 0xFFFE;
+pub const NMI_VECTOR:   u16 = 0xFFFA;
+pub const RESET_VECTOR: u16 = 0xFFFC;
+pub const IRQ_VECTOR:   u16 = 0xFFFE;
 
-pub enum CPUState
-{
+pub enum CPUState {
     FetchOp,
     FetchOperandAddr,
     PerformRMW,
@@ -55,8 +52,7 @@ pub enum CPUState
     ExecuteOp
 }
 
-pub struct CPU
-{
+pub struct CPU {
     pub PC: u16, // program counter
     pub SP: u8,  // stack pointer
     pub P: u8,   // processor status
@@ -84,12 +80,9 @@ pub struct CPU
     pub op_debugger: utils::OpDebugger
 }
 
-impl CPU
-{
-    pub fn new_shared() -> CPUShared
-    {
-        Rc::new(RefCell::new(CPU
-        {
+impl CPU {
+    pub fn new_shared() -> CPUShared {
+        Rc::new(RefCell::new(CPU {
             PC: 0,
             SP: 0xFF,
             P: 0,
@@ -118,8 +111,7 @@ impl CPU
         }))
     }
 
-    pub fn set_references(&mut self, memref: memory::MemShared, vicref: vic::VICShared, cia1ref: cia::CIAShared, cia2ref: cia::CIAShared, sidref: sid::SIDShared)
-    {
+    pub fn set_references(&mut self, memref: memory::MemShared, vicref: vic::VICShared, cia1ref: cia::CIAShared, cia2ref: cia::CIAShared, sidref: sid::SIDShared) {
         self.mem_ref = Some(memref);
         self.vic_ref = Some(vicref);
         self.cia1_ref = Some(cia1ref);
@@ -127,43 +119,35 @@ impl CPU
         self.sid_ref  = Some(sidref);
     }    
     
-    pub fn set_status_flag(&mut self, flag: StatusFlag, value: bool)
-    {
+    pub fn set_status_flag(&mut self, flag: StatusFlag, value: bool) {
         if value { self.P |=   flag as u8;  }
         else     { self.P &= !(flag as u8); }
     }
 
-    pub fn get_status_flag(&mut self, flag: StatusFlag) -> bool
-    {
+    pub fn get_status_flag(&mut self, flag: StatusFlag) -> bool {
         self.P & flag as u8 != 0x00
     }
 
     // these flags will be set in tandem quite often
-    pub fn set_zn_flags(&mut self, value: u8)
-    {
+    pub fn set_zn_flags(&mut self, value: u8) {
         self.set_status_flag(StatusFlag::Zero, value == 0x00);
         self.set_status_flag(StatusFlag::Negative, (value as i8) < 0);
     }
     
-    pub fn reset(&mut self)
-    {
+    pub fn reset(&mut self) {
         let pc = self.read_word_le(RESET_VECTOR);
         self.PC = pc;
     }
 
-    pub fn update(&mut self, c64_cycle_cnt: u32)
-    {
+    pub fn update(&mut self, c64_cycle_cnt: u32) {
         // check for irq and nmi
-        match self.state
-        {
+        match self.state {
             CPUState::FetchOp => {
-                if self.nmi && self.nmi_cycles_left == 0 && (c64_cycle_cnt - (self.first_nmi_cycle as u32) >= 2)
-                {
+                if self.nmi && self.nmi_cycles_left == 0 && (c64_cycle_cnt - (self.first_nmi_cycle as u32) >= 2) {
                     self.nmi_cycles_left = 7;
                     self.state = CPUState::ProcessNMI;
                 }
-                else if (self.cia_irq || self.vic_irq) && self.irq_cycles_left == 0 && !self.get_status_flag(StatusFlag::InterruptDisable) && (c64_cycle_cnt - (self.first_irq_cycle as u32) >= 2)
-                {
+                else if (self.cia_irq || self.vic_irq) && self.irq_cycles_left == 0 && !self.get_status_flag(StatusFlag::InterruptDisable) && (c64_cycle_cnt - (self.first_irq_cycle as u32) >= 2) {
                     self.irq_cycles_left = 7;
                     self.state = CPUState::ProcessIRQ;
                 }
@@ -171,8 +155,7 @@ impl CPU
             _ => {}
         }
         
-        match self.state
-        {
+        match self.state {
             CPUState::FetchOp => {
                 if self.ba_low { return; }
                 let next_op = self.next_byte();
@@ -204,44 +187,37 @@ impl CPU
             },
             CPUState::FetchOperandAddr => {
                 if self.ba_low { return; }
-                if opcodes::fetch_operand_addr(self)
-                {
-                    if self.instruction.is_rmw
-                    {
+                if opcodes::fetch_operand_addr(self) {
+                    if self.instruction.is_rmw {
                         self.state = CPUState::PerformRMW;
                     }
-                    else
-                    {
+                    else {
                         self.state = CPUState::ExecuteOp;
                     }
                 }
 
                 // TODO: odd case? Some instructions can be executed immediately after operand fetch
-                if self.instruction.cycles_to_run == 0 && self.instruction.cycles_to_fetch == 0
-                {
+                if self.instruction.cycles_to_run == 0 && self.instruction.cycles_to_fetch == 0 {
                     //panic!("Not sure if this should happen - reinvestigate");
                     opcodes::run(self);
                     self.state = CPUState::FetchOp;
                 }
             }
             CPUState::ProcessIRQ => {
-                if self.process_irq(false)
-                {
+                if self.process_irq(false) {
                     self.cia_irq = false;
                     self.vic_irq = false;
                     self.state = CPUState::FetchOp;
                 }
             },
             CPUState::ProcessNMI => {
-                if self.process_irq(true)
-                {
+                if self.process_irq(true) {
                     self.nmi = false;
                     self.state = CPUState::FetchOp;
                 }
             },
             CPUState::PerformRMW => {
-                match self.instruction.cycles_to_rmw
-                {
+                match self.instruction.cycles_to_rmw {
                     2 => {
                         if self.ba_low { return; }
                         let addr = self.instruction.operand_addr;
@@ -259,69 +235,58 @@ impl CPU
                 self.instruction.cycles_to_rmw -= 1;
             },
             CPUState::ExecuteOp => {
-                if opcodes::run(self)
-                {
+                if opcodes::run(self) {
                     self.state = CPUState::FetchOp;
                 }
             }
         }
     }
 
-    pub fn next_byte(&mut self) -> u8
-    {
+    pub fn next_byte(&mut self) -> u8 {
         let pc = self.PC;
         let op = self.read_byte(pc);
         self.PC += 1;
         op
     }
 
-    pub fn next_word(&mut self) -> u16
-    {
+    pub fn next_word(&mut self) -> u16 {
         let word = self.read_word_le(self.PC);
         self.PC += 2;
         word
     }
 
     // stack memory: $0100 - $01FF (256 byes)
-    // TODO: some extra message if stack over/underflow occurs? (right now handled by Rust)
-    pub fn push_byte(&mut self, value: u8)
-    {
+    pub fn push_byte(&mut self, value: u8) {
         self.SP -= 0x01;
         let newSP = (self.SP + 0x01) as u16;
         self.write_byte(0x0100 + newSP, value);
     }
 
-    pub fn pop_byte(&mut self) -> u8
-    {
+    pub fn pop_byte(&mut self) -> u8 {
         let addr = 0x0100 + (self.SP + 0x01) as u16;
         let value = self.read_byte(addr);
         self.SP += 0x01;
         value
     }
 
-    pub fn push_word(&mut self, value: u16)
-    {
+    pub fn push_word(&mut self, value: u16) {
         self.push_byte(((value >> 8) & 0xFF) as u8);
         self.push_byte((value & 0xFF) as u8);
     }
 
-    pub fn pop_word(&mut self) -> u16
-    {
+    pub fn pop_word(&mut self) -> u16 {
         let lo = (self.pop_byte() as u16) & 0x00FF;
         let hi = (self.pop_byte() as u16) & 0x00FF;
         (hi << 8) | lo
     }
 
-    pub fn write_byte(&mut self, addr: u16, value: u8) -> bool
-    {
+    pub fn write_byte(&mut self, addr: u16, value: u8) -> bool {
         let mut on_write = Callback::None;
         let mut mem_write_ok = true;
         let io_enabled = as_ref!(self.mem_ref).io_on;
 
-        if io_enabled
-        {
-            match addr
-            {
+        if io_enabled {
+            match addr {
  /*   VIC-II  */ 0xD000...0xD3FF => as_mut!(self.vic_ref).write_register(addr, value, &mut on_write),
  /*    SID    */ 0xD400...0xD7FF => as_mut!(self.sid_ref).write_register(addr, value),
  /* color RAM */ 0xD800...0xDBFF => mem_write_ok = as_mut!(self.mem_ref).write_byte(addr, value & 0x0F),
@@ -330,14 +295,12 @@ impl CPU
                  _               => mem_write_ok = as_mut!(self.mem_ref).write_byte(addr, value),
             }
         }
-        else
-        {
+        else {
             mem_write_ok = as_mut!(self.mem_ref).write_byte(addr, value);
         }
 
         // on VIC/CIA register write perform necessary action on the CPU
-        match on_write
-        {
+        match on_write {
             Callback::TriggerVICIrq => self.set_vic_irq(true),
             Callback::ClearVICIrq   => self.set_vic_irq(false),
             Callback::TriggerCIAIrq => self.set_cia_irq(true),
@@ -350,16 +313,13 @@ impl CPU
         mem_write_ok
     }
     
-    pub fn read_byte(&mut self, addr: u16) -> u8
-    {
+    pub fn read_byte(&mut self, addr: u16) -> u8 {
         let byte: u8;
         let mut on_read = Callback::None;
         let io_enabled = as_ref!(self.mem_ref).io_on;
 
-        if io_enabled
-        {
-            match addr
-            {
+        if io_enabled {
+            match addr {
    /*  VIC-II   */ 0xD000...0xD3FF => byte = as_mut!(self.vic_ref).read_register(addr),
    /*   SID     */ 0xD400...0xD7FF => byte = as_mut!(self.sid_ref).read_register(addr),
    /* color RAM */ 0xD800...0xDBFF => byte = (as_ref!(self.mem_ref).read_byte(addr) & 0x0F) | (as_ref!(self.vic_ref).last_byte & 0xF0),
@@ -373,13 +333,11 @@ impl CPU
                    _ => byte = as_mut!(self.mem_ref).read_byte(addr)
             }
         }
-        else
-        {
+        else {
             byte = as_mut!(self.mem_ref).read_byte(addr);
         }
 
-        match on_read
-        {
+        match on_read {
             Callback::TriggerCIAIrq => self.set_cia_irq(true),
             Callback::ClearCIAIrq   => self.set_cia_irq(false),
             Callback::TriggerNMI    => self.set_nmi(true),
@@ -390,23 +348,19 @@ impl CPU
         byte
     }
 
-    pub fn read_word_le(&self, addr: u16) -> u16
-    {
+    pub fn read_word_le(&self, addr: u16) -> u16 {
         as_ref!(self.mem_ref).read_word_le(addr)
     }
 
-    pub fn write_word_le(&self, addr: u16, value: u16) -> bool
-    {
+    pub fn write_word_le(&self, addr: u16, value: u16) -> bool {
         as_ref!(self.mem_ref).write_word_le(addr, value)
     }
     
-    fn process_irq(&mut self, is_nmi: bool) -> bool
-    {
+    fn process_irq(&mut self, is_nmi: bool) -> bool {
         let new_pc    = if is_nmi { NMI_VECTOR } else { IRQ_VECTOR };
         let cycle_cnt = if is_nmi { self.nmi_cycles_left } else { self.irq_cycles_left };
         
-        match cycle_cnt
-        {
+        match cycle_cnt {
             7 => {
                 if self.ba_low { return false; }
             },
@@ -437,41 +391,34 @@ impl CPU
             _ => panic!("Invalid IRQ/NMI cycle")
         }
 
-        if is_nmi
-        {
+        if is_nmi {
             self.nmi_cycles_left -= 1;
             self.nmi_cycles_left == 0
         }
-        else
-        {
+        else {
             self.irq_cycles_left -= 1;
             self.irq_cycles_left == 0
         }
     }
 
-    pub fn set_vic_irq(&mut self, val: bool)
-    {
+    pub fn set_vic_irq(&mut self, val: bool) {
         self.vic_irq = val;
     }
 
-    pub fn set_nmi(&mut self, val: bool)
-    {
+    pub fn set_nmi(&mut self, val: bool) {
         self.nmi = val;
     }
 
-    pub fn set_cia_irq(&mut self, val: bool)
-    {
+    pub fn set_cia_irq(&mut self, val: bool) {
         self.cia_irq = val;
     }
     
-    pub fn get_operand(&mut self) -> u8
-    {
+    pub fn get_operand(&mut self) -> u8 {
         // RMW instruction store pre-fetched operand value in internal buffer
-        if self.instruction.is_rmw
-        {
+        if self.instruction.is_rmw {
             return self.instruction.rmw_buffer;
         }
-        
+
         let val = match self.instruction.addr_mode {
             opcodes::AddrMode::Implied     => panic!("Can't get operand value!"),
             opcodes::AddrMode::Accumulator => self.A,
@@ -485,8 +432,7 @@ impl CPU
         val
     }
 
-    pub fn set_operand(&mut self, val: u8)
-    {
+    pub fn set_operand(&mut self, val: u8) {
         match self.instruction.addr_mode {
             opcodes::AddrMode::Implied     => panic!("Can't set implied operand value!"),
             opcodes::AddrMode::Accumulator => self.A = val,
@@ -499,14 +445,12 @@ impl CPU
         }
     }
 
-    pub fn adc(&mut self, value: u8)
-    {
+    pub fn adc(&mut self, value: u8) {
         let c = self.get_status_flag(StatusFlag::Carry);
         let a = self.A as u16;
         let v = value as u16;
 
-        if self.get_status_flag(StatusFlag::DecimalMode)
-        {
+        if self.get_status_flag(StatusFlag::DecimalMode) {
             let mut lo = (Wrapping(a & 0xF) + Wrapping(v & 0xF)).0;
             if  c { lo = (Wrapping(lo) + Wrapping(1)).0; }
             if lo > 9 { lo = (Wrapping(lo) + Wrapping(6)).0; }
@@ -526,8 +470,7 @@ impl CPU
             self.set_status_flag(StatusFlag::Carry, hi > 0xF);
             self.A = ((hi << 4) | (lo & 0xF)) as u8;
         }
-        else
-        {
+        else {
             // TODO: should operation wrap automatically here?
             let mut res = (Wrapping(a) + Wrapping(v)).0;
             if c
@@ -542,34 +485,32 @@ impl CPU
         }
     }
 
-    pub fn sbc(&mut self, value: u8)
-    {
+    pub fn sbc(&mut self, value: u8) {
         let a = self.A as u16;
         let v = value as u16;
         let mut res: u16 = (Wrapping(a) - Wrapping(v)).0;
         
-        if !self.get_status_flag(StatusFlag::Carry)
-        {
+        if !self.get_status_flag(StatusFlag::Carry) {
             res = (Wrapping(res) - Wrapping(0x0001)).0;
         }
         
-        if self.get_status_flag(StatusFlag::DecimalMode)
-        {
+        if self.get_status_flag(StatusFlag::DecimalMode) {
             let mut lo = (Wrapping(a & 0xF) - Wrapping(v & 0xF)).0;
             let mut hi = (Wrapping(a >> 4)  - Wrapping(v >> 4)).0;
 
-            if !self.get_status_flag(StatusFlag::Carry)
-            {
+            if !self.get_status_flag(StatusFlag::Carry) {
                 lo = (Wrapping(lo) - Wrapping(1)).0;
             }
             
-            if (lo & 0x10) != 0
-            {
+            if (lo & 0x10) != 0 {
                 lo = (Wrapping(lo) - Wrapping(6)).0;
                 hi = (Wrapping(hi) - Wrapping(1)).0;
             }
 
-            if (hi & 0x10) != 0 { hi = (Wrapping(hi) - Wrapping(6)).0; }
+            if (hi & 0x10) != 0 {
+                hi = (Wrapping(hi) - Wrapping(6)).0;
+            }
+
             let is_overflow = (a ^ res) & 0x80 != 0 && (a ^ v) & 0x80 == 0x80;
             
             self.set_status_flag(StatusFlag::Carry, (res & 0x0100) == 0);
@@ -578,8 +519,7 @@ impl CPU
 
             self.A = ((hi << 4) | (lo & 0xF)) as u8;
         }
-        else
-        {
+        else {
             // TODO: should operation wrap automatically here?
             self.set_status_flag(StatusFlag::Carry, (res & 0x0100) == 0);
             let is_overflow = (a ^ res) & 0x80 != 0 && (a ^ v) & 0x80 == 0x80;
@@ -589,27 +529,22 @@ impl CPU
         }
     }
 
-    pub fn branch(&mut self, flag_condition: bool, cycle: u8) -> bool
-    {
-        match cycle
-        {
+    pub fn branch(&mut self, flag_condition: bool, cycle: u8) -> bool {
+        match cycle {
             3 => {
                 if self.ba_low { return false; }
-                if flag_condition
-                {
+                if flag_condition {
                     let addr = self.instruction.operand_addr;
                     let pc = self.PC;
                     self.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
                 }
-                else
-                {
+                else {
                     // no branching - finish instruction after only 2 cycles
                     self.instruction.cycles_to_run = 1;
                 }
             },
             2 => {
-                if !self.instruction.zp_crossed
-                {
+                if !self.instruction.zp_crossed {
                     self.first_irq_cycle += 1;
                     self.first_nmi_cycle += 1;
                 }
@@ -618,8 +553,7 @@ impl CPU
                 let addr = self.instruction.operand_addr;
                 self.PC = addr;
 
-                if !self.instruction.zp_crossed
-                {
+                if !self.instruction.zp_crossed {
                     // no page crossing - finish instruction after only 3 cycle
                     self.instruction.cycles_to_run = 1;
                 }

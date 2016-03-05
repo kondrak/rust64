@@ -5,63 +5,55 @@ use std::rc::Rc;
 
 pub type MemShared = Rc<RefCell<Memory>>;
 
-pub enum MemType
-{
-    RAM,
-    BASIC,
-    CHARGEN,
-    IO,
-    KERNAL,
+pub enum MemType {
+    Ram,
+    Basic,
+    Chargen,
+    Io,
+    Kernal,
 }
 
 // specific memory bank - RAM, ROM, IO
-pub struct MemBank
-{
+pub struct MemBank {
     bank_type: MemType, // what am I?
     read_only: bool,    // RAM or ROM?
     offset: u16,        // offset from start of address space
     data: Vec<u8>,
 }
 
-impl MemBank
-{
-    pub fn new(mem_type: MemType) -> MemBank
-    {
-        let mut mem_bank = MemBank
-        {
+impl MemBank {
+    pub fn new(mem_type: MemType) -> MemBank {
+        let mut mem_bank = MemBank {
             bank_type: mem_type,
             read_only: true,
             offset: 0x0000,
             data: Vec::<u8>::new(),
         };
 
-        match mem_bank.bank_type
-        {
-            MemType::BASIC   => {
+        match mem_bank.bank_type {
+            MemType::Basic   => {
                 mem_bank.data = utils::open_file("rom/basic.rom", 0);
                 mem_bank.offset = 0xA000;
             },
-            MemType::CHARGEN => {
+            MemType::Chargen => {
                 mem_bank.data = utils::open_file("rom/chargen.rom", 0);
                 mem_bank.offset = 0xD000;
             },
-            MemType::KERNAL  => {
+            MemType::Kernal  => {
                 mem_bank.data = utils::open_file("rom/kernal.rom", 0);
                 mem_bank.offset = 0xE000;
             },
-            MemType::RAM => {
+            MemType::Ram => {
                 mem_bank.data = Vec::<u8>::with_capacity(0x10000);
-                for _ in 0..0x10000
-                {
+                for _ in 0..0x10000 {
                     mem_bank.data.push(0);
                 }
 
                 mem_bank.read_only = false;
             },
-            MemType::IO => {
+            MemType::Io => {
                 mem_bank.data = Vec::<u8>::with_capacity(0x1000);
-                for _ in 0..0x1000
-                {
+                for _ in 0..0x1000 {
                     mem_bank.data.push(0);
                 }
 
@@ -73,14 +65,11 @@ impl MemBank
         mem_bank
     }
 
-    pub fn write(&mut self, addr: u16, val: u8)
-    {
-        match self.bank_type
-        {
-            MemType::RAM => self.data[(addr - self.offset) as usize] = val,
-            MemType::IO => {
-                match addr
-                {
+    pub fn write(&mut self, addr: u16, val: u8) {
+        match self.bank_type {
+            MemType::Ram => self.data[(addr - self.offset) as usize] = val,
+            MemType::Io => {
+                match addr {
                     0xD016          => self.data[(addr - self.offset) as usize] = 0xC0 | val,
                     0xD019          => self.data[(addr - self.offset) as usize] = 0x70 | val,
                     0xD01A          => self.data[(addr - self.offset) as usize] = 0xF0 | val,
@@ -96,13 +85,10 @@ impl MemBank
         }
     }
 
-    pub fn read(&mut self, addr: u16) -> u8
-    {
-        match self.bank_type
-        {
-            MemType::IO => {
-                match addr
-                {
+    pub fn read(&mut self, addr: u16) -> u8 {
+        match self.bank_type {
+            MemType::Io => {
+                match addr {
                     0xD016          => 0xC0 | self.data[(addr - self.offset) as usize],
                     0xD018          => 0x01 | self.data[(addr - self.offset) as usize],
                     0xD019          => 0x70 | self.data[(addr - self.offset) as usize],
@@ -124,8 +110,7 @@ impl MemBank
 }
 
 // collective memory storage with all the banks and bank switching support
-pub struct Memory
-{
+pub struct Memory {
     ram:     MemBank,
     basic:   MemBank,
     chargen: MemBank,
@@ -141,17 +126,14 @@ pub struct Memory
     //cart_hi_on: bool  // cart flag - unused for now
 }
 
-impl Memory
-{
-    pub fn new_shared() -> MemShared
-    {
-        Rc::new(RefCell::new(Memory
-        {
-            ram:     MemBank::new(MemType::RAM),     // 64k
-            basic:   MemBank::new(MemType::BASIC),   // 8k
-            chargen: MemBank::new(MemType::CHARGEN), // 4k
-            io:      MemBank::new(MemType::IO),      // 4k (VIC, SID, CIA, Color RAM)
-            kernal:  MemBank::new(MemType::KERNAL),  // 8k
+impl Memory {
+    pub fn new_shared() -> MemShared {
+        Rc::new(RefCell::new(Memory {
+            ram:     MemBank::new(MemType::Ram),     // 64k
+            basic:   MemBank::new(MemType::Basic),   // 8k
+            chargen: MemBank::new(MemType::Chargen), // 4k
+            io:      MemBank::new(MemType::Io),      // 4k (VIC, SID, CIA, Color RAM)
+            kernal:  MemBank::new(MemType::Kernal),  // 8k
             basic_on:   false,
             chargen_on: false,
             io_on:      false,
@@ -160,10 +142,8 @@ impl Memory
     }
     
     // returns memory bank for current latch setting and address
-    pub fn get_bank(&mut self, addr: u16) -> (&mut MemBank)
-    {
-        match addr
-        {
+    pub fn get_bank(&mut self, addr: u16) -> (&mut MemBank) {
+        match addr {
             0x0000...0x9FFF => &mut self.ram,
             0xA000...0xBFFF => if self.basic_on { &mut self.basic } else { &mut self.ram },
             0xC000...0xCFFF => &mut self.ram,
@@ -178,36 +158,30 @@ impl Memory
     }
 
     // returns specific modifiable memory bank
-    pub fn get_ram_bank(&mut self, bank_type: MemType) -> (&mut MemBank)
-    {
-        match bank_type
-        {
-            MemType::RAM => &mut self.ram,
-            MemType::IO  => &mut self.io,
+    pub fn get_ram_bank(&mut self, bank_type: MemType) -> (&mut MemBank) {
+        match bank_type {
+            MemType::Ram => &mut self.ram,
+            MemType::Io  => &mut self.io,
             _            => panic!("Unrecognized RAM bank"),
         }
     }
 
     // returns specific non-modifiable memory bank
-    pub fn get_rom_bank(&mut self, bank_type: MemType) -> (&mut MemBank)
-    {
-        match bank_type
-        {
-            MemType::BASIC   => &mut self.basic,
-            MemType::CHARGEN => &mut self.chargen,
-            MemType::KERNAL  => &mut self.kernal,
+    pub fn get_rom_bank(&mut self, bank_type: MemType) -> (&mut MemBank) {
+        match bank_type {
+            MemType::Basic   => &mut self.basic,
+            MemType::Chargen => &mut self.chargen,
+            MemType::Kernal  => &mut self.kernal,
             _                => panic!("Unrecognized ROM Abank"),
         }
     }    
     
-    pub fn reset(&mut self)
-    {
+    pub fn reset(&mut self) {
         self.write_byte(0x0000, 0xFF);
         self.write_byte(0x0001, 0x07); // enable kernal, chargen and basic ROMs
     }
 
-    fn update_memory_latch(&mut self)
-    {
+    fn update_memory_latch(&mut self) {
         let ddr = self.ram.read(0x0000);
         let pr  = self.ram.read(0x0001);
         let latch = !ddr | pr;
@@ -219,32 +193,29 @@ impl Memory
     }
     
     // Write a byte to memory - returns whether RAM was written (true) or RAM under ROM (false)
-    pub fn write_byte(&mut self, addr: u16, value: u8) -> bool
-    {
+    pub fn write_byte(&mut self, addr: u16, value: u8) -> bool {
         // RAM under ROM written? Return false to let us know about it
-        if self.get_bank(addr).read_only
-        {
+        if self.get_bank(addr).read_only {
             self.ram.write(addr, value);
             return false;
         }
-        else
-        {
+        else {
             self.get_bank(addr).write(addr, value);
         }
         
         // update the bank switching flags here, since they can only change on memory write
         // latch byte changed - update bank switching flags
-        if addr < 0x0002 { self.update_memory_latch(); }
+        if addr < 0x0002 {
+            self.update_memory_latch();
+        }
         
         return true;
     }
     
     // Read a byte from memory
-    pub fn read_byte(&mut self, addr: u16) -> u8
-    {
+    pub fn read_byte(&mut self, addr: u16) -> u8 {
         // special location: current memory latch settings
-        if addr == 0x0001
-        {
+        if addr == 0x0001 {
             let ddr = self.ram.read(0x0000);
             let pr  = self.ram.read(0x0001);
             return (ddr & pr) | (!ddr & 0x17);
@@ -254,8 +225,7 @@ impl Memory
     }
 
     // Read a word from memory (stored in little endian)
-    pub fn read_word_le(&mut self, addr: u16) -> u16
-    {
+    pub fn read_word_le(&mut self, addr: u16) -> u16 {
         let bank = self.get_bank(addr);
         let value_be: u16 = ((bank.read(addr) as u16) << 8 & 0xFF00) |
                             ((bank.read(addr + 0x0001) as u16) & 0x00FF);
@@ -265,8 +235,7 @@ impl Memory
     }
 
     // Write word in little endian format (low/high)
-    pub fn write_word_le(&mut self, addr: u16, value: u16) -> bool
-    {
+    pub fn write_word_le(&mut self, addr: u16, value: u16) -> bool {
         let value_le_lo: u8 = (((value << 8) & 0xFF00) >> 8 & 0xFF) as u8;
         let value_le_hi: u8 = ((value >> 8) & 0x00FF) as u8;
 
