@@ -9,6 +9,7 @@ pub mod memory;
 mod io;
 mod cia;
 pub mod vic;
+mod vic_tables;
 mod sid;
 mod sid_tables;
 
