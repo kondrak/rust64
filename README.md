@@ -2,7 +2,7 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/77otp2475g7v95mb?svg=true)](https://ci.appveyor.com/project/kondrak/rust64)
 
 # Rust64 - a C64 emulator written in Rust
-This is my attempt to study the Rust programming language and have fun at the same time. The goal of this project is to present in a concise and non-obfuscated way how the C64 works and what's happening behind the scenes once you start a program. Emulation is cycle based and fairly accurate at this point.
+This is my attempt to study the Rust programming language and have fun at the same time. The goal is to present in a concise and non-obfuscated way how the C64 works and what's happening behind the scenes once you start a program. Emulation is cycle based and fairly accurate at this point.
 
 Dependencies
 ------------------
@@ -17,7 +17,7 @@ Requires Rust 1.5.0 or higher to compile and run.
 ### Screenshot:
 [![Screenshot](http://kondrak.info/images/rust64_github_prev.png?raw=true)](http://kondrak.info/images/rust64_github.png?raw=true)
 
-The emulator comes with a memory debugger letting you view the current state of each memory page in RAM, VIC registers, CIA registers, Color RAM and SID. The VIC window is a ICU64-style raster debugger, each pixel representing one VIC cycle and events associated with it. For performance reasons, the windows are updated once per C64 frame.
+The emulator comes with a memory debugger which lets you view the current state of each memory page in RAM, VIC registers, CIA registers, SID registers and Color RAM. The VIC window is a ICU64-style raster debugger, each pixel representing one VIC cycle and events associated with it. For performance reasons, the windows are updated once per C64 frame.
 
 Build instructions
 ------------------
@@ -72,18 +72,18 @@ TODO
 - serial bus/disk drives (d64, t64)
 - implement remaining undocumented ops
 - switch from SDL2 to cpal for audio once it supports OSX
+- improve SID emulation
 
 Known Issues
 ------------------
 - Due to lack of any serial bus handling, some programs may not perform correctly or get stuck in infinite loops.
-- SID emulation still needs a lot of work
 - elaborate programs that require incredibly precise timing are not running correctly yet
 
 This is an on-off WIP project, so update frequency may vary.
 
 Resources
 ------------------
-The following has been used to create this emulator:
+The following documents and websites have been used to create this emulator:
 
 - http://www.zimmers.net/cbmpics/cbm/c64/vic-ii.txt
 - http://frodo.cebix.net/ (inspired the VIC-II and SID implementaiton)
@@ -101,5 +101,5 @@ The following has been used to create this emulator:
 
 Special thanks
 ------------------
-- Daniel Collin and Magnus "Pantaloon" Sjöberg for excessive test programs
-- Jake Taylor for general Rust tips
+- [Daniel Collin](https://twitter.com/daniel_collin) and Magnus "Pantaloon" SjÃ¶berg for excessive test programs!
+- [Jake Taylor](https://twitter.com/ferristweetsnow) for general Rust tips!
