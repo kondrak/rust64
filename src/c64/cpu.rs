@@ -133,6 +133,9 @@ impl CPU {
     pub fn reset(&mut self) {
         let pc = self.read_word_le(RESET_VECTOR);
         self.pc = pc;
+
+        // I'm only doing this to avoid dead code warning :)
+        self.set_status_flag(StatusFlag::Unused, false);
     }
 
     pub fn update(&mut self, c64_cycle_cnt: u32) {
@@ -264,11 +267,12 @@ impl CPU {
         self.push_byte((value & 0xFF) as u8);
     }
 
-    pub fn pop_word(&mut self) -> u16 {
+/*    pub fn pop_word(&mut self) -> u16 {
         let lo = (self.pop_byte() as u16) & 0x00FF;
         let hi = (self.pop_byte() as u16) & 0x00FF;
         (hi << 8) | lo
     }
+*/
 
     pub fn write_byte(&mut self, addr: u16, value: u8) -> bool {
         let mut on_write = Callback::None;
