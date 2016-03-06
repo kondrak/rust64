@@ -99,9 +99,21 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU) {
     if !debug_loops {
         match cpu.instruction.opcode
         {
-            opcodes::Op::RTS => { let _ = cpu.op_debugger.jump_queue.pop(); return; },
-            opcodes::Op::JSR => if !cpu.op_debugger.jump_queue.is_empty() { cpu.op_debugger.jump_queue.push(opcode); return; },
-            _ => if !cpu.op_debugger.jump_queue.is_empty() { return; }
+            opcodes::Op::RTS => {
+                let _ = cpu.op_debugger.jump_queue.pop();
+                return;
+            },
+            opcodes::Op::JSR => {
+                if !cpu.op_debugger.jump_queue.is_empty() {
+                    cpu.op_debugger.jump_queue.push(opcode);
+                    return;
+                }
+            },
+            _ => {
+                if !cpu.op_debugger.jump_queue.is_empty() {
+                    return;
+                }
+            }
         }
     }
 

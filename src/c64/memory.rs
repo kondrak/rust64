@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use utils;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -232,17 +231,6 @@ impl Memory {
 
         let value_le: u16 = ((value_be << 8) & 0xFF00) | ((value_be >> 8) & 0x00FF);
         value_le
-    }
-
-    // Write word in little endian format (low/high)
-    pub fn write_word_le(&mut self, addr: u16, value: u16) -> bool {
-        let value_le_lo: u8 = (((value << 8) & 0xFF00) >> 8 & 0xFF) as u8;
-        let value_le_hi: u8 = ((value >> 8) & 0x00FF) as u8;
-
-        let hi = self.write_byte(addr, value_le_lo);
-        let lo = self.write_byte(addr + 0x0001, value_le_hi);
-
-        return hi && lo;
     }
 }
 

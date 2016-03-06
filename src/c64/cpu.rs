@@ -351,20 +351,13 @@ impl CPU {
     pub fn read_word_le(&self, addr: u16) -> u16 {
         as_ref!(self.mem_ref).read_word_le(addr)
     }
-
-    pub fn write_word_le(&self, addr: u16, value: u16) -> bool {
-        as_ref!(self.mem_ref).write_word_le(addr, value)
-    }
     
     fn process_irq(&mut self, is_nmi: bool) -> bool {
         let new_pc    = if is_nmi { NMI_VECTOR } else { IRQ_VECTOR };
         let cycle_cnt = if is_nmi { self.nmi_cycles_left } else { self.irq_cycles_left };
         
         match cycle_cnt {
-            7 => {
-                if self.ba_low { return false; }
-            },
-            6 => {
+            7 | 6 => {
                 if self.ba_low { return false; }
             },
             5 => {
