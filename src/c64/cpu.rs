@@ -1,5 +1,4 @@
 // The CPU
-
 use c64::opcodes;
 use c64::memory;
 use c64::vic;
@@ -50,12 +49,12 @@ pub enum CPUState {
 }
 
 pub struct CPU {
-    pub PC: u16, // program counter
-    pub SP: u8,  // stack pointer
-    pub P: u8,   // processor status
-    pub A: u8,   // accumulator
-    pub X: u8,   // index register
-    pub Y: u8,   // index register
+    pub pc: u16, // program counter
+    pub sp: u8,  // stack pointer
+    pub p: u8,   // processor status
+    pub a: u8,   // accumulator
+    pub x: u8,   // index register
+    pub y: u8,   // index register
     pub mem_ref: Option<memory::MemShared>, // reference to shared system memory
     pub vic_ref: Option<vic::VICShared>,
     pub cia1_ref: Option<cia::CIAShared>,
@@ -72,7 +71,7 @@ pub struct CPU {
     pub state: CPUState,
     pub nmi: bool,
     pub debug_instr: bool,
-    pub prev_PC: u16, // previous program counter - for debugging
+    pub prev_pc: u16, // previous program counter - for debugging
     dfff_byte: u8,
     pub op_debugger: utils::OpDebugger
 }
@@ -80,12 +79,12 @@ pub struct CPU {
 impl CPU {
     pub fn new_shared() -> CPUShared {
         Rc::new(RefCell::new(CPU {
-            PC: 0,
-            SP: 0xFF,
-            P: 0,
-            A: 0,
-            X: 0,
-            Y: 0,
+            pc: 0,
+            sp: 0xFF,
+            p: 0,
+            a: 0,
+            x: 0,
+            y: 0,
             mem_ref: None,
             vic_ref: None,
             cia1_ref: None,
@@ -102,7 +101,7 @@ impl CPU {
             instruction: opcodes::Instruction::new(),
             nmi: false,
             debug_instr: false,
-            prev_PC: 0,
+            prev_pc: 0,
             dfff_byte: 0x55,
             op_debugger: utils::OpDebugger::new()
         }))
@@ -117,12 +116,12 @@ impl CPU {
     }    
     
     pub fn set_status_flag(&mut self, flag: StatusFlag, value: bool) {
-        if value { self.P |=   flag as u8;  }
-        else     { self.P &= !(flag as u8); }
+        if value { self.p |=   flag as u8;  }
+        else     { self.p &= !(flag as u8); }
     }
 
     pub fn get_status_flag(&mut self, flag: StatusFlag) -> bool {
-        self.P & flag as u8 != 0x00
+        self.p & flag as u8 != 0x00
     }
 
     // these flags will be set in tandem quite often
@@ -133,7 +132,7 @@ impl CPU {
     
     pub fn reset(&mut self) {
         let pc = self.read_word_le(RESET_VECTOR);
-        self.PC = pc;
+        self.pc = pc;
     }
 
     pub fn update(&mut self, c64_cycle_cnt: u32) {
@@ -174,7 +173,7 @@ impl CPU {
                     opcodes::AddrMode::Immediate   => self.state = CPUState::ExecuteOp,
                     opcodes::AddrMode::Relative    => {
                         // TODO: inc PC only during op execution?
-                        let base = (self.PC + 1) as i16;
+                        let base = (self.pc + 1) as i16;
                         let offset = self.next_byte() as i8;
                         self.instruction.operand_addr = (base + offset as i16) as u16;
                         self.state = CPUState::ExecuteOp;
@@ -240,23 +239,23 @@ impl CPU {
     }
 
     pub fn next_byte(&mut self) -> u8 {
-        let pc = self.PC;
+        let pc = self.pc;
         let op = self.read_byte(pc);
-        self.PC += 1;
+        self.pc += 1;
         op
     }
 
     // stack memory: $0100 - $01FF (256 byes)
     pub fn push_byte(&mut self, value: u8) {
-        self.SP -= 0x01;
-        let new_sp = (self.SP + 0x01) as u16;
+        self.sp -= 0x01;
+        let new_sp = (self.sp + 0x01) as u16;
         self.write_byte(0x0100 + new_sp, value);
     }
 
     pub fn pop_byte(&mut self) -> u8 {
-        let addr = 0x0100 + (self.SP + 0x01) as u16;
+        let addr = 0x0100 + (self.sp + 0x01) as u16;
         let value = self.read_byte(addr);
-        self.SP += 0x01;
+        self.sp += 0x01;
         value
     }
 
@@ -352,16 +351,16 @@ impl CPU {
                 if self.ba_low { return false; }
             },
             5 => {
-                let pc_hi = (self.PC >> 8) as u8;
+                let pc_hi = (self.pc >> 8) as u8;
                 self.push_byte(pc_hi);
             },
             4 => {
-                let pc_lo = self.PC as u8;
+                let pc_lo = self.pc as u8;
                 self.push_byte(pc_lo);
             },
             3 => {
                 self.set_status_flag(StatusFlag::Break, false);
-                let curr_p = self.P;
+                let curr_p = self.p;
                 self.push_byte(curr_p);
                 self.set_status_flag(StatusFlag::InterruptDisable, true);
             },
@@ -370,7 +369,7 @@ impl CPU {
             },
             1 => {
                 if self.ba_low { return false; }
-                self.PC = as_ref!(self.mem_ref).read_word_le(new_pc);
+                self.pc = as_ref!(self.mem_ref).read_word_le(new_pc);
             }
             _ => panic!("Invalid IRQ/NMI cycle")
         }
@@ -405,7 +404,7 @@ impl CPU {
 
         let val = match self.instruction.addr_mode {
             opcodes::AddrMode::Implied     => panic!("Can't get operand value!"),
-            opcodes::AddrMode::Accumulator => self.A,
+            opcodes::AddrMode::Accumulator => self.a,
             opcodes::AddrMode::Immediate   => self.next_byte(),
             _ => {
                 let addr = self.instruction.operand_addr;
@@ -419,7 +418,7 @@ impl CPU {
     pub fn set_operand(&mut self, val: u8) {
         match self.instruction.addr_mode {
             opcodes::AddrMode::Implied     => panic!("Can't set implied operand value!"),
-            opcodes::AddrMode::Accumulator => self.A = val,
+            opcodes::AddrMode::Accumulator => self.a = val,
             opcodes::AddrMode::Immediate   => panic!("Can't set immediate operand value!"),
             opcodes::AddrMode::Relative    => panic!("Can't set relative operand value!"),
             _ => {
@@ -431,7 +430,7 @@ impl CPU {
 
     pub fn adc(&mut self, value: u8) {
         let c = self.get_status_flag(StatusFlag::Carry);
-        let a = self.A as u16;
+        let a = self.a as u16;
         let v = value as u16;
 
         if self.get_status_flag(StatusFlag::DecimalMode) {
@@ -466,7 +465,7 @@ impl CPU {
             }
             
             self.set_status_flag(StatusFlag::Carry, hi > 0xF);
-            self.A = ((hi << 4) | (lo & 0xF)) as u8;
+            self.a = ((hi << 4) | (lo & 0xF)) as u8;
         }
         else {
             // TODO: should operation wrap automatically here?
@@ -480,13 +479,13 @@ impl CPU {
             self.set_status_flag(StatusFlag::Carry, (res & 0x0100) != 0);
             let is_overflow = (a ^ v) & 0x80 == 0 && (a ^ res) & 0x80 == 0x80;
             self.set_status_flag(StatusFlag::Overflow, is_overflow);
-            self.A = res as u8;
+            self.a = res as u8;
             self.set_zn_flags(res as u8);
         }
     }
 
     pub fn sbc(&mut self, value: u8) {
-        let a = self.A as u16;
+        let a = self.a as u16;
         let v = value as u16;
         let mut res: u16 = a.wrapping_sub(v);
         
@@ -517,14 +516,14 @@ impl CPU {
             self.set_status_flag(StatusFlag::Overflow, is_overflow);
             self.set_zn_flags(res as u8);
 
-            self.A = ((hi << 4) | (lo & 0xF)) as u8;
+            self.a = ((hi << 4) | (lo & 0xF)) as u8;
         }
         else {
             // TODO: should operation wrap automatically here?
             self.set_status_flag(StatusFlag::Carry, (res & 0x0100) == 0);
             let is_overflow = (a ^ res) & 0x80 != 0 && (a ^ v) & 0x80 == 0x80;
             self.set_status_flag(StatusFlag::Overflow, is_overflow);
-            self.A = res as u8;
+            self.a = res as u8;
             self.set_zn_flags(res as u8);
         }
     }
@@ -535,7 +534,7 @@ impl CPU {
                 if self.ba_low { return false; }
                 if flag_condition {
                     let addr = self.instruction.operand_addr;
-                    let pc = self.PC;
+                    let pc = self.pc;
                     self.instruction.zp_crossed = (addr >> 8) != (pc >> 8);
                 }
                 else {
@@ -551,7 +550,7 @@ impl CPU {
                 if self.ba_low { return false; }
                 
                 let addr = self.instruction.operand_addr;
-                self.PC = addr;
+                self.pc = addr;
 
                 if !self.instruction.zp_crossed {
                     // no page crossing - finish instruction after only 3 cycle

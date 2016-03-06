@@ -105,7 +105,7 @@ impl C64 {
     pub fn run(&mut self) {
         if !self.boot_complete {
             // $A480 is the BASIC warm start sequence - safe to assume we can load a cmdline program now
-            self.boot_complete = self.cpu.borrow_mut().PC == 0xA480;
+            self.boot_complete = self.cpu.borrow_mut().pc == 0xA480;
  
             if self.boot_complete {
                 let prg_file = &self.file_to_load.to_owned()[..];

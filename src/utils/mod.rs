@@ -87,8 +87,8 @@ impl OpDebugger {
 }
 
 pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU) {
-    cpu.prev_PC = cpu.PC;
-    let prev_pc = cpu.prev_PC;
+    cpu.prev_pc = cpu.pc;
+    let prev_pc = cpu.prev_pc;
     
     let operand_hex: String;
     let operand: String;
@@ -132,17 +132,17 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU) {
         },
         opcodes::AddrMode::Absolute => {
             operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
-            operand = format!("${:04X}  ", cpu.read_word_le(cpu.prev_PC));
+            operand = format!("${:04X}  ", cpu.read_word_le(cpu.prev_pc));
         },
         opcodes::AddrMode::AbsoluteIndexedX(ec) => {
             extra_cycle = ec;
             operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
-            operand = format!("${:04X},X", cpu.read_word_le(cpu.prev_PC));
+            operand = format!("${:04X},X", cpu.read_word_le(cpu.prev_pc));
         },
         opcodes::AddrMode::AbsoluteIndexedY(ec) => {
             extra_cycle = ec;
             operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
-            operand = format!("${:04X},Y", cpu.read_word_le(cpu.prev_PC));
+            operand = format!("${:04X},Y", cpu.read_word_le(cpu.prev_pc));
         },
         opcodes::AddrMode::Zeropage => {
             operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
@@ -159,11 +159,11 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU) {
         opcodes::AddrMode::Relative => {
             operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
             let b: i8 = cpu.read_byte(prev_pc) as i8;
-            operand = format!("${:04X}  ", ((cpu.prev_PC + 1) as i16 + b as i16) as u16);
+            operand = format!("${:04X}  ", ((cpu.prev_pc + 1) as i16 + b as i16) as u16);
         },
         opcodes::AddrMode::Indirect => {
             operand_hex = format!(" {:02X} {:02X} ", cpu.read_byte(prev_pc), cpu.read_byte(prev_pc + 0x01));
-            operand = format!("(${:04X})", cpu.read_word_le(cpu.prev_PC));
+            operand = format!("(${:04X})", cpu.read_word_le(cpu.prev_pc));
         },
         opcodes::AddrMode::IndexedIndirectX => {
             operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
@@ -191,7 +191,7 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU) {
     
     let rmw_mark = if cpu.instruction.cycles_to_rmw > 0 { "+" } else { " " };
 
-    println!("${:04X}: {:02X}{}{}{} {}  {}<- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}] ({} cls, f: {}, r: {})", cpu.prev_PC - 1, opcode, operand_hex, extra_cycle_mark, cpu.instruction, operand,rmw_mark, cpu.A, cpu.X, cpu.Y, cpu.SP, byte0, byte1, cpu.P, total_cycles, fetch_cycles, cpu.instruction.cycles_to_run);
+    println!("${:04X}: {:02X}{}{}{} {}  {}<- A: {:02X} X: {:02X} Y: {:02X} SP: {:02X} 00: {:02X} 01: {:02X} NV-BDIZC: [{:08b}] ({} cls, f: {}, r: {})", cpu.prev_pc - 1, opcode, operand_hex, extra_cycle_mark, cpu.instruction, operand,rmw_mark, cpu.a, cpu.x, cpu.y, cpu.sp, byte0, byte1, cpu.p, total_cycles, fetch_cycles, cpu.instruction.cycles_to_run);
 
     // JSR? push on queue to supress logging
     if !debug_loops {

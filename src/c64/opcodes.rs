@@ -175,9 +175,9 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool {
                 2 => {
                     let addr_lo = cpu.instruction.operand_addr;
                     cpu.instruction.index_addr = cpu.next_byte() as u16;
-                    cpu.instruction.operand_addr = ((addr_lo + cpu.X as u16) & 0xFF) | (cpu.instruction.index_addr << 8);
+                    cpu.instruction.operand_addr = ((addr_lo + cpu.x as u16) & 0xFF) | (cpu.instruction.index_addr << 8);
                     // page crossed?
-                    cpu.instruction.zp_crossed = addr_lo + (cpu.X as u16) >= 0x100;
+                    cpu.instruction.zp_crossed = addr_lo + (cpu.x as u16) >= 0x100;
 
                     // if instruction has extra cycle on page crossing and it hasn't happened, we don't get
                     // the extra cycle (finish fetching now)
@@ -201,9 +201,9 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool {
                 2 => {
                     cpu.instruction.index_addr = cpu.next_byte() as u16;
                     let addr_lo = cpu.instruction.operand_addr;
-                    cpu.instruction.operand_addr = ((addr_lo + cpu.Y as u16) & 0xFF) | (cpu.instruction.index_addr << 8);
+                    cpu.instruction.operand_addr = ((addr_lo + cpu.y as u16) & 0xFF) | (cpu.instruction.index_addr << 8);
                     // page crossed?
-                    cpu.instruction.zp_crossed = addr_lo + (cpu.Y as u16) >= 0x100;
+                    cpu.instruction.zp_crossed = addr_lo + (cpu.y as u16) >= 0x100;
                     
                     // if instruction has extra cycle on page crossing and it hasn't happened, we don't get
                     // the extra cycle (finish fetching now)
@@ -226,7 +226,7 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool {
                     cpu.instruction.operand_addr = cpu.next_byte() as u16;
                 },
                 1 => {
-                    let x = cpu.X as u16;
+                    let x = cpu.x as u16;
                     let base_addr = cpu.instruction.operand_addr;
                     cpu.instruction.operand_addr = (base_addr.wrapping_add(x) as u16) & 0xFF;
                 }
@@ -239,7 +239,7 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool {
                     cpu.instruction.operand_addr = cpu.next_byte() as u16;
                 },
                 1 => {
-                    let y = cpu.Y as u16;
+                    let y = cpu.y as u16;
                     let base_addr = cpu.instruction.operand_addr;
                     cpu.instruction.operand_addr = (base_addr.wrapping_add(y) as u16) & 0xFF;
                 }
@@ -252,7 +252,7 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool {
                     cpu.instruction.index_addr = cpu.next_byte() as u16;
                 },
                 3 => {
-                    cpu.instruction.index_addr = (cpu.instruction.index_addr + cpu.X as u16) & 0xFF;
+                    cpu.instruction.index_addr = (cpu.instruction.index_addr + cpu.x as u16) & 0xFF;
                 },
                 2 => {
                     let idx_addr = cpu.instruction.index_addr;
@@ -279,9 +279,9 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool {
                     let idx = cpu.instruction.index_addr;
                     let opaddr = cpu.instruction.operand_addr;
                     cpu.instruction.index_addr =  cpu.read_byte((idx + 1) & 0xFF ) as u16;
-                    cpu.instruction.operand_addr = ((opaddr + cpu.Y as u16) & 0x0FF) | (cpu.instruction.index_addr << 8);
+                    cpu.instruction.operand_addr = ((opaddr + cpu.y as u16) & 0x0FF) | (cpu.instruction.index_addr << 8);
                     // page crossed?
-                    cpu.instruction.zp_crossed = opaddr + (cpu.Y as u16) >= 0x100;
+                    cpu.instruction.zp_crossed = opaddr + (cpu.y as u16) >= 0x100;
 
                     // if instruction has extra cycle on page crossing and it hasn't happened, we don't get
                     // the extra cycle (finish fetching now)
@@ -320,66 +320,66 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
         Op::LDA => {
             if cpu.ba_low { return false; }
             let na = cpu.get_operand();
-            cpu.A = na;
+            cpu.a = na;
             cpu.set_zn_flags(na);
         },
         Op::LDX => {
             if cpu.ba_low { return false; }
             let nx = cpu.get_operand();
-            cpu.X = nx;
+            cpu.x = nx;
             cpu.set_zn_flags(nx);
         },
         Op::LDY => {
             if cpu.ba_low { return false; }
             let ny = cpu.get_operand();
-            cpu.Y = ny;
+            cpu.y = ny;
             cpu.set_zn_flags(ny);
         },
         Op::STA => {
-            let a = cpu.A;
+            let a = cpu.a;
             cpu.set_operand(a);
         },
         Op::STX => {
-            let x = cpu.X;
+            let x = cpu.x;
             cpu.set_operand(x);
         },
         Op::STY => {
-            let y = cpu.Y;
+            let y = cpu.y;
             cpu.set_operand(y);
         },
         Op::TAX => {
             if cpu.ba_low { return false; }
-            cpu.X = cpu.A;
-            let x = cpu.X;
+            cpu.x = cpu.a;
+            let x = cpu.x;
             cpu.set_zn_flags(x);
         },
         Op::TAY => {
             if cpu.ba_low { return false; }
-            cpu.Y = cpu.A;
-            let y = cpu.Y;
+            cpu.y = cpu.a;
+            let y = cpu.y;
             cpu.set_zn_flags(y);
         },
         Op::TXA => {
             if cpu.ba_low { return false; }
-            cpu.A = cpu.X;
-            let a = cpu.A;
+            cpu.a = cpu.x;
+            let a = cpu.a;
             cpu.set_zn_flags(a);
         },
         Op::TYA => {
             if cpu.ba_low { return false; }
-            cpu.A = cpu.Y;
-            let a = cpu.A;
+            cpu.a = cpu.y;
+            let a = cpu.a;
             cpu.set_zn_flags(a);
         },
         Op::TSX => {
             if cpu.ba_low { return false; }
-            cpu.X = cpu.SP;
-            let x = cpu.X;
+            cpu.x = cpu.sp;
+            let x = cpu.x;
             cpu.set_zn_flags(x);
         },
         Op::TXS => {
             if cpu.ba_low { return false; }
-            cpu.SP = cpu.X;
+            cpu.sp = cpu.x;
         },
         Op::PHA => {
             match cpu.instruction.cycles_to_run {
@@ -387,7 +387,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
                     if cpu.ba_low { return false; }
                 },
                 1 => {
-                    let a = cpu.A;
+                    let a = cpu.a;
                     cpu.push_byte(a);
                 },
                 _ => panic!("Wrong number of cycles: {} {}", cpu.instruction, cpu.instruction.cycles_to_run)
@@ -399,7 +399,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
                     if cpu.ba_low { return false; }
                 },
                 1 => {
-                    let p = cpu.P;
+                    let p = cpu.p;
                     // TODO: break flag?
                     cpu.push_byte(p);
                 },
@@ -412,7 +412,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
                 3 | 2 => {},
                 1 => {
                     let a = cpu.pop_byte();
-                    cpu.A = a;
+                    cpu.a = a;
                     cpu.set_zn_flags(a);
                 },
                 _ => panic!("Wrong number of cycles: {} {}", cpu.instruction, cpu.instruction.cycles_to_run)
@@ -425,7 +425,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
                 1 => {
                     // TODO: opflags
                     let p = cpu.pop_byte();
-                    cpu.P = p;
+                    cpu.p = p;
                 },
                 _ => panic!("Wrong number of cycles: {} {}", cpu.instruction, cpu.instruction.cycles_to_run)
             }
@@ -433,28 +433,28 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
         Op::AND => {
             if cpu.ba_low { return false; }
             let v = cpu.get_operand();
-            let na = cpu.A & v;
-            cpu.A = na;
+            let na = cpu.a & v;
+            cpu.a = na;
             cpu.set_zn_flags(na);
         },
         Op::EOR => {
             if cpu.ba_low { return false; }
             let v = cpu.get_operand();
-            let na = cpu.A ^ v;
-            cpu.A = na;
+            let na = cpu.a ^ v;
+            cpu.a = na;
             cpu.set_zn_flags(na);
         },
         Op::ORA => {
             if cpu.ba_low { return false; }
             let v = cpu.get_operand();
-            let na = cpu.A | v;
-            cpu.A = na;
+            let na = cpu.a | v;
+            cpu.a = na;
             cpu.set_zn_flags(na);
         },
         Op::BIT => {
             if cpu.ba_low { return false; }
             let v = cpu.get_operand();
-            let a = cpu.A;
+            let a = cpu.a;
             cpu.set_status_flag(cpu::StatusFlag::Negative, (v as i8) < 0);
             cpu.set_status_flag(cpu::StatusFlag::Overflow, (v & 0x40) != 0);
             cpu.set_status_flag(cpu::StatusFlag::Zero,     (v & a)    == 0);
@@ -472,21 +472,21 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
         Op::CMP => {
             if cpu.ba_low { return false; }
             let v = cpu.get_operand();
-            let res = cpu.A as i16 - v as i16;
+            let res = cpu.a as i16 - v as i16;
             cpu.set_status_flag(cpu::StatusFlag::Carry, res >= 0);
             cpu.set_zn_flags(res as u8);
         },
         Op::CPX => {
             if cpu.ba_low { return false; }
             let v = cpu.get_operand();
-            let res = cpu.X as i16 - v as i16;
+            let res = cpu.x as i16 - v as i16;
             cpu.set_status_flag(cpu::StatusFlag::Carry, res >= 0);
             cpu.set_zn_flags(res as u8);
         },
         Op::CPY => {
             if cpu.ba_low { return false; }
             let v = cpu.get_operand();
-            let res = cpu.Y as i16 - v as i16;
+            let res = cpu.y as i16 - v as i16;
             cpu.set_status_flag(cpu::StatusFlag::Carry, res >= 0);
             cpu.set_zn_flags(res as u8);
         },
@@ -498,14 +498,14 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
         },
         Op::INX => {
             if cpu.ba_low { return false; }
-            cpu.X = cpu.X.wrapping_add(0x01);
-            let x = cpu.X;
+            cpu.x = cpu.x.wrapping_add(0x01);
+            let x = cpu.x;
             cpu.set_zn_flags(x);
         },
         Op::INY => {
             if cpu.ba_low { return false; }
-            cpu.Y = cpu.Y.wrapping_add(0x01);
-            let y = cpu.Y;
+            cpu.y = cpu.y.wrapping_add(0x01);
+            let y = cpu.y;
             cpu.set_zn_flags(y);
         },
         Op::DEC => {
@@ -516,14 +516,14 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
         },
         Op::DEX => {
             if cpu.ba_low { return false; }
-            cpu.X = cpu.X.wrapping_sub(0x01);
-            let x = cpu.X;
+            cpu.x = cpu.x.wrapping_sub(0x01);
+            let x = cpu.x;
             cpu.set_zn_flags(x);
         },
         Op::DEY => {
             if cpu.ba_low { return false; }
-            cpu.Y = cpu.Y.wrapping_sub(0x01);
-            let y = cpu.Y;
+            cpu.y = cpu.y.wrapping_sub(0x01);
+            let y = cpu.y;
             cpu.set_zn_flags(y);
         },
         Op::ASL => {
@@ -593,7 +593,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
                     //cpu.instruction.cycles_to_run -= 1;
                 },
                 1 | 0 => {
-                    cpu.PC = cpu.instruction.operand_addr;
+                    cpu.pc = cpu.instruction.operand_addr;
                     cpu.instruction.cycles_to_run = 1;
                 },
                 _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
@@ -605,12 +605,12 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
                     // TODO: break down PC push to 2 byte instructions?
                 },
                 2 => {
-                    let pc = cpu.PC - 0x0001;
+                    let pc = cpu.pc - 0x0001;
                     cpu.push_word(pc);
                 },
                 1  => {
                     if cpu.ba_low { return false; }
-                    cpu.PC = cpu.instruction.operand_addr;
+                    cpu.pc = cpu.instruction.operand_addr;
                 },
                 _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
             }
@@ -622,14 +622,14 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
                 5 | 4 => {},
                 3 => {
                     let pc_lo = cpu.pop_byte() as u16;
-                    cpu.PC = pc_lo;
+                    cpu.pc = pc_lo;
                 },
                 2 => {
                     let pc_hi = cpu.pop_byte() as u16;
-                    cpu.PC |= pc_hi << 8;
+                    cpu.pc |= pc_hi << 8;
                 },
                 1  => {
-                    cpu.PC += 1;
+                    cpu.pc += 1;
                 },
                 _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
             }
@@ -736,16 +736,16 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
                     if cpu.ba_low { return false; }
                 },
                 5 => {
-                    let pc = cpu.PC + 0x0001;
+                    let pc = cpu.pc + 0x0001;
                     cpu.push_byte(((pc >> 8) & 0xFF) as u8);
                 },
                 4 => {
-                    let pc = cpu.PC + 0x0001;
+                    let pc = cpu.pc + 0x0001;
                     cpu.push_byte((pc & 0xFF) as u8);
                 },
                 3 => {
                     cpu.set_status_flag(cpu::StatusFlag::Break, true);
-                    let p = cpu.P;
+                    let p = cpu.p;
                     cpu.push_byte(p);
                     cpu.set_status_flag(cpu::StatusFlag::InterruptDisable, true);
                     if cpu.nmi {
@@ -757,8 +757,8 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
                     cpu.first_nmi_cycle += 1; // delay NMI
                 },
                 1  => {
-                    //println!("Received BRK instruction at ${:04X}", cpu.PC-1);
-                    cpu.PC = cpu.read_word_le(cpu::IRQ_VECTOR);
+                    //println!("Received BRK instruction at ${:04X}", cpu.pc-1);
+                    cpu.pc = cpu.read_word_le(cpu::IRQ_VECTOR);
                 },
                 _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
             }
@@ -773,35 +773,35 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
                 5 | 4 => {},
                 3 => {
                     let p = cpu.pop_byte();
-                    cpu.P = p;
+                    cpu.p = p;
                 },
                 2 => {
                     let pc_lo = cpu.pop_byte() as u16;
-                    cpu.PC = pc_lo;
+                    cpu.pc = pc_lo;
                 },
                 1  => {
                     let pc_hi = cpu.pop_byte() as u16;
-                    cpu.PC |= pc_hi << 8;
+                    cpu.pc |= pc_hi << 8;
                 },
                 _ => panic!("Wrong number of cycles: {} {} ", cpu.instruction, cpu.instruction.cycles_to_run)
             }
         },
         // forbidden ops
         Op::HLT => {
-            panic!("Received HLT instruction at ${:04X}", cpu.PC-1);
+            panic!("Received HLT instruction at ${:04X}", cpu.pc-1);
         },
         Op::SLO => {
             let mut v = cpu.instruction.rmw_buffer;
             cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x80) != 0);
             v <<= 1;
             cpu.instruction.rmw_buffer = v;
-            let na = cpu.A | v;
-            cpu.A = na;
+            let na = cpu.a | v;
+            cpu.a = na;
             cpu.set_zn_flags(na);
         },
         Op::ANC => {
             let v = cpu.get_operand();
-            let na = cpu.A & v;
+            let na = cpu.a & v;
             cpu.set_zn_flags(na);
             let n = cpu.get_status_flag(cpu::StatusFlag::Negative);
             cpu.set_status_flag(cpu::StatusFlag::Carry, n);
@@ -816,8 +816,8 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
 
             cpu.set_status_flag(cpu::StatusFlag::Carry, tmp != 0);
             cpu.instruction.rmw_buffer = v;
-            let na = cpu.A & v;
-            cpu.A = na;
+            let na = cpu.a & v;
+            cpu.a = na;
             cpu.set_zn_flags(na);
         },
         Op::SRE => {
@@ -825,8 +825,8 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
             cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x01) != 0);
             v >>= 1;
             cpu.instruction.rmw_buffer = v;
-            let na = cpu.A ^ v;
-            cpu.A = na;
+            let na = cpu.a ^ v;
+            cpu.a = na;
             cpu.set_zn_flags(na);
         },
         Op::RRA => {
@@ -841,47 +841,47 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
             cpu.adc(v);
         },
         Op::SAX => {
-            let v = cpu.A & cpu.X;
+            let v = cpu.a & cpu.x;
             cpu.set_operand(v);
         },
         Op::AHX => {
             let addr = cpu.instruction.operand_addr;
             let addr_hi = cpu.instruction.index_addr as u8;
-            let y = cpu.Y;
+            let y = cpu.y;
             cpu.write_byte(addr, y & (addr_hi + 1));
         },
         Op::TAS => {
             let addr = cpu.instruction.operand_addr;
             let addr_hi = cpu.instruction.index_addr as u8;
-            let a = cpu.A;
-            let x = cpu.X;
-            cpu.SP = a & x;
+            let a = cpu.a;
+            let x = cpu.x;
+            cpu.sp = a & x;
             cpu.write_byte(addr, (a & x) & (addr_hi + 1));
         },
         Op::SHY => {
             let addr = cpu.instruction.operand_addr;
             let addr_hi = cpu.instruction.index_addr as u8;
-            let a = cpu.A;
-            let x = cpu.X;
+            let a = cpu.a;
+            let x = cpu.x;
             cpu.write_byte(addr, a & x & (addr_hi + 1));
         },
         Op::SHX => {
             let addr = cpu.instruction.operand_addr;
             let addr_hi = cpu.instruction.index_addr as u8;
-            let x = cpu.X;
+            let x = cpu.x;
             cpu.write_byte(addr, x & (addr_hi + 1));
         },
         Op::LAX => {
             if cpu.ba_low { return false; }
             let nv = cpu.get_operand();
-            cpu.A = nv;
-            cpu.X = nv;
+            cpu.a = nv;
+            cpu.x = nv;
             cpu.set_zn_flags(nv);
         }, 
         Op::DCP => {
             let v = cpu.instruction.rmw_buffer.wrapping_sub(0x01);
             cpu.set_operand(v);
-            let diff = cpu.A as i16 - v as i16;
+            let diff = cpu.a as i16 - v as i16;
             cpu.set_zn_flags(diff as u8);
             cpu.set_status_flag(cpu::StatusFlag::Carry, diff >= 0);
         },
@@ -891,7 +891,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
             cpu.set_operand(v);
             cpu.sbc(v);
         },
-        _ => panic!("Unknown instruction: {} at ${:04X}", cpu.instruction, cpu.PC)
+        _ => panic!("Unknown instruction: {} at ${:04X}", cpu.instruction, cpu.pc)
     }
 
     cpu.instruction.cycles_to_run -= 1;

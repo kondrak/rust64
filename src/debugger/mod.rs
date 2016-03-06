@@ -348,12 +348,12 @@ impl Debugger {
         let mut y_txt = Vec::new();
         let mut sp_txt = Vec::new();
         let mut p_txt = Vec::new();
-        let _ = write!(&mut pc_txt, "${:04X}", cpu.borrow_mut().PC);
-        let _ = write!(&mut a_txt, "${:02X}", cpu.borrow_mut().A);
-        let _ = write!(&mut x_txt, "${:02X}", cpu.borrow_mut().X);
-        let _ = write!(&mut y_txt, "${:02X}", cpu.borrow_mut().Y);
-        let _ = write!(&mut sp_txt, "${:02X}", cpu.borrow_mut().SP);
-        let _ = write!(&mut p_txt, "[{:08b}]", cpu.borrow_mut().P);
+        let _ = write!(&mut pc_txt, "${:04X}", cpu.borrow_mut().pc);
+        let _ = write!(&mut a_txt, "${:02X}", cpu.borrow_mut().a);
+        let _ = write!(&mut x_txt, "${:02X}", cpu.borrow_mut().x);
+        let _ = write!(&mut y_txt, "${:02X}", cpu.borrow_mut().y);
+        let _ = write!(&mut sp_txt, "${:02X}", cpu.borrow_mut().sp);
+        let _ = write!(&mut p_txt, "[{:08b}]", cpu.borrow_mut().p);
         
         self.font.draw_text(&mut self.window_buffer, DEBUG_W, 44, 22, "PC:", 0x0F);
         self.font.draw_text(&mut self.window_buffer, DEBUG_W, 47, 22, &String::from_utf8(pc_txt).unwrap().to_owned()[..], 0x0E);
