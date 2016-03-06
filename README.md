@@ -28,15 +28,15 @@ cargo run --release
 
 You can pass a .prg file as a command line parameter to load it into memory once the emulators boots (type RUN to start the program):
 ```
-cargo run --release tests/bgcolor.prg
+cargo run --release prgs/colors.prg
 ```
 To run with double-sized window:
 ```
-cargo run --release x2 tests/bgcolor.prg
+cargo run --release x2 prgs/colors.prg
 ```
 To run with double-sized window and debug windows enabled:
 ```
-cargo run --release x2 debugger tests/bgcolor.prg
+cargo run --release x2 debugger prgs/colors.prg
 ```
 
 C64 and special key mappings
@@ -50,6 +50,7 @@ LCTRL   - C=
 -       - +
 INS     - &
 HOME    - CLR/Home
+BSPACE  - INST/DEL
 [       - @
 ]       - *
 DEL     - ^
@@ -96,6 +97,7 @@ The following has been used to create this emulator:
 - https://t.co/J40UKu7RBf
 - http://www.waitingforfriday.com/index.php/Commodore_SID_6581_Datasheet
 - http://sta.c64.org/cbm64mem.html
+- http://www.classiccmp.org/cini/pdf/Commodore/ds_6581.pdf
 
 Special thanks
 ------------------
