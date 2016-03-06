@@ -3,7 +3,6 @@ use c64::memory;
 use c64::cpu;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::num::Wrapping;
 use c64::vic_tables::*;
 use c64;
 use utils;
@@ -953,7 +952,7 @@ impl VIC {
     fn refresh_access(&mut self){
         let ref_cnt = self.refresh_cnt as u16;
         self.read_byte(0x3F00 | ref_cnt);
-        self.refresh_cnt = (Wrapping(self.refresh_cnt) - Wrapping(1)).0;
+        self.refresh_cnt = self.refresh_cnt.wrapping_sub(0x01);
     }
 
     fn check_sprite_dma(&mut self){
@@ -1197,7 +1196,7 @@ impl VIC {
 
                 for i in 0..8 {
                     if (self.sprite_y_exp & (1 << i)) != 0 {
-                        self.mc_base[i] = (Wrapping(self.mc_base[i]) + Wrapping(2)).0;
+                        self.mc_base[i] = self.mc_base[i].wrapping_add(0x02);
                     }
                 }
                 
@@ -1215,7 +1214,7 @@ impl VIC {
 
                 for i in 0..8 {
                     if (self.sprite_y_exp & mask) != 0 {
-                        self.mc_base[i] = (Wrapping(self.mc_base[i]) + Wrapping(1)).0;
+                        self.mc_base[i] = self.mc_base[i].wrapping_add(0x01);
                     }
 
                     if (self.mc_base[i] & 0x3F) == 0x3F {
@@ -1545,7 +1544,7 @@ impl VIC {
         }
 
         // next cycle
-        self.raster_x = (Wrapping(self.raster_x) + Wrapping(8)).0;
+        self.raster_x = self.raster_x.wrapping_add(0x08);
 
         if line_finished {
             self.curr_cycle = 1;

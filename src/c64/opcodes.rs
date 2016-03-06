@@ -13,7 +13,6 @@
 
 use c64::cpu;
 use std::fmt;
-use std::num::Wrapping;
 
 pub enum AddrMode {
     Implied,
@@ -229,7 +228,7 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool {
                 1 => {
                     let x = cpu.X as u16;
                     let base_addr = cpu.instruction.operand_addr;
-                    cpu.instruction.operand_addr = ((Wrapping(base_addr) + Wrapping(x)).0 as u16) & 0xFF;
+                    cpu.instruction.operand_addr = (base_addr.wrapping_add(x) as u16) & 0xFF;
                 }
                 _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
             }
@@ -242,7 +241,7 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool {
                 1 => {
                     let y = cpu.Y as u16;
                     let base_addr = cpu.instruction.operand_addr;
-                    cpu.instruction.operand_addr = ((Wrapping(base_addr) + Wrapping(y)).0 as u16) & 0xFF;
+                    cpu.instruction.operand_addr = (base_addr.wrapping_add(y) as u16) & 0xFF;
                 }
                 _ => panic!("Too many cycles for operand address fetch! ({}) ", cpu.instruction.cycles_to_fetch)
             }
@@ -492,38 +491,38 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
             cpu.set_zn_flags(res as u8);
         },
         Op::INC => {
-            let v = (Wrapping(cpu.instruction.rmw_buffer) + Wrapping(0x01)).0;
+            let v = cpu.instruction.rmw_buffer.wrapping_add(0x01);
             let addr = cpu.instruction.operand_addr;
             cpu.write_byte(addr, v);
             cpu.set_zn_flags(v);
         },
         Op::INX => {
             if cpu.ba_low { return false; }
-            cpu.X = (Wrapping(cpu.X) + Wrapping(0x01)).0;
+            cpu.X = cpu.X.wrapping_add(0x01);
             let x = cpu.X;
             cpu.set_zn_flags(x);
         },
         Op::INY => {
             if cpu.ba_low { return false; }
-            cpu.Y = (Wrapping(cpu.Y) + Wrapping(0x01)).0;
+            cpu.Y = cpu.Y.wrapping_add(0x01);
             let y = cpu.Y;
             cpu.set_zn_flags(y);
         },
         Op::DEC => {
-            let v = (Wrapping(cpu.instruction.rmw_buffer) - Wrapping(0x01)).0;
+            let v = cpu.instruction.rmw_buffer.wrapping_sub(0x01);
             let addr = cpu.instruction.operand_addr;
             cpu.write_byte(addr, v);
             cpu.set_zn_flags(v);
         },
         Op::DEX => {
             if cpu.ba_low { return false; }
-            cpu.X = (Wrapping(cpu.X) - Wrapping(0x01)).0;
+            cpu.X = cpu.X.wrapping_sub(0x01);
             let x = cpu.X;
             cpu.set_zn_flags(x);
         },
         Op::DEY => {
             if cpu.ba_low { return false; }
-            cpu.Y = (Wrapping(cpu.Y) - Wrapping(0x01)).0;
+            cpu.Y = cpu.Y.wrapping_sub(0x01);
             let y = cpu.Y;
             cpu.set_zn_flags(y);
         },
@@ -880,7 +879,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
             cpu.set_zn_flags(nv);
         }, 
         Op::DCP => {
-            let v = (Wrapping(cpu.instruction.rmw_buffer) - Wrapping(0x01)).0;
+            let v = cpu.instruction.rmw_buffer.wrapping_sub(0x01);
             cpu.set_operand(v);
             let diff = cpu.A as i16 - v as i16;
             cpu.set_zn_flags(diff as u8);

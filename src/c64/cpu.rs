@@ -1,6 +1,4 @@
 // The CPU
-#![allow(non_snake_case)]
-#![allow(dead_code)]
 
 use c64::opcodes;
 use c64::memory;
@@ -9,7 +7,6 @@ use c64::cia;
 use c64::sid;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::num::Wrapping;
 
 use utils;
 
@@ -249,17 +246,11 @@ impl CPU {
         op
     }
 
-    pub fn next_word(&mut self) -> u16 {
-        let word = self.read_word_le(self.PC);
-        self.PC += 2;
-        word
-    }
-
     // stack memory: $0100 - $01FF (256 byes)
     pub fn push_byte(&mut self, value: u8) {
         self.SP -= 0x01;
-        let newSP = (self.SP + 0x01) as u16;
-        self.write_byte(0x0100 + newSP, value);
+        let new_sp = (self.SP + 0x01) as u16;
+        self.write_byte(0x0100 + new_sp, value);
     }
 
     pub fn pop_byte(&mut self) -> u8 {
@@ -444,32 +435,48 @@ impl CPU {
         let v = value as u16;
 
         if self.get_status_flag(StatusFlag::DecimalMode) {
-            let mut lo = (Wrapping(a & 0xF) + Wrapping(v & 0xF)).0;
-            if  c { lo = (Wrapping(lo) + Wrapping(1)).0; }
-            if lo > 9 { lo = (Wrapping(lo) + Wrapping(6)).0; }
+            let mut lo = (a & 0x0F).wrapping_add(v & 0x0F);
 
-            let mut hi = (Wrapping(a >> 4) + Wrapping(v >> 4)).0;
-            if lo > 0xF { hi = (Wrapping(hi) + Wrapping(1)).0; }
+            if  c {
+                lo = lo.wrapping_add(0x01);
+            }
+            
+            if lo > 9 {
+                lo = lo.wrapping_add(0x06);
+            }
+
+            let mut hi = (a >> 4).wrapping_add(v >> 4);
+            if lo > 0x0F {
+                hi = hi.wrapping_add(0x01);
+            }
 
             let is_overflow = ((((hi << 4) ^ a) & 0x80) != 0) && (((a ^ v) & 0x80) == 0);
-            let mut is_zero = (Wrapping(a) + Wrapping(v)).0;
-            if c  { is_zero = (Wrapping(is_zero) + Wrapping(1)).0; }
+            let mut is_zero = a.wrapping_add(v);
+
+            if c  {
+                is_zero = is_zero.wrapping_add(0x01);
+            }
             
             self.set_status_flag(StatusFlag::Negative, (hi << 4) != 0); // TODO: is this ok?              
             self.set_status_flag(StatusFlag::Overflow, is_overflow);
             self.set_status_flag(StatusFlag::Zero,     is_zero == 0);
 
-            if hi > 9 { hi = (Wrapping(hi) + Wrapping(6)).0; }
+            if hi > 9 {
+                hi = hi.wrapping_add(0x06);
+            }
+            
             self.set_status_flag(StatusFlag::Carry, hi > 0xF);
             self.A = ((hi << 4) | (lo & 0xF)) as u8;
         }
         else {
             // TODO: should operation wrap automatically here?
-            let mut res = (Wrapping(a) + Wrapping(v)).0;
+            let mut res = a.wrapping_add(v);
+            
             if c
             {
-                res = (Wrapping(res) + Wrapping(1)).0;
+                res = res.wrapping_add(0x1);
             }
+            
             self.set_status_flag(StatusFlag::Carry, (res & 0x0100) != 0);
             let is_overflow = (a ^ v) & 0x80 == 0 && (a ^ res) & 0x80 == 0x80;
             self.set_status_flag(StatusFlag::Overflow, is_overflow);
@@ -481,27 +488,27 @@ impl CPU {
     pub fn sbc(&mut self, value: u8) {
         let a = self.A as u16;
         let v = value as u16;
-        let mut res: u16 = (Wrapping(a) - Wrapping(v)).0;
+        let mut res: u16 = a.wrapping_sub(v);
         
         if !self.get_status_flag(StatusFlag::Carry) {
-            res = (Wrapping(res) - Wrapping(0x0001)).0;
+            res = res.wrapping_sub(0x0001);
         }
         
         if self.get_status_flag(StatusFlag::DecimalMode) {
-            let mut lo = (Wrapping(a & 0xF) - Wrapping(v & 0xF)).0;
-            let mut hi = (Wrapping(a >> 4)  - Wrapping(v >> 4)).0;
+            let mut lo = (a & 0x0F).wrapping_sub(v & 0x0F);
+            let mut hi = (a >> 4).wrapping_sub(v >> 4);
 
             if !self.get_status_flag(StatusFlag::Carry) {
-                lo = (Wrapping(lo) - Wrapping(1)).0;
+                lo = lo.wrapping_sub(0x01);
             }
             
             if (lo & 0x10) != 0 {
-                lo = (Wrapping(lo) - Wrapping(6)).0;
-                hi = (Wrapping(hi) - Wrapping(1)).0;
+                lo = lo.wrapping_sub(0x06);
+                hi = hi.wrapping_sub(0x01);
             }
 
             if (hi & 0x10) != 0 {
-                hi = (Wrapping(hi) - Wrapping(6)).0;
+                hi = hi.wrapping_sub(0x06);
             }
 
             let is_overflow = (a ^ res) & 0x80 != 0 && (a ^ v) & 0x80 == 0x80;
