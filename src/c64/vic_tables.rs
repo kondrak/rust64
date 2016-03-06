@@ -1,6 +1,4 @@
-/*
- * VIC sprite X expansion tables - as found in Frodo emulator 4.1b
- */
+// VIC sprite X expansion tables - as found in Frodo emulator 4.1b
 
 pub const EXP_TABLE: [u16; 256] = [
     0x0000, 0x0003, 0x000C, 0x000F, 0x0030, 0x0033, 0x003C, 0x003F,

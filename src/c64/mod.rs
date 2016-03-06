@@ -51,11 +51,11 @@ impl C64 {
             memory: memory.clone(), // shared system memory (RAM, ROM, IO registers)
             io:    io::IO::new(),
             clock: clock::Clock::new(CLOCK_FREQ),
-            cpu: cpu.clone(),
-            cia1: cia1.clone(),
-            cia2: cia2.clone(),
-            vic: vic.clone(),
-            sid: sid.clone(),
+            cpu:   cpu.clone(),
+            cia1:  cia1.clone(),
+            cia2:  cia2.clone(),
+            vic:   vic.clone(),
+            sid:   sid.clone(),
             debugger: if debugger_on { Some(debugger::Debugger::new()) } else { None },
             boot_complete: false,
             file_to_load: String::new(),
@@ -96,8 +96,7 @@ impl C64 {
         let start_address: u16 = ((prg_data[1] as u16) << 8) | (prg_data[0] as u16);
         println!("Loading {} to start location at ${:04x} ({})", filename, start_address, start_address);
 
-        for i in 2..(prg_data.len())
-        {
+        for i in 2..(prg_data.len()) {
             self.memory.borrow_mut().write_byte(start_address + (i as u16) - 2, prg_data[i]);
         }
     }

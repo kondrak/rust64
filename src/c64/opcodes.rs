@@ -903,7 +903,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
 // num cycles represents the *max* number of cycles that the instruction can take to execute (so taking into account extra cycles for branching, page crosses etc.)
 pub fn get_instruction(opcode: u8) -> Option<(Op, u8, bool, AddrMode)> {
     Some(match opcode {
-        /* ** documented instructions ** */
+        // ** documented instructions **
         /* BRK     */ 0x00 => (Op::BRK, 7, false, AddrMode::Implied),
         /* ORA_izx */ 0x01 => (Op::ORA, 6, false, AddrMode::IndexedIndirectX),
         /* ORA_zp  */ 0x05 => (Op::ORA, 3, false, AddrMode::Zeropage),
@@ -1055,7 +1055,7 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, bool, AddrMode)> {
         /* SBC_aby */ 0xF9 => (Op::SBC, 5, false, AddrMode::AbsoluteIndexedY(true)), // add 1 cycle if page boundary is crossed
         /* SBC_abx */ 0xFD => (Op::SBC, 5, false, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
         /* INC_abx */ 0xFE => (Op::INC, 7,  true, AddrMode::AbsoluteIndexedX(false)),
-        /* ** undocumented/forbidden instructions ** */
+        // ** undocumented/forbidden instructions **
         /* HLT     */ 0x02 => (Op::HLT, 1, false, AddrMode::Implied),
         /* SLO_izx */ 0x03 => (Op::SLO, 8,  true, AddrMode::IndexedIndirectX),
         /* NOP_zp  */ 0x04 => (Op::NOP, 3, false, AddrMode::Zeropage),

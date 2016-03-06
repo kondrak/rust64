@@ -1,6 +1,5 @@
-/*
- * SID data and precalculated sample tables - as found in Frodo emulator 4.1b
- */
+// SID data and precalculated sample tables - as found in Frodo emulator 4.1b
+
 use c64::sid;
 
 pub static mut TRI_TABLE: [u16; 8192] = [0; 8192];

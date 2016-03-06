@@ -559,7 +559,7 @@ impl VIC {
         }
     }
 
-    /* *** helper functions for draw_graphics *** */
+    // *** helper functions for draw_graphics ***
     fn draw_std(&mut self, color: &[u8]) {
         let screen_pos = self.screen_chunk_offset + self.x_scroll as usize;
         
@@ -917,7 +917,7 @@ impl VIC {
     }
 
 
-    /* ***helper functions *** */
+    // ***helper functions ***
     fn set_ba_low(&mut self, c64_cycle_cnt: u32) {
         if !as_mut!(self.cpu_ref).ba_low {
             self.first_ba_cycle = c64_cycle_cnt;
@@ -1000,7 +1000,7 @@ impl VIC {
         }
     }
     
-    /* *** main VIC-II loop *** */
+    // *** main VIC-II loop ***
     // returns true if VBlank is to be triggered
     pub fn update(&mut self, c64_cycle_cnt: u32, should_trigger_vblank: &mut bool) -> bool {
         let mut mask: u8;

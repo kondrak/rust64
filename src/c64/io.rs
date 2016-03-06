@@ -33,7 +33,7 @@ impl IO {
     }
     
     pub fn update(&mut self, window: &Window, cia1: &mut cia::CIAShared) {
-        /* Keyboard processing */
+        // Keyboard processing
         // iterating over all keys is crawling-slow, so check individual keys
         self.process_key(window.is_key_down(Key::Key0), Key::Key0, cia1);
         self.process_key(window.is_key_down(Key::Key1), Key::Key1, cia1);
@@ -110,7 +110,7 @@ impl IO {
         self.process_key(window.is_key_down(Key::Tab),        Key::Tab,        cia1);
         self.process_key(window.is_key_down(Key::LeftCtrl),   Key::LeftCtrl,   cia1);
 
-        /* Joystick processing */
+        // Joystick processing
         self.process_joystick(window.is_key_down(Key::NumPad1), Key::NumPad1, cia1);
         self.process_joystick(window.is_key_down(Key::NumPad2), Key::NumPad2, cia1);
         self.process_joystick(window.is_key_down(Key::NumPad3), Key::NumPad3, cia1);
@@ -122,7 +122,7 @@ impl IO {
         self.process_joystick(window.is_key_down(Key::NumPad9), Key::NumPad9, cia1);
         self.process_joystick(window.is_key_down(Key::RightCtrl), Key::RightCtrl, cia1);
 
-        /* helper keys */
+        // helper keys
         // toggle between joystick ports 1 and 2
         if window.is_key_pressed(Key::NumLock, KeyRepeat::No) {
             self.joy_port1 = !self.joy_port1;
