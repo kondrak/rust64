@@ -1,18 +1,21 @@
-// SID
+// SID chip
 extern crate rand;
 extern crate sdl2;
+
 use self::sdl2::audio::{ AudioCallback, AudioSpecDesired };
 use c64::memory;
 use c64::sid_tables::*;
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::f32;
+use std::rc::Rc;
+
 pub type SIDShared = Rc<RefCell<SID>>;
 
 const SAMPLE_FREQ: u32 = 44100;  // output frequency
 const SID_FREQ:    u32 = 985248; // SID frequency in Hz
 pub const SID_CYCLES:  u32 = SID_FREQ / SAMPLE_FREQ;  // SID clocks/sample frame
 const NUM_SAMPLES: usize = 624; // size of buffer for sampled voice
+
 
 enum WaveForm {
     None,
@@ -45,6 +48,8 @@ enum FilterType {
     All
 }
 
+
+// single SID voice
 struct SIDVoice {
     wave: WaveForm,
     state: VoiceState,
@@ -93,9 +98,8 @@ impl SIDVoice {
             mute: false
         }
     }
-}
 
-impl SIDVoice {
+
     fn reset(&mut self) {
         self.wave  = WaveForm::None;
         self.state = VoiceState::Idle;
@@ -118,29 +122,8 @@ impl SIDVoice {
     }
 }
 
-struct SIDAudioDevice {
-    last_sid_byte: u8,
-    volume: u8,
-    filter_type: FilterType,
-    filter_freq: u8,
-    filter_resonance: u8,
 
-    // IIR filter
-    iir_att: f32,
-    d1: f32,
-    d2: f32,
-    g1: f32,
-    g2: f32,
-    xn1: f32,
-    xn2: f32,
-    yn1: f32,
-    yn2: f32,
-    
-    voices: Vec<SIDVoice>,
-    sample_buffer: [u8; NUM_SAMPLES],
-    sample_idx: usize,
-}
-
+// the SID chip with associated SDL2 audio device
 pub struct SID {
     mem_ref: Option<memory::MemShared>,
     audio_device: sdl2::audio::AudioDevice<SIDAudioDevice>,
@@ -166,14 +149,23 @@ impl SID {
         }))
     }
 
+
     pub fn set_references(&mut self, memref: memory::MemShared) {
         self.mem_ref = Some(memref);
     }
+
 
     pub fn reset(&mut self) {
         let mut lock = self.audio_device.lock();
         (*lock).reset();
     }
+
+
+    pub fn update(&mut self) {
+        let mut lock = self.audio_device.lock();
+        (*lock).update();
+    }
+
 
     pub fn read_register(&mut self, addr: u16) -> u8 {
         let mut rval = 0;
@@ -198,20 +190,43 @@ impl SID {
         rval
     }
 
+
     pub fn write_register(&mut self, addr: u16, value: u8) {
         let mut lock = self.audio_device.lock();
         (*lock).write_register(addr, value);
         as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
     }
 
-    pub fn update(&mut self) {
-        let mut lock = self.audio_device.lock();
-        (*lock).update();
-    }
 
     pub fn update_audio(&mut self) {
         self.audio_device.resume();
     }
+}
+
+
+// SDL2 audio device along with necessary SID parameters
+// this is where the actual SID calculations are being performed
+struct SIDAudioDevice {
+    last_sid_byte: u8,  // last byte read by the SID
+    volume: u8,
+    filter_type: FilterType,
+    filter_freq: u8,
+    filter_resonance: u8,
+
+    // IIR filter
+    iir_att: f32,
+    d1:  f32,
+    d2:  f32,
+    g1:  f32,
+    g2:  f32,
+    xn1: f32,
+    xn2: f32,
+    yn1: f32,
+    yn2: f32,
+    
+    voices: Vec<SIDVoice>,
+    sample_buffer: [u8; NUM_SAMPLES],
+    sample_idx: usize
 }
 
 impl SIDAudioDevice {
@@ -224,10 +239,10 @@ impl SIDAudioDevice {
             filter_freq: 0,
             filter_resonance: 0,
             iir_att: 1.0,
-            d1: 0.0,
-            d2: 0.0,
-            g1: 0.0,
-            g2: 0.0,
+            d1:  0.0,
+            d2:  0.0,
+            g1:  0.0,
+            g2:  0.0,
             xn1: 0.0,
             xn2: 0.0,
             yn1: 0.0,
@@ -254,6 +269,7 @@ impl SIDAudioDevice {
         
         sid_audio_device
     }
+
 
     pub fn reset(&mut self) {
         self.last_sid_byte = 0;
@@ -283,91 +299,14 @@ impl SIDAudioDevice {
         }
     }
 
-    fn lowpass_resonance(&self, f: f32) -> f32 {
-        let f2 = f * f;
-        let f3 = f2 * f;
-        let f4 = f3 * f;
-        227.755 - 1.7635 * f - 0.0176385 * f2 + 0.00333484 * f3 - 9.05683E-6 * f4
+
+    pub fn update(&mut self) {
+        let idx = self.sample_idx;
+        self.sample_buffer[idx] = self.volume;
+        self.sample_idx = (self.sample_idx + 1) % NUM_SAMPLES;
     }
 
-    fn highpass_resonance(&self, f: f32) -> f32 {
-        let f2 = f * f;
-        let f3 = f2 * f;
-        366.374 - 14.0052 * f + 0.603212 * f2 - 0.000880196 * f3
-    }    
 
-    fn calculate_filter(&mut self) {
-        let f = self.filter_freq as f32;
-        let resonance: f32;
-        let mut arg: f32;
-        
-        match self.filter_type {
-            FilterType::None => {
-                self.d1 = 0.0;
-                self.d2 = 0.0;
-                self.g1 = 0.0;
-                self.g2 = 0.0;
-                self.iir_att = 0.0;
-                return;
-            },
-            FilterType::All => {
-                self.d1 = 0.0;
-                self.d2 = 0.0;
-                self.g1 = 0.0;
-                self.g2 = 0.0;
-                self.iir_att = 1.0;
-                return;
-            }
-            FilterType::Lowpass | FilterType::LowBandpass => {
-               resonance = self.lowpass_resonance(f);
-            },
-            _ => {
-                resonance = self.highpass_resonance(f);
-            }
-        }
-
-        arg = resonance / ((SAMPLE_FREQ >> 1) as f32);
-        if arg > 0.99 { arg = 0.99; }
-        if arg < 0.01 { arg = 0.01; }
-
-        self.g2 = 0.55 + 1.2 * arg * arg - 1.2 * arg +  0.0133333333 * self.filter_resonance as f32;
-        self.g1 = -2.0 * self.g2.sqrt() * (f32::consts::PI * arg).cos();
-
-        match self.filter_type {
-            FilterType::LowBandpass | FilterType::HighBandpass => self.g2 += 0.1,
-            _ => ()
-        }
-
-        if self.g1.abs() >= (self.g2 + 1.0) {
-            if self.g1 > 0.0 { self.g1 = self.g2 + 0.99;    }
-            else             { self.g1 = -(self.g2 + 0.99); }
-        }
-
-        match self.filter_type {
-            FilterType::LowBandpass | FilterType::Lowpass => {
-                self.d1 = 2.0;
-                self.d2 = 1.0;
-                self.iir_att = 0.25 * (1.0 + self.g1 + self.g2);
-            },
-            FilterType::HighBandpass | FilterType::Highpass => {
-                self.d1 = -2.0;
-                self.d2 = 1.0;
-                self.iir_att = 0.25 * (1.0 - self.g1 + self.g2);
-            },
-            FilterType::Bandpass => {
-                self.d1 = 0.0;
-                self.d2 = -1.0;
-                self.iir_att = 0.25 * (1.0 + self.g1 + self.g2) * (1.0 + (f32::consts::PI * arg).cos()) / (f32::consts::PI * arg).sin();
-            },
-            FilterType::Notch => {
-                self.d1 = -2.0 * (f32::consts::PI * arg).cos();
-                self.d2 = 1.0;
-                self.iir_att = 0.25 * (1.0 + self.g1 + self.g2) * (1.0 + (f32::consts::PI * arg).cos()) / (f32::consts::PI * arg).sin();
-            },
-            _ => ()
-        }
-    }
-    
     pub fn read_register(&mut self, addr: u16) -> u8 {
         // most SID registers are write-only. The write to IO RAM is performed
         // so that the debugger can print out the value fetched by the CPU
@@ -390,6 +329,7 @@ impl SIDAudioDevice {
         }
     }
     
+
     pub fn write_register(&mut self, addr: u16, value: u8) {
         self.last_sid_byte = value;
 
@@ -515,6 +455,96 @@ impl SIDAudioDevice {
         }
     }
 
+    // *** private functions *** //
+
+    fn lowpass_resonance(&self, f: f32) -> f32 {
+        let f2 = f * f;
+        let f3 = f2 * f;
+        let f4 = f3 * f;
+        227.755 - 1.7635 * f - 0.0176385 * f2 + 0.00333484 * f3 - 9.05683E-6 * f4
+    }
+
+
+    fn highpass_resonance(&self, f: f32) -> f32 {
+        let f2 = f * f;
+        let f3 = f2 * f;
+        366.374 - 14.0052 * f + 0.603212 * f2 - 0.000880196 * f3
+    }
+
+
+    fn calculate_filter(&mut self) {
+        let f = self.filter_freq as f32;
+        let resonance: f32;
+        let mut arg: f32;
+        
+        match self.filter_type {
+            FilterType::None => {
+                self.d1 = 0.0;
+                self.d2 = 0.0;
+                self.g1 = 0.0;
+                self.g2 = 0.0;
+                self.iir_att = 0.0;
+                return;
+            },
+            FilterType::All => {
+                self.d1 = 0.0;
+                self.d2 = 0.0;
+                self.g1 = 0.0;
+                self.g2 = 0.0;
+                self.iir_att = 1.0;
+                return;
+            }
+            FilterType::Lowpass | FilterType::LowBandpass => {
+               resonance = self.lowpass_resonance(f);
+            },
+            _ => {
+                resonance = self.highpass_resonance(f);
+            }
+        }
+
+        arg = resonance / ((SAMPLE_FREQ >> 1) as f32);
+        if arg > 0.99 { arg = 0.99; }
+        if arg < 0.01 { arg = 0.01; }
+
+        self.g2 = 0.55 + 1.2 * arg * arg - 1.2 * arg +  0.0133333333 * self.filter_resonance as f32;
+        self.g1 = -2.0 * self.g2.sqrt() * (f32::consts::PI * arg).cos();
+
+        match self.filter_type {
+            FilterType::LowBandpass | FilterType::HighBandpass => self.g2 += 0.1,
+            _ => ()
+        }
+
+        if self.g1.abs() >= (self.g2 + 1.0) {
+            if self.g1 > 0.0 { self.g1 = self.g2 + 0.99;    }
+            else             { self.g1 = -(self.g2 + 0.99); }
+        }
+
+        match self.filter_type {
+            FilterType::LowBandpass | FilterType::Lowpass => {
+                self.d1 = 2.0;
+                self.d2 = 1.0;
+                self.iir_att = 0.25 * (1.0 + self.g1 + self.g2);
+            },
+            FilterType::HighBandpass | FilterType::Highpass => {
+                self.d1 = -2.0;
+                self.d2 = 1.0;
+                self.iir_att = 0.25 * (1.0 - self.g1 + self.g2);
+            },
+            FilterType::Bandpass => {
+                self.d1 = 0.0;
+                self.d2 = -1.0;
+                self.iir_att = 0.25 * (1.0 + self.g1 + self.g2) * (1.0 + (f32::consts::PI * arg).cos()) / (f32::consts::PI * arg).sin();
+            },
+            FilterType::Notch => {
+                self.d1 = -2.0 * (f32::consts::PI * arg).cos();
+                self.d2 = 1.0;
+                self.iir_att = 0.25 * (1.0 + self.g1 + self.g2) * (1.0 + (f32::consts::PI * arg).cos()) / (f32::consts::PI * arg).sin();
+            },
+            _ => ()
+        }
+    }
+
+
     fn set_control_register(&mut self, v_num: usize, value: u8) {
         self.voices[v_num].wave = match (value >> 4) & 0x0F {
             0 => WaveForm::None,
@@ -556,14 +586,9 @@ impl SIDAudioDevice {
             }
         } 
     }
-    
-    pub fn update(&mut self) {
-        let idx = self.sample_idx;
-        self.sample_buffer[idx] = self.volume;
-        self.sample_idx = (self.sample_idx + 1) % NUM_SAMPLES;
-    }
 }
 
+// SDL2 audio callback implementation - this is where the samples are being converted to output sound
 impl AudioCallback for SIDAudioDevice {
     type Channel = i16;
 
@@ -708,6 +733,8 @@ impl AudioCallback for SIDAudioDevice {
             total_output_filter = yn as i32;
 
             let sample_value = (((total_output + total_output_filter)) >> 2) as i16;
+
+            // output the sample!
             *x = sample_value;
         }
     }

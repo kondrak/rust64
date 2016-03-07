@@ -1,3 +1,4 @@
+// bitmap font used in debugger window
 use utils;
 
 pub struct SysFont {
@@ -11,6 +12,7 @@ impl SysFont {
             data: Vec::<u8>::new(),
         };
 
+        // lazily skipping the BMP header to actual data
         let bmp_data = utils::open_file("res/font.bmp", 54);
 
         let mut j: i32 = 256*63*3;

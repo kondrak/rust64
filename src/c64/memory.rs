@@ -1,6 +1,7 @@
-use utils;
+// memory banks
 use std::cell::RefCell;
 use std::rc::Rc;
+use utils;
 
 pub type MemShared = Rc<RefCell<Memory>>;
 
@@ -11,6 +12,7 @@ pub enum MemType {
     Io,
     Kernal,
 }
+
 
 // specific memory bank - RAM, ROM, IO
 pub struct MemBank {
@@ -64,6 +66,7 @@ impl MemBank {
         mem_bank
     }
 
+
     pub fn write(&mut self, addr: u16, val: u8) {
         match self.bank_type {
             MemType::Ram => self.data[(addr - self.offset) as usize] = val,
@@ -83,6 +86,7 @@ impl MemBank {
             _ => panic!("Can't write to ROM!")
         }
     }
+
 
     pub fn read(&mut self, addr: u16) -> u8 {
         match self.bank_type {
@@ -108,6 +112,7 @@ impl MemBank {
     }    
 }
 
+
 // collective memory storage with all the banks and bank switching support
 pub struct Memory {
     ram:     MemBank,
@@ -121,8 +126,6 @@ pub struct Memory {
     pub chargen_on: bool,
     pub io_on:      bool,
     pub kernal_on:  bool,
-    //cart_lo_on: bool, // cart flag - unused for now
-    //cart_hi_on: bool  // cart flag - unused for now
 }
 
 impl Memory {
@@ -140,6 +143,7 @@ impl Memory {
         }))
     }
     
+
     // returns memory bank for current latch setting and address
     pub fn get_bank(&mut self, addr: u16) -> (&mut MemBank) {
         match addr {
@@ -156,6 +160,7 @@ impl Memory {
         }
     }
 
+
     // returns specific modifiable memory bank
     pub fn get_ram_bank(&mut self, bank_type: MemType) -> (&mut MemBank) {
         match bank_type {
@@ -164,6 +169,7 @@ impl Memory {
             _            => panic!("Unrecognized RAM bank"),
         }
     }
+
 
     // returns specific non-modifiable memory bank
     pub fn get_rom_bank(&mut self, bank_type: MemType) -> (&mut MemBank) {
@@ -175,21 +181,12 @@ impl Memory {
         }
     }    
     
+
     pub fn reset(&mut self) {
         self.write_byte(0x0000, 0xFF);
         self.write_byte(0x0001, 0x07); // enable kernal, chargen and basic ROMs
     }
 
-    fn update_memory_latch(&mut self) {
-        let ddr = self.ram.read(0x0000);
-        let pr  = self.ram.read(0x0001);
-        let latch = !ddr | pr;
-
-        self.chargen_on = ((latch & 0x04) == 0) && ((latch & 0x03) != 0); // %0xx except %000
-        self.io_on      = ((latch & 0x04) != 0) && ((latch & 0x03) != 0); // %1xx except %100
-        self.basic_on   = (latch & 0x03) == 3;
-        self.kernal_on  = (latch & 0x02) != 0;
-    }
     
     // Write a byte to memory - returns whether RAM was written (true) or RAM under ROM (false)
     pub fn write_byte(&mut self, addr: u16, value: u8) -> bool {
@@ -211,6 +208,7 @@ impl Memory {
         return true;
     }
     
+
     // Read a byte from memory
     pub fn read_byte(&mut self, addr: u16) -> u8 {
         // special location: current memory latch settings
@@ -223,6 +221,7 @@ impl Memory {
         self.get_bank(addr).read(addr)
     }
 
+
     // Read a word from memory (stored in little endian)
     pub fn read_word_le(&mut self, addr: u16) -> u16 {
         let bank = self.get_bank(addr);
@@ -231,6 +230,21 @@ impl Memory {
 
         let value_le: u16 = ((value_be << 8) & 0xFF00) | ((value_be >> 8) & 0x00FF);
         value_le
+    }
+
+
+    // *** private functions *** //
+
+    // update status of memory bank latches
+    fn update_memory_latch(&mut self) {
+        let ddr = self.ram.read(0x0000);
+        let pr  = self.ram.read(0x0001);
+        let latch = !ddr | pr;
+
+        self.chargen_on = ((latch & 0x04) == 0) && ((latch & 0x03) != 0); // %0xx except %000
+        self.io_on      = ((latch & 0x04) != 0) && ((latch & 0x03) != 0); // %1xx except %100
+        self.basic_on   = (latch & 0x03) == 3;
+        self.kernal_on  = (latch & 0x02) != 0;
     }
 }
 

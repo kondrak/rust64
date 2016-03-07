@@ -1,7 +1,7 @@
-// CIA
+// CIA chip
 use c64::cpu;
-use c64::vic;
 use c64::memory;
+use c64::vic;
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -17,16 +17,17 @@ enum TimerState {
     CountStop
 }
 
+
 // Struct for CIA timer A/B
 struct CIATimer {
     state: TimerState, // current state of the timer
-    is_ta: bool, // is this timer A?
-    value: u16,  // timer value (TA/TB)
-    latch: u16,  // timer latch
-    ctrl: u8,    // control timer (CRA/CRB)
+    is_ta: bool,       // is this timer A?
+    value: u16,        // timer value (TA/TB)
+    latch: u16,        // timer latch
+    ctrl:  u8,         // control timer (CRA/CRB)
     new_ctrl: u8,
     has_new_ctrl: bool,
-    is_cnt_phi2: bool,      // timer is counting phi2
+    is_cnt_phi2:  bool,     // timer is counting phi2
     irq_next_cycle: bool,   // perform timer interrupt next cycle
     underflow: bool,        // timer underflowed
     cnt_ta_underflow: bool, // timer is counting underflows of Timer A 
@@ -48,6 +49,7 @@ impl CIATimer {
             cnt_ta_underflow: false,
         }
     }
+
     
     pub fn reset(&mut self) {
         self.state    = TimerState::Stop;
@@ -61,10 +63,10 @@ impl CIATimer {
         self.underflow        = false;
         self.cnt_ta_underflow = false;
     }
-    
+
+
     pub fn update(&mut self, cia_icr: &mut u8, ta_underflow: bool) {
-        match self.state
-        {
+        match self.state {
             TimerState::Stop => (),
             TimerState::WaitCount => {
                 self.state = TimerState::Count;
@@ -96,9 +98,10 @@ impl CIATimer {
             }
         }
 
-        self.idle();        
+        self.idle();
     }
-    
+
+
     pub fn idle(&mut self) {
         if self.has_new_ctrl {
             match self.state {
@@ -116,7 +119,6 @@ impl CIATimer {
                             self.state = TimerState::LoadStop;
                         }
                     }
-                      
                 },
                 TimerState::WaitCount | TimerState::LoadCount => {
                     if (self.new_ctrl & 1) != 0 {
@@ -156,7 +158,8 @@ impl CIATimer {
             self.has_new_ctrl = false;
         }
     }
-        
+
+    
     pub fn irq(&mut self, cia_icr: &mut u8) {
         self.value = self.latch;
         self.irq_next_cycle = true;
@@ -172,6 +175,7 @@ impl CIATimer {
         }
     }
 
+
     pub fn count(&mut self, cia_icr: &mut u8, ta_underflow: bool) {
         if self.is_cnt_phi2 || (self.cnt_ta_underflow && ta_underflow) {
             let curr_val = self.value;
@@ -184,10 +188,12 @@ impl CIATimer {
 
                 self.underflow = true;
             }
-        }        
+        }
     }
 }
 
+
+// the actual CIA chip including both timers
 pub struct CIA {
     mem_ref: Option<memory::MemShared>,
     cpu_ref: Option<cpu::CPUShared>,
@@ -198,25 +204,25 @@ pub struct CIA {
     timer_a: CIATimer,
     timer_b: CIATimer,
     irq_mask: u8,
-    icr: u8,
-    pra: u8,
-    prb: u8,
+    icr:  u8,
+    pra:  u8,
+    prb:  u8,
     ddra: u8,
     ddrb: u8,
-    sdr: u8,
+    sdr:  u8,
     
     // TOD timer
     tod_halt: bool,
     tod_freq_div: u16,
     tod_hour: u8,
-    tod_min: u8,
-    tod_sec: u8,
+    tod_min:  u8,
+    tod_sec:  u8,
     tod_dsec: u8, // deciseconds
 
     // alarm time
     alarm_hour: u8,
-    alarm_min: u8,
-    alarm_sec: u8,
+    alarm_min:  u8,
+    alarm_sec:  u8,
     alarm_dsec: u8,
 
     // CIA1 only
@@ -238,7 +244,6 @@ impl CIA {
             vic_ref: None,
 
             is_cia1: is_cia1,
-            
             timer_a: CIATimer::new(true),
             timer_b: CIATimer::new(false),
             irq_mask: 0,
@@ -272,12 +277,14 @@ impl CIA {
         }))
     }
 
+
     pub fn set_references(&mut self, memref: memory::MemShared, cpuref: cpu::CPUShared, vicref: vic::VICShared) {
         self.mem_ref = Some(memref);
         self.cpu_ref = Some(cpuref);
         self.vic_ref = Some(vicref);
     }
-    
+
+
     pub fn reset(&mut self) {
         self.timer_a.reset();
         self.timer_b.reset();
@@ -288,7 +295,6 @@ impl CIA {
         self.ddra = 0;
         self.ddrb = 0;
         self.sdr = 0;
-
         self.tod_halt = false;
         self.tod_freq_div = 0;
         self.tod_hour = 0;
@@ -313,6 +319,14 @@ impl CIA {
         // CIA2 only
         self.iec_lines = 0xD0;
     }
+
+
+    pub fn update(&mut self) {
+        self.timer_a.update(&mut self.icr, false);
+        let ta_underflow = self.timer_a.underflow;
+        self.timer_b.update(&mut self.icr, ta_underflow);
+    }
+
 
     pub fn read_register(&mut self, addr: u16, on_cia_read: &mut cpu::Callback) -> u8 {
         // CIA1 and CIA2 share behavior for certain addresses
@@ -355,55 +369,7 @@ impl CIA {
         }
     }
 
-    fn read_cia1_register(&mut self, addr: u16) -> u8 {
-        match addr {
-            0xDC00 => {
-                let mut retval = self.pra | !self.ddra;
-                let tst = (self.prb | !self.ddrb) & self.joystick_1;
 
-                if tst & 0x01 == 0 { retval &= self.rev_matrix[0]; }
-                if tst & 0x02 == 0 { retval &= self.rev_matrix[1]; }
-                if tst & 0x04 == 0 { retval &= self.rev_matrix[2]; }
-                if tst & 0x08 == 0 { retval &= self.rev_matrix[3]; }
-                if tst & 0x10 == 0 { retval &= self.rev_matrix[4]; }
-                if tst & 0x20 == 0 { retval &= self.rev_matrix[5]; }
-                if tst & 0x40 == 0 { retval &= self.rev_matrix[6]; }
-                if tst & 0x80 == 0 { retval &= self.rev_matrix[7]; }
-                
-                retval & self.joystick_2
-            },
-            0xDC01 => {
-                let mut retval = !self.ddrb;
-                let tst = (self.pra | !self.ddra) & self.joystick_2;
-
-                if tst & 0x01 == 0 { retval &= self.key_matrix[0]; }
-                if tst & 0x02 == 0 { retval &= self.key_matrix[1]; }
-                if tst & 0x04 == 0 { retval &= self.key_matrix[2]; }
-                if tst & 0x08 == 0 { retval &= self.key_matrix[3]; }
-                if tst & 0x10 == 0 { retval &= self.key_matrix[4]; }
-                if tst & 0x20 == 0 { retval &= self.key_matrix[5]; }
-                if tst & 0x40 == 0 { retval &= self.key_matrix[6]; }
-                if tst & 0x80 == 0 { retval &= self.key_matrix[7]; }
-
-                (retval | (self.prb & self.ddrb)) & self.joystick_1
-            },
-            0xDC10...0xDCFF => self.read_cia1_register(0xDC00 + (addr % 0x0010)),
-            _ => panic!("Address out of CIA1 memory range: ${:04X}", addr),
-        }
-    }
-
-    fn read_cia2_register(&mut self, addr: u16) -> u8 {
-        match addr {
-            0xDD00 => {
-                // TODO                
-                (self.pra | !self.ddra) & 0x3f | self.iec_lines
-            },
-            0xDD01 => self.prb | !self.ddrb,
-            0xDD10...0xDDFF => self.read_cia2_register(0xDD00 + (addr % 0x0010)),
-            _ => panic!("Address out of CIA2 memory range ${:04X}", addr),
-        }
-    }
-    
     pub fn write_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::Callback) {
         match addr & 0x00FF {
             0x04 => {
@@ -509,61 +475,6 @@ impl CIA {
         }
     }
 
-    fn write_cia1_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::Callback) {
-        match addr {
-            0xDC00 => {
-                self.pra = value;
-                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
-            },
-            0xDC01 => {
-                self.prb = value;
-                self.check_lp();
-                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
-            },
-            0xDC02 => {
-                self.ddra = value;
-                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
-            },
-            0xDC03 => {
-                self.ddrb = value;
-                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
-                self.check_lp();
-            },
-            0xDC10...0xDCFF => self.write_cia1_register(0xDC00 + (addr % 0x0010), value, on_cia_write),
-            _ => panic!("Address out of CIA1 memory range"),
-        }
-    }
-
-    fn write_cia2_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::Callback) {
-        match addr {
-            0xDD00 => {
-                // TODO
-                self.pra = value;
-                as_mut!(self.vic_ref).on_va_change(!(self.pra | !self.ddra) & 3);
-                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
-            },
-            0xDD01 => {
-                self.prb = value;
-                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
-            },
-            0xDD02 => {
-                self.ddra = value;
-                as_mut!(self.vic_ref).on_va_change(!(self.pra | !self.ddra) & 3);
-                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
-            },
-            0xDD03 => { self.ddrb = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value); },
-            0xDD10...0xDDFF => self.write_cia2_register(0xDD00 + (addr % 0x0010), value, on_cia_write),
-            _ => panic!("Address out of CIA2 memory range"),
-        }
-    }
-
-    fn check_lp(&mut self) {
-        if ((self.prb | !self.ddrb) & 0x10) != self.prev_lp {
-            as_mut!(self.vic_ref).trigger_lp_irq();
-        }
-
-        self.prev_lp = (self.prb | !self.ddrb) & 0x10;
-    }
 
     pub fn process_irq(&mut self) {
         if self.timer_a.irq_next_cycle {
@@ -578,7 +489,6 @@ impl CIA {
             
             self.timer_a.irq_next_cycle = false
         }
-
         if self.timer_a.irq_next_cycle {
             if self.trigger_irq(2) {
                 if self.is_cia1 {
@@ -592,12 +502,7 @@ impl CIA {
             self.timer_a.irq_next_cycle = false
         }
     }
-    
-    pub fn update(&mut self) {
-        self.timer_a.update(&mut self.icr, false);
-        let ta_underflow = self.timer_a.underflow;
-        self.timer_b.update(&mut self.icr, ta_underflow);
-    }
+
 
     pub fn count_tod(&mut self) {
         let mut lo: u8;
@@ -664,7 +569,6 @@ impl CIA {
             }
 
             // TODO: update memory registers
-
             // trigger irq if alarm time reached
             if (self.tod_dsec == self.alarm_dsec) &&
                (self.tod_sec  == self.alarm_sec)  &&
@@ -682,6 +586,7 @@ impl CIA {
         }
     }
 
+
     // true - irq triggered; false - not
     pub fn trigger_irq(&mut self, mask: u8) -> bool {
         self.icr |= mask;
@@ -693,5 +598,117 @@ impl CIA {
         else {
             false
         }
+    }
+
+
+    // *** private functions *** //
+
+    fn read_cia1_register(&mut self, addr: u16) -> u8 {
+        match addr {
+            0xDC00 => {
+                let mut retval = self.pra | !self.ddra;
+                let tst = (self.prb | !self.ddrb) & self.joystick_1;
+
+                if tst & 0x01 == 0 { retval &= self.rev_matrix[0]; }
+                if tst & 0x02 == 0 { retval &= self.rev_matrix[1]; }
+                if tst & 0x04 == 0 { retval &= self.rev_matrix[2]; }
+                if tst & 0x08 == 0 { retval &= self.rev_matrix[3]; }
+                if tst & 0x10 == 0 { retval &= self.rev_matrix[4]; }
+                if tst & 0x20 == 0 { retval &= self.rev_matrix[5]; }
+                if tst & 0x40 == 0 { retval &= self.rev_matrix[6]; }
+                if tst & 0x80 == 0 { retval &= self.rev_matrix[7]; }
+                
+                retval & self.joystick_2
+            },
+            0xDC01 => {
+                let mut retval = !self.ddrb;
+                let tst = (self.pra | !self.ddra) & self.joystick_2;
+
+                if tst & 0x01 == 0 { retval &= self.key_matrix[0]; }
+                if tst & 0x02 == 0 { retval &= self.key_matrix[1]; }
+                if tst & 0x04 == 0 { retval &= self.key_matrix[2]; }
+                if tst & 0x08 == 0 { retval &= self.key_matrix[3]; }
+                if tst & 0x10 == 0 { retval &= self.key_matrix[4]; }
+                if tst & 0x20 == 0 { retval &= self.key_matrix[5]; }
+                if tst & 0x40 == 0 { retval &= self.key_matrix[6]; }
+                if tst & 0x80 == 0 { retval &= self.key_matrix[7]; }
+
+                (retval | (self.prb & self.ddrb)) & self.joystick_1
+            },
+            0xDC10...0xDCFF => self.read_cia1_register(0xDC00 + (addr % 0x0010)),
+            _ => panic!("Address out of CIA1 memory range: ${:04X}", addr),
+        }
+    }
+
+
+    fn write_cia1_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::Callback) {
+        match addr {
+            0xDC00 => {
+                self.pra = value;
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
+            },
+            0xDC01 => {
+                self.prb = value;
+                self.check_lp();
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
+            },
+            0xDC02 => {
+                self.ddra = value;
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
+            },
+            0xDC03 => {
+                self.ddrb = value;
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
+                self.check_lp();
+            },
+            0xDC10...0xDCFF => self.write_cia1_register(0xDC00 + (addr % 0x0010), value, on_cia_write),
+            _ => panic!("Address out of CIA1 memory range"),
+        }
+    }
+
+
+    fn read_cia2_register(&mut self, addr: u16) -> u8 {
+        match addr {
+            0xDD00 => {
+                // TODO
+                (self.pra | !self.ddra) & 0x3f | self.iec_lines
+            },
+            0xDD01 => self.prb | !self.ddrb,
+            0xDD10...0xDDFF => self.read_cia2_register(0xDD00 + (addr % 0x0010)),
+            _ => panic!("Address out of CIA2 memory range ${:04X}", addr),
+        }
+    }
+
+
+    fn write_cia2_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::Callback) {
+        match addr {
+            0xDD00 => {
+                // TODO
+                self.pra = value;
+                as_mut!(self.vic_ref).on_va_change(!(self.pra | !self.ddra) & 3);
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
+            },
+            0xDD01 => {
+                self.prb = value;
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
+            },
+            0xDD02 => {
+                self.ddra = value;
+                as_mut!(self.vic_ref).on_va_change(!(self.pra | !self.ddra) & 3);
+                as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
+            },
+            0xDD03 => { self.ddrb = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value); },
+            0xDD10...0xDDFF => self.write_cia2_register(0xDD00 + (addr % 0x0010), value, on_cia_write),
+            _ => panic!("Address out of CIA2 memory range"),
+        }
+    }
+
+
+    fn check_lp(&mut self) {
+        if ((self.prb | !self.ddrb) & 0x10) != self.prev_lp {
+            as_mut!(self.vic_ref).trigger_lp_irq();
+        }
+
+        self.prev_lp = (self.prb | !self.ddrb) & 0x10;
     }
 }

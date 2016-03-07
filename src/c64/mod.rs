@@ -1,17 +1,22 @@
+// main module for C64 updates
 extern crate minifb;
-use minifb::*;
-use utils;
-use debugger;
+
 pub mod cpu;
-pub mod opcodes;
-mod clock;
 pub mod memory;
-mod io;
-mod cia;
+pub mod opcodes;
 pub mod vic;
-mod vic_tables;
+
+mod cia;
+mod clock;
+mod io;
 mod sid;
 mod sid_tables;
+mod vic_tables;
+
+use debugger;
+use minifb::*;
+use utils;
+
 
 pub const SCREEN_WIDTH:  usize = 384; // extend 20 pixels left and right for the borders
 pub const SCREEN_HEIGHT: usize = 272; // extend 36 pixels top and down for the borders
@@ -22,23 +27,23 @@ const CLOCK_FREQ: f64 = 1.5 * 985248.0;
 
 pub struct C64 {
     pub window: minifb::Window,
+    pub file_to_load: String,
     memory: memory::MemShared,
-    io:    io::IO,
-    clock: clock::Clock,
-    cpu: cpu::CPUShared,
+    io:     io::IO,
+    clock:  clock::Clock,
+    cpu:  cpu::CPUShared,
     cia1: cia::CIAShared,
     cia2: cia::CIAShared,
-    vic: vic::VICShared,
-    sid: sid::SIDShared,
+    vic:  vic::VICShared,
+    sid:  sid::SIDShared,
 
     debugger: Option<debugger::Debugger>,
     boot_complete: bool,
-    pub file_to_load: String,
     cycle_count: u32,
 }
 
 impl C64 {
-    pub fn new(window_scale: Scale, debugger_on: bool) -> C64 {
+    pub fn new(window_scale: Scale, debugger_on: bool, prg_to_load: &str) -> C64 {
         let memory = memory::Memory::new_shared();
         let vic    = vic::VIC::new_shared();
         let cia1   = cia::CIA::new_shared(true);
@@ -48,17 +53,17 @@ impl C64 {
 
         let mut c64 = C64 {
             window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, WindowOptions { scale: window_scale, ..Default::default() }).unwrap(),
+            file_to_load: String::from(prg_to_load),
             memory: memory.clone(), // shared system memory (RAM, ROM, IO registers)
-            io:    io::IO::new(),
-            clock: clock::Clock::new(CLOCK_FREQ),
-            cpu:   cpu.clone(),
-            cia1:  cia1.clone(),
-            cia2:  cia2.clone(),
-            vic:   vic.clone(),
-            sid:   sid.clone(),
+            io:     io::IO::new(),
+            clock:  clock::Clock::new(CLOCK_FREQ),
+            cpu:  cpu.clone(),
+            cia1: cia1.clone(),
+            cia2: cia2.clone(),
+            vic:  vic.clone(),
+            sid:  sid.clone(),
             debugger: if debugger_on { Some(debugger::Debugger::new()) } else { None },
             boot_complete: false,
-            file_to_load: String::new(),
             cycle_count: 0,
         };
 
@@ -82,6 +87,7 @@ impl C64 {
         c64
     }
 
+
     pub fn reset(&mut self) {
         self.memory.borrow_mut().reset();
         self.cpu.borrow_mut().reset();
@@ -91,17 +97,6 @@ impl C64 {
     }
     
 
-    fn load_prg(&mut self, filename: &str) {
-        let prg_data = utils::open_file(filename, 0);
-        let start_address: u16 = ((prg_data[1] as u16) << 8) | (prg_data[0] as u16);
-        println!("Loading {} to start location at ${:04x} ({})", filename, start_address, start_address);
-
-        for i in 2..(prg_data.len()) {
-            self.memory.borrow_mut().write_byte(start_address + (i as u16) - 2, prg_data[i]);
-        }
-    }
-
-    
     pub fn run(&mut self) {
         if !self.boot_complete {
             // $A480 is the BASIC warm start sequence - safe to assume we can load a cmdline program now
@@ -132,7 +127,7 @@ impl C64 {
 
             match self.debugger {
                 Some(ref mut dbg) => {
-                    dbg.update_raster_window(&mut self.vic);
+                    dbg.update_vic_window(&mut self.vic);
                     if should_trigger_vblank {
                         dbg.render(&mut self.cpu, &mut self.memory);
                     }
@@ -164,5 +159,19 @@ impl C64 {
         }
 
         self.sid.borrow_mut().update_audio();
+    }
+
+
+    // *** private functions *** //
+
+    // load a *.prg file
+    fn load_prg(&mut self, filename: &str) {
+        let prg_data = utils::open_file(filename, 0);
+        let start_address: u16 = ((prg_data[1] as u16) << 8) | (prg_data[0] as u16);
+        println!("Loading {} to start location at ${:04x} ({})", filename, start_address, start_address);
+
+        for i in 2..(prg_data.len()) {
+            self.memory.borrow_mut().write_byte(start_address + (i as u16) - 2, prg_data[i]);
+        }
     }
 }

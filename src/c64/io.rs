@@ -1,4 +1,6 @@
+// keyboard and joystick support
 extern crate minifb;
+
 use minifb::*;
 use c64::cia;
 
@@ -31,9 +33,10 @@ impl IO {
             joy_port1: false
         }
     }
-    
+
+
     pub fn update(&mut self, window: &Window, cia1: &mut cia::CIAShared) {
-        // Keyboard processing
+        // keyboard processing
         // iterating over all keys is crawling-slow, so check individual keys
         self.process_key(window.is_key_down(Key::Key0), Key::Key0, cia1);
         self.process_key(window.is_key_down(Key::Key1), Key::Key1, cia1);
@@ -72,7 +75,6 @@ impl IO {
         self.process_key(window.is_key_down(Key::X), Key::X, cia1);
         self.process_key(window.is_key_down(Key::Y), Key::Y, cia1);
         self.process_key(window.is_key_down(Key::Z), Key::Z, cia1);
-
         self.process_key(window.is_key_down(Key::F1), Key::F1, cia1);
         self.process_key(window.is_key_down(Key::F2), Key::F2, cia1);
         self.process_key(window.is_key_down(Key::F3), Key::F3, cia1);
@@ -86,7 +88,6 @@ impl IO {
         self.process_key(window.is_key_down(Key::Up),    Key::Up,    cia1);
         self.process_key(window.is_key_down(Key::Right), Key::Right, cia1);
         self.process_key(window.is_key_down(Key::Left),  Key::Left,  cia1);
-
         self.process_key(window.is_key_down(Key::Space),  Key::Space,  cia1);
         self.process_key(window.is_key_down(Key::Comma),  Key::Comma,  cia1);
         self.process_key(window.is_key_down(Key::Period), Key::Period, cia1);
@@ -110,7 +111,7 @@ impl IO {
         self.process_key(window.is_key_down(Key::Tab),        Key::Tab,        cia1);
         self.process_key(window.is_key_down(Key::LeftCtrl),   Key::LeftCtrl,   cia1);
 
-        // Joystick processing
+        // joystick processing
         self.process_joystick(window.is_key_down(Key::NumPad1), Key::NumPad1, cia1);
         self.process_joystick(window.is_key_down(Key::NumPad2), Key::NumPad2, cia1);
         self.process_joystick(window.is_key_down(Key::NumPad3), Key::NumPad3, cia1);
@@ -138,10 +139,14 @@ impl IO {
         }
     }
 
+
     pub fn check_restore_key(&self, window: &Window) -> bool {
         // End will serve as the Restore key
         window.is_key_pressed(Key::End, KeyRepeat::No)
     }
+
+
+    // *** private functions *** //
 
     fn process_key(&mut self, key_pressed: bool, keycode: Key, cia1: &mut cia::CIAShared) {   
         if key_pressed {
@@ -151,7 +156,8 @@ impl IO {
             self.on_key_release(keycode, cia1);
         }
     }    
-    
+
+
     fn on_key_press(&mut self, keycode: Key, cia1: &mut cia::CIAShared) {
         let c64_keycode = self.keycode_to_c64(keycode);
 
@@ -176,6 +182,7 @@ impl IO {
         cia1.borrow_mut().rev_matrix[c64_bit as usize]  &= !(1 << c64_byte);
     }
 
+
     fn on_key_release(&mut self, keycode: Key, cia1: &mut cia::CIAShared) {
         let c64_keycode = self.keycode_to_c64(keycode);
 
@@ -198,6 +205,7 @@ impl IO {
         cia1.borrow_mut().rev_matrix[c64_bit as usize]  |= 1 << c64_byte;
     }
 
+
     fn process_joystick(&mut self, key_pressed: bool, keycode: Key, cia1: &mut cia::CIAShared) {
         if key_pressed {
             self.on_joy_press(keycode, cia1);
@@ -206,6 +214,7 @@ impl IO {
             self.on_joy_release(keycode, cia1);
         }
     }
+
 
     fn on_joy_press(&mut self, keycode: Key, cia1: &mut cia::CIAShared) {
         let mut joystate = if self.joy_port1 { cia1.borrow_mut().joystick_1 } else { cia1.borrow_mut().joystick_2 };
@@ -241,6 +250,7 @@ impl IO {
             cia1.borrow_mut().joystick_2 = joystate;
         }
     }
+
 
     fn on_joy_release(&mut self, keycode: Key, cia1: &mut cia::CIAShared) {
         let mut joystate = if self.joy_port1 { cia1.borrow_mut().joystick_1 } else { cia1.borrow_mut().joystick_2 };
@@ -282,6 +292,7 @@ impl IO {
             cia1.borrow_mut().joystick_2 = joystate;
         }
     }
+
 
     fn keycode_to_c64(&self, keycode: Key) -> u8 {
         // fetch key's bit combination as represented in C64 keyboard matrix
@@ -357,7 +368,7 @@ impl IO {
             // CLR/Home key
             Key::Home   => to_c64(6, 3),
             // Home key
-            Key::Delete => to_c64(6, 6),            
+            Key::Delete => to_c64(6, 6),
             // @ key
             Key::LeftBracket  => to_c64(5, 6),
             // * key

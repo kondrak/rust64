@@ -1,11 +1,12 @@
+// helper utility functions and macros
+use c64::cpu;
+use c64::opcodes;
 use std::error::Error;
 use std::io::prelude::*;
 use std::fs::File;
 use std::io::SeekFrom;
 use std::path::Path;
 
-use c64::cpu;
-use c64::opcodes;
 
 // helper macros to easily extract references from Option<RefCell<...>>
 macro_rules! as_ref {
@@ -16,6 +17,8 @@ macro_rules! as_mut {
     ($x:expr) => ($x.as_mut().unwrap().borrow_mut())
 }
 
+
+// common helper functions
 pub fn open_file(filename: &str, offset: u64) -> Vec<u8> {
     let path = Path::new(&filename);
     
@@ -37,6 +40,7 @@ pub fn open_file(filename: &str, offset: u64) -> Vec<u8> {
     file_data
 }
 
+
 // set 8 consecutive buffer elements to single value for faster update of
 // a single 8-pixel screen chunk
 pub fn memset8(buffer: &mut [u32], start: usize, value: u32) {
@@ -49,6 +53,7 @@ pub fn memset8(buffer: &mut [u32], start: usize, value: u32) {
     buffer[start+6] = buffer[start];
     buffer[start+7] = buffer[start];
 }
+
 
 pub fn fetch_c64_color_rgba(idx: u8) -> u32 {
     // palette RGB values copied from WinVICE
@@ -73,6 +78,7 @@ pub fn fetch_c64_color_rgba(idx: u8) -> u32 {
     }
 }
 
+
 // instruction debugging
 pub struct OpDebugger {
     pub jump_queue: Vec<u8>
@@ -86,6 +92,8 @@ impl OpDebugger {
     }
 }
 
+
+// output current instruction and CPU register status in a neat, readable fashion
 pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU) {
     cpu.prev_pc = cpu.pc;
     let prev_pc = cpu.prev_pc;
@@ -93,7 +101,7 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU) {
     let operand_hex: String;
     let operand: String;
     let mut extra_cycle = false;
-    let debug_loops = true;
+    let debug_loops = true; // if true, every loop will be unrolled in the debug output
 
     // RTS? pop from queue to continue logging
     if !debug_loops {
@@ -117,6 +125,7 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU) {
         }
     }
 
+    // instruction opcode and arglist formatting based on addressing mode
     match cpu.instruction.addr_mode {
         opcodes::AddrMode::Implied => {
             operand_hex = format!("       ");
@@ -176,6 +185,7 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU) {
         },
     }
 
+    // control latch bytes' status
     let byte0 = cpu.read_byte(0x0000);
     let byte1 = cpu.read_byte(0x0001);
 

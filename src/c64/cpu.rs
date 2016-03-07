@@ -1,15 +1,18 @@
 // The CPU
-use c64::opcodes;
-use c64::memory;
-use c64::vic;
 use c64::cia;
+use c64::memory;
+use c64::opcodes;
 use c64::sid;
+use c64::vic;
 use std::cell::RefCell;
 use std::rc::Rc;
-
 use utils;
 
 pub type CPUShared = Rc<RefCell<CPU>>;
+
+pub const NMI_VECTOR:   u16 = 0xFFFA;
+pub const RESET_VECTOR: u16 = 0xFFFC;
+pub const IRQ_VECTOR:   u16 = 0xFFFE;
 
 
 // status flags for P register
@@ -35,10 +38,6 @@ pub enum Callback {
     ClearNMI
 }
 
-pub const NMI_VECTOR:   u16 = 0xFFFA;
-pub const RESET_VECTOR: u16 = 0xFFFC;
-pub const IRQ_VECTOR:   u16 = 0xFFFE;
-
 pub enum CPUState {
     FetchOp,
     FetchOperandAddr,
@@ -48,20 +47,21 @@ pub enum CPUState {
     ExecuteOp
 }
 
+
 pub struct CPU {
     pub pc: u16, // program counter
     pub sp: u8,  // stack pointer
-    pub p: u8,   // processor status
-    pub a: u8,   // accumulator
-    pub x: u8,   // index register
-    pub y: u8,   // index register
-    pub mem_ref: Option<memory::MemShared>, // reference to shared system memory
-    pub vic_ref: Option<vic::VICShared>,
+    pub p:  u8,  // processor status
+    pub a:  u8,  // accumulator
+    pub x:  u8,  // index register
+    pub y:  u8,  // index register
+    pub mem_ref:  Option<memory::MemShared>, // reference to shared system memory
+    pub vic_ref:  Option<vic::VICShared>,
     pub cia1_ref: Option<cia::CIAShared>,
     pub cia2_ref: Option<cia::CIAShared>,
     pub sid_ref:  Option<sid::SIDShared>,
     pub instruction: opcodes::Instruction,
-    pub ba_low: bool,  // is BA low?
+    pub ba_low:  bool,  // is BA low?
     pub cia_irq: bool,
     pub vic_irq: bool,
     pub irq_cycles_left: u8,
@@ -71,9 +71,9 @@ pub struct CPU {
     pub state: CPUState,
     pub nmi: bool,
     pub debug_instr: bool,
-    pub prev_pc: u16, // previous program counter - for debugging
-    dfff_byte: u8,
-    pub op_debugger: utils::OpDebugger
+    pub prev_pc: u16, // previous program counter - used for debugging
+    pub op_debugger: utils::OpDebugger,
+    dfff_byte: u8
 }
 
 impl CPU {
@@ -81,16 +81,16 @@ impl CPU {
         Rc::new(RefCell::new(CPU {
             pc: 0,
             sp: 0xFF,
-            p: 0,
-            a: 0,
-            x: 0,
-            y: 0,
-            mem_ref: None,
-            vic_ref: None,
+            p:  0,
+            a:  0,
+            x:  0,
+            y:  0,
+            mem_ref:  None,
+            vic_ref:  None,
             cia1_ref: None,
             cia2_ref: None,
-            sid_ref: None,
-            ba_low: false,
+            sid_ref:  None,
+            ba_low:  false,
             cia_irq: false,
             vic_irq: false,
             irq_cycles_left: 0,
@@ -102,10 +102,11 @@ impl CPU {
             nmi: false,
             debug_instr: false,
             prev_pc: 0,
-            dfff_byte: 0x55,
-            op_debugger: utils::OpDebugger::new()
+            op_debugger: utils::OpDebugger::new(),
+            dfff_byte: 0x55
         }))
     }
+
 
     pub fn set_references(&mut self, memref: memory::MemShared, vicref: vic::VICShared, cia1ref: cia::CIAShared, cia2ref: cia::CIAShared, sidref: sid::SIDShared) {
         self.mem_ref = Some(memref);
@@ -115,14 +116,17 @@ impl CPU {
         self.sid_ref  = Some(sidref);
     }    
     
+
     pub fn set_status_flag(&mut self, flag: StatusFlag, value: bool) {
         if value { self.p |=   flag as u8;  }
         else     { self.p &= !(flag as u8); }
     }
 
+
     pub fn get_status_flag(&mut self, flag: StatusFlag) -> bool {
         self.p & flag as u8 != 0x00
     }
+
 
     // these flags will be set in tandem quite often
     pub fn set_zn_flags(&mut self, value: u8) {
@@ -130,6 +134,7 @@ impl CPU {
         self.set_status_flag(StatusFlag::Negative, (value as i8) < 0);
     }
     
+
     pub fn reset(&mut self) {
         let pc = self.read_word_le(RESET_VECTOR);
         self.pc = pc;
@@ -137,6 +142,7 @@ impl CPU {
         // I'm only doing this to avoid dead code warning :)
         self.set_status_flag(StatusFlag::Unused, false);
     }
+
 
     pub fn update(&mut self, c64_cycle_cnt: u32) {
         // check for irq and nmi
@@ -241,12 +247,14 @@ impl CPU {
         }
     }
 
+
     pub fn next_byte(&mut self) -> u8 {
         let pc = self.pc;
         let op = self.read_byte(pc);
         self.pc += 1;
         op
     }
+
 
     // stack memory: $0100 - $01FF (256 byes)
     pub fn push_byte(&mut self, value: u8) {
@@ -255,6 +263,7 @@ impl CPU {
         self.write_byte(0x0100 + new_sp, value);
     }
 
+
     pub fn pop_byte(&mut self) -> u8 {
         let addr = 0x0100 + (self.sp + 0x01) as u16;
         let value = self.read_byte(addr);
@@ -262,17 +271,12 @@ impl CPU {
         value
     }
 
+
     pub fn push_word(&mut self, value: u16) {
         self.push_byte(((value >> 8) & 0xFF) as u8);
         self.push_byte((value & 0xFF) as u8);
     }
 
-/*    pub fn pop_word(&mut self) -> u16 {
-        let lo = (self.pop_byte() as u16) & 0x00FF;
-        let hi = (self.pop_byte() as u16) & 0x00FF;
-        (hi << 8) | lo
-    }
-*/
 
     pub fn write_byte(&mut self, addr: u16, value: u8) -> bool {
         let mut on_write = Callback::None;
@@ -307,6 +311,7 @@ impl CPU {
         mem_write_ok
     }
     
+
     pub fn read_byte(&mut self, addr: u16) -> u8 {
         let byte: u8;
         let mut on_read = Callback::None;
@@ -342,64 +347,27 @@ impl CPU {
         byte
     }
 
+
     pub fn read_word_le(&self, addr: u16) -> u16 {
         as_ref!(self.mem_ref).read_word_le(addr)
     }
-    
-    fn process_irq(&mut self, is_nmi: bool) -> bool {
-        let new_pc    = if is_nmi { NMI_VECTOR } else { IRQ_VECTOR };
-        let cycle_cnt = if is_nmi { self.nmi_cycles_left } else { self.irq_cycles_left };
-        
-        match cycle_cnt {
-            7 | 6 => {
-                if self.ba_low { return false; }
-            },
-            5 => {
-                let pc_hi = (self.pc >> 8) as u8;
-                self.push_byte(pc_hi);
-            },
-            4 => {
-                let pc_lo = self.pc as u8;
-                self.push_byte(pc_lo);
-            },
-            3 => {
-                self.set_status_flag(StatusFlag::Break, false);
-                let curr_p = self.p;
-                self.push_byte(curr_p);
-                self.set_status_flag(StatusFlag::InterruptDisable, true);
-            },
-            2 => {
-                if self.ba_low { return false; } // TODO: is reading whole word ok in cycle 1?
-            },
-            1 => {
-                if self.ba_low { return false; }
-                self.pc = as_ref!(self.mem_ref).read_word_le(new_pc);
-            }
-            _ => panic!("Invalid IRQ/NMI cycle")
-        }
 
-        if is_nmi {
-            self.nmi_cycles_left -= 1;
-            self.nmi_cycles_left == 0
-        }
-        else {
-            self.irq_cycles_left -= 1;
-            self.irq_cycles_left == 0
-        }
-    }
 
     pub fn set_vic_irq(&mut self, val: bool) {
         self.vic_irq = val;
     }
 
+
     pub fn set_nmi(&mut self, val: bool) {
         self.nmi = val;
     }
+
 
     pub fn set_cia_irq(&mut self, val: bool) {
         self.cia_irq = val;
     }
     
+
     pub fn get_operand(&mut self) -> u8 {
         // RMW instruction store pre-fetched operand value in internal buffer
         if self.instruction.is_rmw {
@@ -419,6 +387,7 @@ impl CPU {
         val
     }
 
+
     pub fn set_operand(&mut self, val: u8) {
         match self.instruction.addr_mode {
             opcodes::AddrMode::Implied     => panic!("Can't set implied operand value!"),
@@ -432,6 +401,8 @@ impl CPU {
         }
     }
 
+
+    // perform add with carry
     pub fn adc(&mut self, value: u8) {
         let c = self.get_status_flag(StatusFlag::Carry);
         let a = self.a as u16;
@@ -488,6 +459,8 @@ impl CPU {
         }
     }
 
+
+    // perform substraction with carry
     pub fn sbc(&mut self, value: u8) {
         let a = self.a as u16;
         let v = value as u16;
@@ -532,6 +505,8 @@ impl CPU {
         }
     }
 
+
+    // perform a branch
     pub fn branch(&mut self, flag_condition: bool, cycle: u8) -> bool {
         match cycle {
             3 => {
@@ -568,5 +543,50 @@ impl CPU {
         }
 
         true
+    }
+
+
+    // *** private functions *** //
+
+    fn process_irq(&mut self, is_nmi: bool) -> bool {
+        let new_pc    = if is_nmi { NMI_VECTOR } else { IRQ_VECTOR };
+        let cycle_cnt = if is_nmi { self.nmi_cycles_left } else { self.irq_cycles_left };
+        
+        match cycle_cnt {
+            7 | 6 => {
+                if self.ba_low { return false; }
+            },
+            5 => {
+                let pc_hi = (self.pc >> 8) as u8;
+                self.push_byte(pc_hi);
+            },
+            4 => {
+                let pc_lo = self.pc as u8;
+                self.push_byte(pc_lo);
+            },
+            3 => {
+                self.set_status_flag(StatusFlag::Break, false);
+                let curr_p = self.p;
+                self.push_byte(curr_p);
+                self.set_status_flag(StatusFlag::InterruptDisable, true);
+            },
+            2 => {
+                if self.ba_low { return false; } // TODO: is reading whole word ok in cycle 1?
+            },
+            1 => {
+                if self.ba_low { return false; }
+                self.pc = as_ref!(self.mem_ref).read_word_le(new_pc);
+            }
+            _ => panic!("Invalid IRQ/NMI cycle")
+        }
+
+        if is_nmi {
+            self.nmi_cycles_left -= 1;
+            self.nmi_cycles_left == 0
+        }
+        else {
+            self.irq_cycles_left -= 1;
+            self.irq_cycles_left == 0
+        }
     }
 }

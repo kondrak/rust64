@@ -103,6 +103,8 @@ impl Instruction {
         }
     }
 
+
+    // takes into account all factors (rmw, fetch cycles, etc) to calculate the number of execution cycles
     pub fn calculate_cycles(&mut self, total_cycles: u8, is_rmw: bool) {
         match self.addr_mode {
             AddrMode::Absolute => self.cycles_to_fetch = 2,
@@ -153,6 +155,7 @@ impl fmt::Display for Instruction {
         write!(f, "{}", op_name)
     }
 }
+
 
 pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool {
     match cpu.instruction.addr_mode {
@@ -315,6 +318,8 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool {
     cpu.instruction.cycles_to_fetch == 0
 }
 
+
+// runs the instruction at its current cycles
 pub fn run(cpu: &mut cpu::CPU) -> bool {
     match cpu.instruction.opcode {
         Op::LDA => {
@@ -898,6 +903,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
     // instruction finished execution?
     cpu.instruction.cycles_to_run == 0
 }
+
 
 // num cycles represents the *max* number of cycles that the instruction can take to execute (so taking into account extra cycles for branching, page crosses etc.)
 pub fn get_instruction(opcode: u8) -> Option<(Op, u8, bool, AddrMode)> {
