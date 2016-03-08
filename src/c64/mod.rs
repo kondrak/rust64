@@ -98,6 +98,7 @@ impl C64 {
     
 
     pub fn run(&mut self) {
+        // attempt to load a program supplied with command line
         if !self.boot_complete {
             // $A480 is the BASIC warm start sequence - safe to assume we can load a cmdline program now
             self.boot_complete = self.cpu.borrow_mut().pc == 0xA480;
