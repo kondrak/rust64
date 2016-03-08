@@ -110,7 +110,8 @@ impl C64 {
                 }
             }
         }
-        
+
+        // main C64 update - use the clock to time all the operations
         if self.clock.tick() {
             let mut should_trigger_vblank = false;
 
@@ -125,6 +126,7 @@ impl C64 {
         
             self.cpu.borrow_mut().update(self.cycle_count);
 
+            // update the debugger window if it exists
             match self.debugger {
                 Some(ref mut dbg) => {
                     dbg.update_vic_window(&mut self.vic);
@@ -135,6 +137,7 @@ impl C64 {
                 None => (),
             }
 
+            // redraw the screen and process input on VBlank
             if should_trigger_vblank {
                 self.window.update_with_buffer(&self.vic.borrow_mut().window_buffer);
                 self.io.update(&self.window, &mut self.cia1);
@@ -146,6 +149,7 @@ impl C64 {
                 }
             }
 
+            // process special keys: console ASM output and reset switch
             if self.window.is_key_pressed(Key::F11, KeyRepeat::No) {
                 let di = self.cpu.borrow_mut().debug_instr;
                 self.cpu.borrow_mut().debug_instr = !di;
@@ -158,6 +162,7 @@ impl C64 {
             self.cycle_count += 1;
         }
 
+        // update SDL2 audio buffers
         self.sid.borrow_mut().update_audio();
     }
 
