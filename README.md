@@ -2,9 +2,11 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/77otp2475g7v95mb?svg=true)](https://ci.appveyor.com/project/kondrak/rust64)
 
 # Rust64 - a C64 emulator written in Rust
-This is my attempt to study the Rust programming language and have fun at the same time. The goal is to present in a concise and non-obfuscated way how the C64 works and what's happening behind the scenes once you start a program. Emulation is cycle based and fairly accurate at this point.
+This is my attempt to study the Rust programming language and have fun at the same time. The goal is to present in the least obfuscated way how the Commodore 64 works and what's happening behind the scenes once you start a program. Emulation is cycle based and fairly accurate at this point.
 
-Dependencies
+The emulator has a built-in visual debugger which lets you view the contents of each memory page in RAM, Color RAM, VIC registers, CIA registers and SID registers. The VIC window is a ICU64-style raster debugger where each pixel represents one VIC cycle and any events occuring at that time.
+
+Major dependencies
 ------------------
 - minifb: https://crates.io/crates/minifb
 - sdl2: https://crates.io./crates/sdl2
@@ -18,7 +20,7 @@ Requires Rust 1.5.0 or higher to compile and run.
 ### Screenshot:
 [![Screenshot](http://kondrak.info/images/rust64_github_prev.png?raw=true)](http://kondrak.info/images/rust64_github.png?raw=true)
 
-The emulator comes with a memory debugger which lets you view the current state of each memory page in RAM, VIC registers, CIA registers, SID registers and Color RAM. The VIC window is a ICU64-style raster debugger, each pixel representing one VIC cycle and events associated with it. For performance reasons, the windows are updated once per C64 frame.
+
 
 Build instructions
 ------------------
@@ -27,7 +29,7 @@ cargo build
 cargo run --release
 ```
 
-You can pass a .prg file as a command line parameter to load it into memory once the emulators boots (type RUN to start the program):
+You can pass a .prg file as a command line parameter to load it into memory once the emulator boots (just type RUN to start the program):
 ```
 cargo run --release prgs/colors.prg
 ```
@@ -65,20 +67,20 @@ NUMLOCK - toggle between joystick ports 1 and 2 (default: port 2)
 
 In debugger window:
 PGUP/PGDWN - flip currently displayed memory page
-HOME/END   - change currently displayed memory banks between RAM, Color RAM, VIC, CIA and SID
+HOME/END   - switch currently displayed memory banks between RAM, Color RAM, VIC, CIA and SID
 ```
 
 TODO
 ------------------
-- serial bus/disk drives (d64, t64)
+- serial bus/disk drives (d64, t64, tap)
 - implement remaining undocumented ops
-- switch from SDL2 to cpal for audio once it supports OSX
+- switch from SDL2 to [cpal](https://github.com/tomaka/cpal) for audio once it supports OSX
 - improve SID emulation
 
 Known Issues
 ------------------
-- Due to lack of any serial bus handling, some programs may not perform correctly or get stuck in infinite loops.
-- elaborate programs that require incredibly precise timing are not running correctly yet
+- missing serial bus may cause some very specific programs to perform incorrectly or get stuck in infinite loops
+- elaborate programs that require very precise timing are not running correctly yet
 
 This is an on-off WIP project, so update frequency may vary.
 
@@ -98,6 +100,7 @@ The following documents and websites have been used to create this emulator:
 - https://t.co/J40UKu7RBf
 - http://www.waitingforfriday.com/index.php/Commodore_SID_6581_Datasheet
 - http://sta.c64.org/cbm64mem.html
+- https://svn.code.sf.net/p/vice-emu/code/testprogs/
 - http://www.classiccmp.org/cini/pdf/Commodore/ds_6581.pdf
 
 Special thanks
