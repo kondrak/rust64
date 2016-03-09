@@ -26,7 +26,7 @@ const CLOCK_FREQ: f64 = 1.5 * 985248.0;
 
 
 pub struct C64 {
-    pub window: minifb::Window,
+    pub main_window: minifb::Window,
     pub file_to_load: String,
     memory: memory::MemShared,
     io:     io::IO,
@@ -52,7 +52,7 @@ impl C64 {
         let sid    = sid::SID::new_shared();
 
         let mut c64 = C64 {
-            window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, WindowOptions { scale: window_scale, ..Default::default() }).unwrap(),
+            main_window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, WindowOptions { scale: window_scale, ..Default::default() }).unwrap(),
             file_to_load: String::from(prg_to_load),
             memory: memory.clone(), // shared system memory (RAM, ROM, IO registers)
             io:     io::IO::new(),
@@ -67,7 +67,7 @@ impl C64 {
             cycle_count: 0,
         };
 
-        c64.window.set_position(75, 20);
+        c64.main_window.set_position(75, 20);
 
         // cyclic dependencies are not possible in Rust (yet?), so we have
         // to resort to setting references manually
@@ -140,23 +140,23 @@ impl C64 {
 
             // redraw the screen and process input on VBlank
             if should_trigger_vblank {
-                self.window.update_with_buffer(&self.vic.borrow_mut().window_buffer);
-                self.io.update(&self.window, &mut self.cia1);
+                self.main_window.update_with_buffer(&self.vic.borrow_mut().window_buffer);
+                self.io.update(&self.main_window, &mut self.cia1);
                 self.cia1.borrow_mut().count_tod();
                 self.cia2.borrow_mut().count_tod();
 
-                if self.io.check_restore_key(&self.window) {
+                if self.io.check_restore_key(&self.main_window) {
                     self.cpu.borrow_mut().set_nmi(true);
                 }
             }
 
             // process special keys: console ASM output and reset switch
-            if self.window.is_key_pressed(Key::F11, KeyRepeat::No) {
+            if self.main_window.is_key_pressed(Key::F11, KeyRepeat::No) {
                 let di = self.cpu.borrow_mut().debug_instr;
                 self.cpu.borrow_mut().debug_instr = !di;
             }
 
-            if self.window.is_key_pressed(Key::F12, KeyRepeat::No) {
+            if self.main_window.is_key_pressed(Key::F12, KeyRepeat::No) {
                 self.reset();
             }
 

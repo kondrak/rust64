@@ -905,7 +905,8 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
 }
 
 
-// num cycles represents the *max* number of cycles that the instruction can take to execute (so taking into account extra cycles for branching, page crosses etc.)
+// num cycles represents the *max* number of cycles that the instruction can take to execute
+// (so taking into account extra cycles for branching, page crosses etc.)
 pub fn get_instruction(opcode: u8) -> Option<(Op, u8, bool, AddrMode)> {
     Some(match opcode {
         // ** documented instructions **

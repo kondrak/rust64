@@ -11,8 +11,8 @@ use std::env;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    let mut prg_to_load = String::new();
-    let mut debugger_on = false;
+    let mut prg_to_load  = String::new();
+    let mut debugger_on  = false;
     let mut window_scale = Scale::X1;
 
     // process cmd line params
@@ -32,7 +32,7 @@ fn main() {
     c64.reset();
 
     // main update loop
-    while c64.window.is_open() {
+    while c64.main_window.is_open() {
         c64.run();
     }
 }

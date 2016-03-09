@@ -73,8 +73,8 @@ pub struct VIC {
 
     trigger_vblank: bool,
     border_on_sample: [bool; 5],  // samples of border state at cycles 1, 17, 18, 56, 57)
-    fg_mask_buffer: [u8; c64::SCREEN_WIDTH/8],
-    border_color_sample: [u8; c64::SCREEN_WIDTH/8],
+    fg_mask_buffer: [u8; c64::SCREEN_WIDTH / 8],
+    border_color_sample: [u8; c64::SCREEN_WIDTH / 8],
     matrix_base: u16,
     char_base:   u16,
     bitmap_base: u16,
@@ -414,7 +414,7 @@ impl VIC {
                                         self.bad_lines_on;
 
                     self.draw_this_line = (self.raster_cnt >= FIRST_DISP_LINE) &&
-                                          (self.raster_cnt <= LAST_DISP_LINE) && !self.frame_skipped;
+                                          (self.raster_cnt <= LAST_DISP_LINE ) && !self.frame_skipped;
                 }
 
                 self.border_on_sample[0] = self.border_on;
@@ -459,7 +459,7 @@ impl VIC {
 
                 self.screen_chunk_offset = self.line_start_offset;
                 self.fg_mask_offset = 0;
-                self.fg_mask_buffer = [0; c64::SCREEN_WIDTH/8];
+                self.fg_mask_buffer = [0; c64::SCREEN_WIDTH / 8];
                 
                 self.sprite_data_access(3, 1);
                 self.sprite_data_access(3, 2);
@@ -1184,7 +1184,9 @@ impl VIC {
                 let color = self.read_register(0xD027 + snum as u16);
 
                 // fetch sprite data and mask
-                let mut sdata: u32 = ((self.sprite_draw_data[snum][0] as u32) << 24) | ((self.sprite_draw_data[snum][1] as u32) << 16) | ((self.sprite_draw_data[snum][2] as u32) << 8);
+                let mut sdata: u32 = ((self.sprite_draw_data[snum][0] as u32) << 24) | 
+                                     ((self.sprite_draw_data[snum][1] as u32) << 16) | 
+                                     ((self.sprite_draw_data[snum][2] as u32) << 8);
 
                 let spr_mask_pos = self.mx[snum] + 8; // sprite bit position in fg_mask_buf
                 let fmbp = (spr_mask_pos / 8) as usize;
