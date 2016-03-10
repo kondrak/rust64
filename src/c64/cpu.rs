@@ -152,9 +152,13 @@ impl CPU {
                     self.nmi_cycles_left = 7;
                     self.state = CPUState::ProcessNMI;
                 }
-                else if (self.cia_irq || self.vic_irq) && self.irq_cycles_left == 0 && !self.get_status_flag(StatusFlag::InterruptDisable) && (c64_cycle_cnt - (self.first_irq_cycle as u32) >= 2) {
-                    self.irq_cycles_left = 7;
-                    self.state = CPUState::ProcessIRQ;
+                else if !self.get_status_flag(StatusFlag::InterruptDisable) {
+                    let irq_ready = (self.cia_irq || self.vic_irq) && self.irq_cycles_left == 0;
+
+                    if irq_ready && (c64_cycle_cnt - (self.first_irq_cycle as u32) >= 2) {
+                        self.irq_cycles_left = 7;
+                        self.state = CPUState::ProcessIRQ;
+                    }
                 }
             },
             _ => {}
