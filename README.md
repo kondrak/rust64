@@ -8,8 +8,8 @@ The emulator has a built-in visual debugger which lets you view the contents of 
 
 Major dependencies
 ------------------
-- minifb: https://crates.io/crates/minifb
-- sdl2: https://crates.io./crates/sdl2
+- minifb: https://crates.io/crates/minifb (works out of the box)
+- sdl2: https://crates.io/crates/sdl2 (requires extra steps, see [here](https://github.com/AngryLawyer/rust-sdl2) for instructions)
 
 Requires Rust 1.5.0 or higher to compile and run.
 
