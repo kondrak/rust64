@@ -3,7 +3,7 @@ language: rust
 install:
   - sudo add-apt-repository ppa:team-xbmc/ppa -y
   - sudo apt-get update -q
-  - sudo apt-get install libsdl2-dev
+  - sudo apt-get install libegl1-mesa-dev libgles2-mesa-dev libsdl2-dev
 
 rust:
   - stable
