@@ -614,7 +614,7 @@ impl AudioCallback for SIDAudioDevice {
                 match self.voices[i].state
                 {
                     VoiceState::Attack => {
-                        self.voices[i].level += self.voices[i].attack_add;
+                        self.voices[i].level = self.voices[i].level.wrapping_add(self.voices[i].attack_add);
                         if self.voices[i].level > 0xFFFFFF {
                             self.voices[i].level = 0xFFFFFF;
                             self.voices[i].state = VoiceState::Decay;
@@ -625,14 +625,14 @@ impl AudioCallback for SIDAudioDevice {
                             self.voices[i].level = self.voices[i].sustain_level;
                         }
                         else {
-                            self.voices[i].level -= self.voices[i].decay_sub >> EGDR_SHIFT[ (self.voices[i].level >> 16) as usize ];
+                            self.voices[i].level = self.voices[i].level.wrapping_sub(self.voices[i].decay_sub >> EGDR_SHIFT[ (self.voices[i].level >> 16) as usize ]);
                             if (self.voices[i].level <= self.voices[i].sustain_level) || (self.voices[i].level > 0xFFFFFF) {
                                 self.voices[i].level = self.voices[i].sustain_level;
                             }
                         }
                     },
                     VoiceState::Release => {
-                        self.voices[i].level -= self.voices[i].release_sub >> EGDR_SHIFT[ (self.voices[i].level >> 16) as usize ];
+                        self.voices[i].level = self.voices[i].level.wrapping_sub(self.voices[i].release_sub >> EGDR_SHIFT[ (self.voices[i].level >> 16) as usize ]);
                         if self.voices[i].level > 0xFFFFFF {
                             self.voices[i].level = 0;
                             self.voices[i].state = VoiceState::Idle;
