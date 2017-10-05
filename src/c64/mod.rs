@@ -76,14 +76,14 @@ impl C64 {
         c64.vic.borrow_mut().set_references(memory.clone(), cpu.clone());
         c64.sid.borrow_mut().set_references(memory.clone());
         c64.cpu.borrow_mut().set_references(memory.clone(), vic.clone(), cia1.clone(), cia2.clone(), sid.clone());
-        
+
         drop(memory);
         drop(cia1);
         drop(cia2);
         drop(vic);
         drop(cpu);
         drop(sid);
-        
+
         c64
     }
 
@@ -95,17 +95,17 @@ impl C64 {
         self.cia2.borrow_mut().reset();
         self.sid.borrow_mut().reset();
     }
-    
+
 
     pub fn run(&mut self) {
         // attempt to load a program supplied with command line
         if !self.boot_complete {
             // $A480 is the BASIC warm start sequence - safe to assume we can load a cmdline program now
             self.boot_complete = self.cpu.borrow_mut().pc == 0xA480;
- 
+
             if self.boot_complete {
                 let prg_file = &self.file_to_load.to_owned()[..];
-                
+
                 if prg_file.len() > 0 {
                     self.boot_complete = true; self.load_prg(prg_file);
                 }
@@ -124,7 +124,7 @@ impl C64 {
             self.cia2.borrow_mut().process_irq();
             self.cia1.borrow_mut().update();
             self.cia2.borrow_mut().update();
-        
+
             self.cpu.borrow_mut().update(self.cycle_count);
 
             // update the debugger window if it exists
