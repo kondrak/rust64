@@ -1,4 +1,5 @@
 extern crate minifb;
+extern crate byteorder;
 
 #[macro_use]
 mod utils;
@@ -23,8 +24,13 @@ fn main() {
         else if args[i] == "x2" {
             window_scale = Scale::X2;
         }
-        else {
+        else if args[i].ends_with(".prg") {
             prg_to_load = args[i].clone();
+        }
+        else if args[i].ends_with(".crt") {
+            let crt_to_load = args[i].clone();
+            let crt = c64::crt::Crt::load_from_file(&crt_to_load);
+            println!("{:?}", crt.unwrap().header);
         }
     }
     

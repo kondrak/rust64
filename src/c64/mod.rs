@@ -5,6 +5,7 @@ pub mod cpu;
 pub mod memory;
 pub mod opcodes;
 pub mod vic;
+pub mod crt;
 
 mod cia;
 mod clock;
