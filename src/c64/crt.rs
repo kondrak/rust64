@@ -63,7 +63,7 @@ impl fmt::Debug for Header {
 "Header {{
     signature: {},
     header_len: {} bytes,
-    version: {:x}.{:x}
+    version: {:x}.{:02x}
     hw_type: {},
     exrom: {},
     game: {},
