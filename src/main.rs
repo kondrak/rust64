@@ -1,5 +1,9 @@
 extern crate minifb;
 extern crate byteorder;
+extern crate num;
+
+#[macro_use]
+extern crate enum_primitive;
 
 #[macro_use]
 mod utils;
@@ -13,6 +17,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     let mut prg_to_load  = String::new();
+    let mut crt_to_load  = String::new();
     let mut debugger_on  = false;
     let mut window_scale = Scale::X1;
 
@@ -28,13 +33,11 @@ fn main() {
             prg_to_load = args[i].clone();
         }
         else if args[i].ends_with(".crt") {
-            let crt_to_load = args[i].clone();
-            let crt = c64::crt::Crt::from_filename(&crt_to_load);
-            println!("{:?}", crt.unwrap().header);
+            crt_to_load = args[i].clone();
         }
     }
     
-    let mut c64 = c64::C64::new(window_scale, debugger_on, &prg_to_load);
+    let mut c64 = c64::C64::new(window_scale, debugger_on, &prg_to_load, &crt_to_load);
     c64.reset();
 
     // main update loop

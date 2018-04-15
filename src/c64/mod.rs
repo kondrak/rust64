@@ -29,6 +29,7 @@ const CLOCK_FREQ: f64 = 1.5 * 985248.0;
 pub struct C64 {
     pub main_window: minifb::Window,
     pub file_to_load: String,
+    pub crt_to_load: String,
     memory: memory::MemShared,
     io:     io::IO,
     clock:  clock::Clock,
@@ -44,7 +45,7 @@ pub struct C64 {
 }
 
 impl C64 {
-    pub fn new(window_scale: Scale, debugger_on: bool, prg_to_load: &str) -> C64 {
+    pub fn new(window_scale: Scale, debugger_on: bool, prg_to_load: &str, crt_to_load: &str) -> C64 {
         let memory = memory::Memory::new_shared();
         let vic    = vic::VIC::new_shared();
         let cia1   = cia::CIA::new_shared(true);
@@ -55,6 +56,7 @@ impl C64 {
         let mut c64 = C64 {
             main_window: Window::new("Rust64", SCREEN_WIDTH, SCREEN_HEIGHT, WindowOptions { scale: window_scale, ..Default::default() }).unwrap(),
             file_to_load: String::from(prg_to_load),
+            crt_to_load: String::from(crt_to_load),
             memory: memory.clone(), // shared system memory (RAM, ROM, IO registers)
             io:     io::IO::new(),
             clock:  clock::Clock::new(CLOCK_FREQ),
@@ -105,11 +107,18 @@ impl C64 {
             self.boot_complete = self.cpu.borrow_mut().pc == 0xA480;
  
             if self.boot_complete {
+                let crt_file = &self.crt_to_load.to_owned()[..];
                 let prg_file = &self.file_to_load.to_owned()[..];
                 
+                if crt_file.len() > 0 {
+                    let crt = crt::Crt::from_filename(crt_file).unwrap();
+                    crt.load_into_memory(self.memory.borrow_mut());
+                }
+
                 if prg_file.len() > 0 {
                     self.boot_complete = true; self.load_prg(prg_file);
                 }
+
             }
         }
 
