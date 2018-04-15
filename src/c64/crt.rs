@@ -40,9 +40,8 @@ impl Crt {
         // Read Chips
         file.seek(SeekFrom::Start(header_len as u64)).map_err(|e| e.to_string())?;
         let mut chips: Vec<Chip> = Vec::new();
-        let mut chip_signature = [0u8;4];
         loop {
-            chip_signature = [0u8;4];
+            let mut chip_signature = [0u8;4];
             file.read(&mut chip_signature).map_err(|e| e.to_string())?;
             if &chip_signature != b"CHIP" {
                 break;
@@ -82,7 +81,7 @@ impl Crt {
         })
     }
 
-    pub fn load_into_memory(&self, mut memory: std::cell::RefMut::<memory::Memory>) {
+    pub fn load_into_memory(&self, mut memory: std::cell::RefMut<memory::Memory>) {
         for chip in self.chips.iter() {
             let base_addr = chip.load_addr;
             for (offset, byte) in chip.data.iter().enumerate() {
