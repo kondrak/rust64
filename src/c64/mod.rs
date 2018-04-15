@@ -40,6 +40,7 @@ pub struct C64 {
     sid:  sid::SIDShared,
 
     debugger: Option<debugger::Debugger>,
+    powered_on: bool,
     boot_complete: bool,
     cycle_count: u32,
 }
@@ -66,6 +67,7 @@ impl C64 {
             vic:  vic.clone(),
             sid:  sid.clone(),
             debugger: if debugger_on { Some(debugger::Debugger::new()) } else { None },
+            powered_on: false,
             boot_complete: false,
             cycle_count: 0,
         };
@@ -102,23 +104,29 @@ impl C64 {
 
     pub fn run(&mut self) {
         // attempt to load a program supplied with command line
+        if !self.powered_on {
+            // $FCE2 is the power-on reset routine, which searches for and starts
+            // a cartridge amongst other things. The cartridge must be loaded here
+            self.powered_on = self.cpu.borrow_mut().pc == 0xFCE2;
+            if self.powered_on {
+                let crt_file = &self.crt_to_load.to_owned()[..];
+                if crt_file.len() > 0 {
+                    let crt = crt::Crt::from_filename(crt_file).unwrap();
+                    println!("{:?}", crt);
+                    crt.load_into_memory(self.memory.borrow_mut());
+                }
+            }
+        }
+
         if !self.boot_complete {
             // $A480 is the BASIC warm start sequence - safe to assume we can load a cmdline program now
             self.boot_complete = self.cpu.borrow_mut().pc == 0xA480;
- 
-            if self.boot_complete {
-                let crt_file = &self.crt_to_load.to_owned()[..];
-                let prg_file = &self.file_to_load.to_owned()[..];
-                
-                if crt_file.len() > 0 {
-                    let crt = crt::Crt::from_filename(crt_file).unwrap();
-                    crt.load_into_memory(self.memory.borrow_mut());
-                }
 
+            if self.boot_complete {
+                let prg_file = &self.file_to_load.to_owned()[..];
                 if prg_file.len() > 0 {
                     self.boot_complete = true; self.load_prg(prg_file);
                 }
-
             }
         }
 
