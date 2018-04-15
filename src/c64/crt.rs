@@ -13,7 +13,7 @@ pub struct Crt {
 }
 
 impl Crt {
-    pub fn load_from_file(filename: &str) -> Result<Crt, String> {
+    pub fn from_filename(filename: &str) -> Result<Crt, String> {
         let mut file = File::open(filename).map_err(|e| e.to_string())?;
         let mut signature = [0u8; 16];
         file.read(&mut signature).map_err(|e| e.to_string())?;

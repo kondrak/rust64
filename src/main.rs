@@ -29,7 +29,7 @@ fn main() {
         }
         else if args[i].ends_with(".crt") {
             let crt_to_load = args[i].clone();
-            let crt = c64::crt::Crt::load_from_file(&crt_to_load);
+            let crt = c64::crt::Crt::from_filename(&crt_to_load);
             println!("{:?}", crt.unwrap().header);
         }
     }
