@@ -82,11 +82,8 @@ impl Crt {
     }
 
     pub fn load_into_memory(&self, mut memory: std::cell::RefMut<memory::Memory>) {
-        if self.header.exrom == 1 && self.header.game == 0 {
-            memory.kernal_on = false;
-        } else if self.header.exrom == 0 && self.header.game == 0 {
-            memory.basic_on = false;
-        }
+        memory.exrom = self.header.exrom == 1;
+        memory.game = self.header.game == 1;
         for chip in self.chips.iter() {
             let base_addr = chip.load_addr;
             for (offset, byte) in chip.data.iter().enumerate() {
