@@ -122,6 +122,8 @@ pub struct Memory {
     kernal:  MemBank,
 
     // bank switching flags
+    pub exrom:      bool,
+    pub game:       bool,
     pub basic_on:   bool,
     pub chargen_on: bool,
     pub io_on:      bool,
@@ -136,6 +138,8 @@ impl Memory {
             chargen: MemBank::new(MemType::Chargen), // 4k
             io:      MemBank::new(MemType::Io),      // 4k (VIC, SID, CIA, Color RAM)
             kernal:  MemBank::new(MemType::Kernal),  // 8k
+            exrom:      true,
+            game:       true,
             basic_on:   false,
             chargen_on: false,
             io_on:      false,
@@ -244,7 +248,16 @@ impl Memory {
         self.chargen_on = ((latch & 0x04) == 0) && ((latch & 0x03) != 0); // %0xx except %000
         self.io_on      = ((latch & 0x04) != 0) && ((latch & 0x03) != 0); // %1xx except %100
         self.basic_on   = (latch & 0x03) == 3;
-        self.kernal_on  = (latch & 0x02) != 0;
+        self.kernal_on  = (latch & 0x02) != 0; 
+        
+        // binary logic is hard
+        if self.exrom && !self.game {
+            self.basic_on = false;
+            self.kernal_on = false;
+        }
+        if !self.exrom && !self.game {
+            self.basic_on = false;
+        }
     }
 }
 
