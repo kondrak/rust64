@@ -1,7 +1,9 @@
 // SID chip
 extern crate rand;
+#[cfg(not(target_os = "redox"))]
 extern crate sdl2;
 
+#[cfg(not(target_os = "redox"))]
 use self::sdl2::audio::{ AudioCallback, AudioSpecDesired };
 use c64::memory;
 use c64::sid_tables::*;
@@ -126,9 +128,11 @@ impl SIDVoice {
 // the SID chip with associated SDL2 audio device
 pub struct SID {
     mem_ref: Option<memory::MemShared>,
+    #[cfg(not(target_os = "redox"))]
     audio_device: sdl2::audio::AudioDevice<SIDAudioDevice>,
 }
 
+#[cfg(not(target_os = "redox"))]
 impl SID {
     pub fn new_shared() -> SIDShared {
         let sdl_context = sdl2::init().unwrap();
@@ -139,7 +143,7 @@ impl SID {
             channels: Some(1),  // mono
             samples: Some(512), // default sample size
         };
-        
+
         Rc::new(RefCell::new(SID {
             mem_ref: None,
             audio_device: audio_subsystem.open_playback(None, &desired_spec, |spec| {
@@ -204,6 +208,38 @@ impl SID {
 }
 
 
+#[cfg(target_os = "redox")]
+impl SID {
+    pub fn new_shared() -> SIDShared {
+        Rc::new(RefCell::new(SID {
+            mem_ref: None,
+        }))
+    }
+
+
+    pub fn set_references(&mut self, memref: memory::MemShared) {
+        self.mem_ref = Some(memref);
+    }
+
+
+    pub fn reset(&mut self) {}
+
+
+    pub fn update(&mut self) {}
+
+
+    pub fn read_register(&mut self, addr: u16) -> u8 {
+        0
+    }
+
+
+    pub fn write_register(&mut self, addr: u16, value: u8) {}
+
+
+    pub fn update_audio(&mut self) {}
+}
+
+
 // SDL2 audio device along with necessary SID parameters
 // this is where the actual SID calculations are being performed
 struct SIDAudioDevice {
@@ -223,7 +259,7 @@ struct SIDAudioDevice {
     xn2: f32,
     yn1: f32,
     yn2: f32,
-    
+
     voices: Vec<SIDVoice>,
     sample_buffer: [u8; NUM_SAMPLES],
     sample_idx: usize
@@ -250,7 +286,7 @@ impl SIDAudioDevice {
             sample_buffer: [0; NUM_SAMPLES],
             sample_idx: 0
         };
-       
+
         // calculate triangle table values
         unsafe {
             for i in 0..0x1000 {
@@ -266,7 +302,7 @@ impl SIDAudioDevice {
         sid_audio_device.voices[1].modulatee = 2;
         sid_audio_device.voices[2].modulator = 1;
         sid_audio_device.voices[2].modulatee = 0;
-        
+
         sid_audio_device
     }
 
@@ -328,7 +364,7 @@ impl SIDAudioDevice {
             }
         }
     }
-    
+
 
     pub fn write_register(&mut self, addr: u16, value: u8) {
         self.last_sid_byte = value;
@@ -419,7 +455,7 @@ impl SIDAudioDevice {
                 self.voices[0].filter = (value & 1) != 0;
                 self.voices[1].filter = (value & 2) != 0;
                 self.voices[2].filter = (value & 4) != 0;
-                
+
                 if self.filter_resonance != (value >> 4) {
                     self.filter_resonance = value >> 4;
                     self.calculate_filter();
@@ -476,7 +512,7 @@ impl SIDAudioDevice {
         let f = self.filter_freq as f32;
         let resonance: f32;
         let mut arg: f32;
-        
+
         match self.filter_type {
             FilterType::None => {
                 self.d1 = 0.0;
@@ -558,12 +594,12 @@ impl SIDAudioDevice {
             8 => WaveForm::Noise,
             _ => panic!("Impossible waveform value!"),
         };
-        
+
         let gate_on = (value & 1) != 0;
         let sync_on = (value & 2) != 0;
         let ring_on = (value & 4) != 0;
         let test_on = (value & 8) != 0;
-        
+
         if gate_on != self.voices[v_num].gate {
             if gate_on {
                 self.voices[v_num].state = VoiceState::Attack;
@@ -584,11 +620,12 @@ impl SIDAudioDevice {
             if test_on {
                 self.voices[v_num].wf_cnt = 0;
             }
-        } 
+        }
     }
 }
 
 // SDL2 audio callback implementation - this is where the samples are being converted to output sound
+#[cfg(not(target_os = "redox"))]
 impl AudioCallback for SIDAudioDevice {
     type Channel = i16;
 
@@ -600,14 +637,14 @@ impl AudioCallback for SIDAudioDevice {
         let g2 = self.g2;
 
         let mut sample_count = (self.sample_idx + NUM_SAMPLES/2) << 16;
-        
+
         for x in out.iter_mut() {
             let master_volume: u8 = self.sample_buffer[(sample_count >> 16) % NUM_SAMPLES];
 
             sample_count += ((50 * NUM_SAMPLES/2) << 16) / SAMPLE_FREQ as usize;
             let mut total_output: i32 = (SAMPLE_TABLE[master_volume as usize] as i32) << 8;
             let mut total_output_filter: i32 = 0;
-            
+
             for i in 0..3 {
                 let envelope: f32;
 
@@ -646,11 +683,11 @@ impl AudioCallback for SIDAudioDevice {
                 envelope = ((self.voices[i].level as f32) * master_volume as f32) / (0xFFFFFF * 0xF) as f32;
                 let modulatee = self.voices[i].modulatee;
                 let modulator = self.voices[i].modulator;
-                
+
                 if self.voices[i].mute {
                     continue;
                 }
-                
+
                 if !self.voices[i].test {
                     self.voices[i].wf_cnt += self.voices[i].wf_add;
                 }
