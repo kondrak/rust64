@@ -14,11 +14,11 @@ Major dependencies
 Requires Rust 1.5.0 or higher to compile and run.
 
 ### Youtube demo #1:
-[![Screenshot](http://kondrak.info/images/rust64_youtube.png?raw=true)](https://www.youtube.com/watch?v=b6OSsTPwLaE)
+[![Screenshot](images/rust64_youtube.png?raw=true)](https://www.youtube.com/watch?v=b6OSsTPwLaE)
 ### Youtube demo #2:
-[![Screenshot](http://kondrak.info/images/rust64_youtube2.png?raw=true)](https://www.youtube.com/watch?v=g4d_1vPV6So)
+[![Screenshot](images/rust64_youtube2.png?raw=true)](https://www.youtube.com/watch?v=g4d_1vPV6So)
 ### Screenshot:
-[![Screenshot](http://kondrak.info/images/rust64_github_prev.png?raw=true)](http://kondrak.info/images/rust64_github.png?raw=true)
+[![Screenshot](images/rust64_github_prev.png?raw=true)](images/rust64_github.png?raw=true)
 
 
 
