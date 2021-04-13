@@ -109,10 +109,10 @@ impl Debugger {
             self.draw_data(memory);
             self.draw_cpu(cpu);
 
-            let _ = self.debug_window.update_with_buffer(&self.window_buffer);
+            let _ = self.debug_window.update_with_buffer(&self.window_buffer,DEBUG_W, DEBUG_H);
         }
         if self.vic_window.is_open() {
-            let _ = self.vic_window.update_with_buffer(&self.vic_buffer);
+            let _ = self.vic_window.update_with_buffer(&self.vic_buffer,DEBUG_W, DEBUG_H);
         }
     }
 

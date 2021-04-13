@@ -159,7 +159,7 @@ impl C64 {
 
             // redraw the screen and process input on VBlank
             if should_trigger_vblank {
-                let _ = self.main_window.update_with_buffer(&self.vic.borrow_mut().window_buffer);
+                let _ = self.main_window.update_with_buffer(&self.vic.borrow_mut().window_buffer,SCREEN_WIDTH, SCREEN_HEIGHT);
                 self.io.update(&self.main_window, &mut self.cia1);
                 self.cia1.borrow_mut().count_tod();
                 self.cia2.borrow_mut().count_tod();
