@@ -13,5 +13,5 @@ num = "0.1"
 
 
 [target.'cfg(not(target_os = "redox"))'.dependencies]
-sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2.git" }
+sdl2 = "0.34.2"
 
