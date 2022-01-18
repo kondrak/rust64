@@ -11,7 +11,7 @@ Major dependencies
 - minifb: https://crates.io/crates/minifb (works out of the box)
 - sdl2: https://crates.io/crates/sdl2 (requires extra steps, see [here](https://github.com/AngryLawyer/rust-sdl2) for instructions)
 
-Requires Rust 1.5.0 or higher to compile and run.
+Requires Rust 1.58.0 or higher to compile and run.
 
 ### Youtube demo #1:
 [![Screenshot](images/rust64_youtube.png?raw=true)](https://www.youtube.com/watch?v=b6OSsTPwLaE)
