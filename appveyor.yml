@@ -14,10 +14,10 @@ install:
   - rust-nightly-%TARGET%.exe /VERYSILENT /NORESTART /DIR="C:\Program Files (x86)\Rust"
   - SET PATH=%PATH%;C:\Program Files (x86)\Rust\bin
   - SET PATH=%PATH%;C:\MinGW\bin
-  - ps: Start-FileDownload "https://www.libsdl.org/release/SDL2-devel-2.0.4-mingw.tar.gz"
-  - ps: 7z x SDL2-devel-2.0.4-mingw.tar.gz
-  - ps: 7z x SDL2-devel-2.0.4-mingw.tar
-  - ps: Copy-Item "SDL2-2.0.4\${env:SDL_TARGET}\${env:SDL_COPY_PATTERN}" "C:\Program Files (x86)\Rust\lib\rustlib\${env:TARGET}\lib\"
+  - ps: Start-FileDownload "https://www.libsdl.org/release/SDL2-devel-2.0.20-mingw.tar.gz"
+  - ps: 7z x SDL2-devel-2.0.20-mingw.tar.gz
+  - ps: 7z x SDL2-devel-2.0.20-mingw.tar
+  - ps: Copy-Item "SDL2-2.0.20\${env:SDL_TARGET}\${env:SDL_COPY_PATTERN}" "C:\Program Files (x86)\Rust\lib\rustlib\${env:TARGET}\lib\"
   - rustc -V
   - cargo -V
 build: false
@@ -25,5 +25,5 @@ build: false
 test_script:
   - ps: New-Item c:\projects\rust64\target -type directory
   - ps: New-Item c:\projects\rust64\target\debug -type directory
-  - ps: Copy-Item SDL2-2.0.4\i686-w64-mingw32\bin\SDL2.dll c:\projects\rust64\target\debug
+  - ps: Copy-Item SDL2-2.0.20\i686-w64-mingw32\bin\SDL2.dll c:\projects\rust64\target\debug
   - cargo test --verbose
