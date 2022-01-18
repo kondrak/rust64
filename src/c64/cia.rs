@@ -356,7 +356,7 @@ impl CIA {
             },
             0x0E => self.timer_a.ctrl,
             0x0F => self.timer_b.ctrl,
-            0x10...0xFF => self.read_register((addr & 0xFF00) + (addr % 0x0010), on_cia_read),
+            0x10..=0xFF => self.read_register((addr & 0xFF00) + (addr % 0x0010), on_cia_read),
             _ => {
                 // CIA1/2 specific read-values for 0x00 and 0x01
                 if self.is_cia1 {
@@ -635,7 +635,7 @@ impl CIA {
 
                 (retval | (self.prb & self.ddrb)) & self.joystick_1
             },
-            0xDC10...0xDCFF => self.read_cia1_register(0xDC00 + (addr % 0x0010)),
+            0xDC10..=0xDCFF => self.read_cia1_register(0xDC00 + (addr % 0x0010)),
             _ => panic!("Address out of CIA1 memory range: ${:04X}", addr),
         }
     }
@@ -661,7 +661,7 @@ impl CIA {
                 as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
                 self.check_lp();
             },
-            0xDC10...0xDCFF => self.write_cia1_register(0xDC00 + (addr % 0x0010), value, on_cia_write),
+            0xDC10..=0xDCFF => self.write_cia1_register(0xDC00 + (addr % 0x0010), value, on_cia_write),
             _ => panic!("Address out of CIA1 memory range"),
         }
     }
@@ -674,7 +674,7 @@ impl CIA {
                 (self.pra | !self.ddra) & 0x3f | self.iec_lines
             },
             0xDD01 => self.prb | !self.ddrb,
-            0xDD10...0xDDFF => self.read_cia2_register(0xDD00 + (addr % 0x0010)),
+            0xDD10..=0xDDFF => self.read_cia2_register(0xDD00 + (addr % 0x0010)),
             _ => panic!("Address out of CIA2 memory range ${:04X}", addr),
         }
     }
@@ -698,7 +698,7 @@ impl CIA {
                 as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
             },
             0xDD03 => { self.ddrb = value; as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value); },
-            0xDD10...0xDDFF => self.write_cia2_register(0xDD00 + (addr % 0x0010), value, on_cia_write),
+            0xDD10..=0xDDFF => self.write_cia2_register(0xDD00 + (addr % 0x0010), value, on_cia_write),
             _ => panic!("Address out of CIA2 memory range"),
         }
     }

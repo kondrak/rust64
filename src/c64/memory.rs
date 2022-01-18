@@ -75,10 +75,10 @@ impl MemBank {
                     0xD016          => self.data[(addr - self.offset) as usize] = 0xC0 | val,
                     0xD019          => self.data[(addr - self.offset) as usize] = 0x70 | val,
                     0xD01A          => self.data[(addr - self.offset) as usize] = 0xF0 | val,
-                    //0xD01E...0xD01F => (),  // cannot be written on real C64 but allow the VIC to do it anyway
-                    0xD020...0xD02E => self.data[(addr - self.offset) as usize] = 0xF0 | val,
-                    0xD02F...0xD03F => (),                             // write ignored
-                    0xD040...0xD3FF => self.write(0xD000 + (addr % 0x0040), val), // same as 0xD000-0xD03F
+                    //0xD01E..=0xD01F => (),  // cannot be written on real C64 but allow the VIC to do it anyway
+                    0xD020..=0xD02E => self.data[(addr - self.offset) as usize] = 0xF0 | val,
+                    0xD02F..=0xD03F => (),                             // write ignored
+                    0xD040..=0xD3FF => self.write(0xD000 + (addr % 0x0040), val), // same as 0xD000-0xD03F
                     _ => self.data[(addr - self.offset) as usize] = val
                 }
                 
@@ -96,14 +96,14 @@ impl MemBank {
                     0xD018          => 0x01 | self.data[(addr - self.offset) as usize],
                     0xD019          => 0x70 | self.data[(addr - self.offset) as usize],
                     0xD01A          => 0xF0 | self.data[(addr - self.offset) as usize],
-                    0xD01E...0xD01F => {                                  // cannot be written, cleared on read
+                    0xD01E..=0xD01F => {                                  // cannot be written, cleared on read
                         let value = self.data[(addr - self.offset) as usize];
                         self.data[(addr - self.offset) as usize] = 0;
                         value
                     },
-                    0xD020...0xD02E => 0xF0 | self.data[(addr - self.offset) as usize],
-                    0xD02F...0xD03F => 0xFF,                                 // always returns 0xFF
-                    0xD040...0xD3FF => self.read(0xD000 + (addr % 0x0040)),  // same as 0xD000-0xD03F
+                    0xD020..=0xD02E => 0xF0 | self.data[(addr - self.offset) as usize],
+                    0xD02F..=0xD03F => 0xFF,                                 // always returns 0xFF
+                    0xD040..=0xD3FF => self.read(0xD000 + (addr % 0x0040)),  // same as 0xD000-0xD03F
                     _ => self.data[(addr - self.offset) as usize]
                 }
             },
@@ -149,24 +149,23 @@ impl Memory {
     
 
     // returns memory bank for current latch setting and address
-    pub fn get_bank(&mut self, addr: u16) -> (&mut MemBank) {
+    pub fn get_bank(&mut self, addr: u16) -> &mut MemBank {
         match addr {
-            0x0000...0x9FFF => &mut self.ram,
-            0xA000...0xBFFF => if self.basic_on { &mut self.basic } else { &mut self.ram },
-            0xC000...0xCFFF => &mut self.ram,
-            0xD000...0xDFFF => {
+            0x0000..=0x9FFF => &mut self.ram,
+            0xA000..=0xBFFF => if self.basic_on { &mut self.basic } else { &mut self.ram },
+            0xC000..=0xCFFF => &mut self.ram,
+            0xD000..=0xDFFF => {
                 if self.chargen_on { return &mut self.chargen }
                 if self.io_on      { return &mut self.io; }
                 return &mut self.ram;
             },
-            0xE000...0xFFFF => if self.kernal_on  { &mut self.kernal } else { &mut self.ram },
-            _ => panic!("Address out of memory range")
+            0xE000..=0xFFFF => if self.kernal_on  { &mut self.kernal } else { &mut self.ram }
         }
     }
 
 
     // returns specific modifiable memory bank
-    pub fn get_ram_bank(&mut self, bank_type: MemType) -> (&mut MemBank) {
+    pub fn get_ram_bank(&mut self, bank_type: MemType) -> &mut MemBank {
         match bank_type {
             MemType::Ram => &mut self.ram,
             MemType::Io  => &mut self.io,
@@ -176,7 +175,7 @@ impl Memory {
 
 
     // returns specific non-modifiable memory bank
-    pub fn get_rom_bank(&mut self, bank_type: MemType) -> (&mut MemBank) {
+    pub fn get_rom_bank(&mut self, bank_type: MemType) -> &mut MemBank {
         match bank_type {
             MemType::Basic   => &mut self.basic,
             MemType::Chargen => &mut self.chargen,

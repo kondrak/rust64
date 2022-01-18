@@ -175,17 +175,17 @@ impl SID {
         let mut rval = 0;
 
         match addr {
-            0xD419...0xD41A => {
+            0xD419..=0xD41A => {
                 let mut lock = self.audio_device.lock();
                 rval = (*lock).read_register(addr);
                 as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, rval);
             },
-            0xD41B...0xD41C => {
+            0xD41B..=0xD41C => {
                 let mut lock = self.audio_device.lock();
                 rval = (*lock).read_register(addr);
                 as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, rval);
             },
-            0xD420...0xD7FF =>  { rval = self.read_register(0xD400 + (addr % 0x0020)); },
+            0xD420..=0xD7FF =>  { rval = self.read_register(0xD400 + (addr % 0x0020)); },
             _               =>  {
                 as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, rval);
             }
@@ -347,17 +347,17 @@ impl SIDAudioDevice {
         // most SID registers are write-only. The write to IO RAM is performed
         // so that the debugger can print out the value fetched by the CPU
         match addr {
-            0xD419...0xD41A => {
+            0xD419..=0xD41A => {
                 self.last_sid_byte = 0;
                 let rval = 0xFF;
                 rval
             },
-            0xD41B...0xD41C => {
+            0xD41B..=0xD41C => {
                 self.last_sid_byte = 0;
                 let rval = rand::random::<u8>();
                 rval
             },
-            0xD420...0xD7FF => self.read_register(0xD400 + (addr % 0x0020)),
+            0xD420..=0xD7FF => self.read_register(0xD400 + (addr % 0x0020)),
             _               =>  {
                 let rval = self.last_sid_byte;
                 rval
@@ -486,7 +486,7 @@ impl SIDAudioDevice {
                 }
             },
             // $D41D-$D41F are unusable, so just ignore it
-            0xD420...0xD7FF => self.write_register(0xD400 + (addr % 0x0020), value),
+            0xD420..=0xD7FF => self.write_register(0xD400 + (addr % 0x0020), value),
             _               => (),
         }
     }

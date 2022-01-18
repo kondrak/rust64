@@ -169,7 +169,7 @@ impl VIC {
 
     pub fn read_register(&self, addr: u16) -> u8 {
         match addr {
-            0xD000...0xD00F => {
+            0xD000..=0xD00F => {
                 let idx = ((addr & 0x000F) >> 1) as usize;
                 if (addr % 2) == 0 {
                     self.mx[idx] as u8
@@ -186,7 +186,7 @@ impl VIC {
             0xD012          => self.raster_cnt as u8,
             0xD019          => self.irq_flag | 0x70,
             0xD01A          => self.irq_mask | 0xF0,
-            0xD040...0xD3FF => self.read_register(0xD000 + (addr % 0x0040)),
+            0xD040..=0xD3FF => self.read_register(0xD000 + (addr % 0x0040)),
             _               => as_ref!(self.mem_ref).get_ram_bank(memory::MemType::Io).read(addr)
         }
     }
@@ -204,7 +204,7 @@ impl VIC {
         self.dbg_check_regs(addr, value);
         
         match addr {
-            0xD000...0xD00F => {
+            0xD000..=0xD00F => {
                 let idx = ((addr & 0x000F) >> 1) as usize;
                 
                 if (addr % 2) == 0 {
@@ -318,7 +318,7 @@ impl VIC {
 
                 as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value);
             },
-            0xD040...0xD3FF => { self.write_register(0xD000 + (addr % 0x0040), value, on_vic_write); },
+            0xD040..=0xD3FF => { self.write_register(0xD000 + (addr % 0x0040), value, on_vic_write); },
             _ => as_mut!(self.mem_ref).get_ram_bank(memory::MemType::Io).write(addr, value),
         }
     }
@@ -684,7 +684,7 @@ impl VIC {
                 self.last_char_data = self.char_data;
             },
             // graphics and matrix access
-            19...54 => {
+            19..=54 => {
                 self.draw_graphics();
                 self.sample_border();
                 self.graphics_access();

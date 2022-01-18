@@ -1166,7 +1166,6 @@ pub fn get_instruction(opcode: u8) -> Option<(Op, u8, bool, AddrMode)> {
         /* NOP     */ 0xFA => (Op::NOP, 2, false, AddrMode::Implied),
         /* ISC_aby */ 0xFB => (Op::ISC, 7,  true, AddrMode::AbsoluteIndexedY(false)),
         /* NOP_abx */ 0xFC => (Op::NOP, 5, false, AddrMode::AbsoluteIndexedX(true)), // add 1 cycle if page boundary is crossed
-        /* ISC_abx */ 0xFF => (Op::ISC, 7,  true, AddrMode::AbsoluteIndexedX(false)),
-                         _ => return None
+        /* ISC_abx */ 0xFF => (Op::ISC, 7,  true, AddrMode::AbsoluteIndexedX(false))
     })
 }
