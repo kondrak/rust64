@@ -13,4 +13,4 @@ num = "0.1"
 
 
 [target.'cfg(not(target_os = "redox"))'.dependencies]
-sdl2 = "0.25.0"
+sdl2 = "0.35.0"
