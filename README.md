@@ -1,6 +1,3 @@
-[![Build Status](https://travis-ci.org/kondrak/rust64.svg)](https://travis-ci.org/kondrak/rust64)
-[![Build status](https://ci.appveyor.com/api/projects/status/77otp2475g7v95mb?svg=true)](https://ci.appveyor.com/project/kondrak/rust64)
-
 # Rust64 - a C64 emulator written in Rust
 This is my attempt to study the Rust programming language and have fun at the same time. The goal is to present in the least obfuscated way how the Commodore 64 works and what's happening behind the scenes once you start a program. Emulation is cycle based and fairly accurate at this point.
 
