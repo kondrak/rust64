@@ -1,11 +1,8 @@
 environment:
   matrix:
-  - TARGET: x86_64-pc-windows-msvc
-    SDL_TARGET: lib\x64
-    SDL_COPY_PATTERN: SDL2*.lib
-  - TARGET: i686-pc-windows-msvc
-    SDL_TARGET: lib\x86
-    SDL_COPY_PATTERN: SDL2*.lib
+  - TARGET: x86_64-pc-windows-gnu
+    SDL_TARGET: x86_64-w64-mingw32\lib
+    SDL_COPY_PATTERN: libSDL2*.lib
   - TARGET: i686-pc-windows-gnu
     SDL_TARGET: i686-w64-mingw32\lib
     SDL_COPY_PATTERN: libSDL2*
