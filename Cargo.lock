@@ -245,7 +245,7 @@ checksum = "8dde11f18c108289bef24469638a04dce49da56084f2d50618b226e47eb04509"
 
 [[package]]
 name = "rust64"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "byteorder",
  "enum_primitive",
