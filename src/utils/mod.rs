@@ -1,7 +1,6 @@
 // helper utility functions and macros
 use c64::cpu;
 use c64::opcodes;
-use std::error::Error;
 use std::io::prelude::*;
 use std::fs::File;
 use std::io::SeekFrom;
@@ -23,7 +22,7 @@ pub fn open_file(filename: &str, offset: u64) -> Vec<u8> {
     let path = Path::new(&filename);
     
     let mut file = match File::open(&path) {
-        Err(why) => panic!("Couldn't open {}: {}", path.display(), Error::description(&why)),
+        Err(why) => panic!("Couldn't open {}: {}", path.display(), why.to_string()),
         Ok(file) => file,
     };
 
@@ -33,7 +32,7 @@ pub fn open_file(filename: &str, offset: u64) -> Vec<u8> {
     let result = file.read_to_end(&mut file_data);
     
     match result {
-        Err(why)   => panic!("Error reading file: {}", Error::description(&why)),
+        Err(why)   => panic!("Error reading file: {}", why.to_string()),
         Ok(result) => println!("Read {}: {} bytes", path.display(), result),
     };    
 
