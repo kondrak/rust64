@@ -1,4 +1,4 @@
-[![Build Status](https://img.shields.io/github/workflow/status/kondrak/rust64/CI?logo=github)](https://github.com/kondrak/rust64/actions?query=workflow%3ACI)
+[![CI](https://github.com/kondrak/rust64/actions/workflows/rust.yml/badge.svg)](https://github.com/kondrak/rust64/actions/workflows/rust.yml)
 
 # Rust64 - a C64 emulator written in Rust
 This is my attempt to study the Rust programming language and have fun at the same time. The goal is to present in the least obfuscated way how the Commodore 64 works and what's happening behind the scenes once you start a program. Emulation is cycle based and fairly accurate at this point.
