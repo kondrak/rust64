@@ -6,7 +6,7 @@ use std::fmt;
 use c64::memory;
 
 use byteorder::{BigEndian, ReadBytesExt};
-use num::FromPrimitive;
+use enum_primitive::FromPrimitive;
 
 #[derive(Debug)]
 pub struct Crt {
