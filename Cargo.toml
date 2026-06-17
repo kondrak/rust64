@@ -6,7 +6,7 @@ authors = [ "Krzysztof Kondrak <krzysztof.kondrak@gmail.com>" ]
 [dependencies]
 minifb = { version = "0.28", default-features = false, features = ["x11"] }
 rand = "0.10.1"
-time = "0.1.34"
+time = "0.3.49"
 byteorder = "1.2.2"
 enum_primitive = "0.1"
 num = "0.4"
