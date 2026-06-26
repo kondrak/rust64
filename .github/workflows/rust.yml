@@ -10,42 +10,40 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    name: Build and Test
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [Ubuntu-latest, Windows-latest, MacOS-latest]
-    runs-on: ${{ matrix.os }}
-    
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
     steps:
-    - if: matrix.os == 'ubuntu-latest'
-      name: Get SDL2 for Linux
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+
+    - name: Install SDL2 (Linux)
+      if: matrix.os == 'ubuntu-latest'
       run: |
-        sudo add-apt-repository ppa:team-xbmc/ppa -y
         sudo apt-get update -q
-        sudo apt-get install libegl1-mesa-dev libgles2-mesa-dev libsdl2-dev
-    - if: matrix.os == 'macOS-latest'
-      name: Get SDL2 for MacOS
+        sudo apt-get install -y libegl1-mesa-dev libgles2-mesa-dev libsdl2-dev
+
+    - name: Install SDL2 (macOS)
+      if: matrix.os == 'macos-latest'
       run: |
-        brew install SDL2
-    - if: matrix.os == 'windows-latest'
-      name: Get SDL2 for Windows
+        brew install sdl2
+        echo "LIBRARY_PATH=$(brew --prefix sdl2)/lib" >> $GITHUB_ENV
+
+    - name: Install SDL2 (Windows)
+      if: matrix.os == 'windows-latest'
       shell: pwsh
+      env:
+        SDL2_VERSION: "2.32.10"
       run: |
-        Invoke-WebRequest -Uri "https://www.libsdl.org/release/SDL2-devel-2.0.20-VC.zip" -OutFile "SDL2-devel-2.0.20-VC.zip"
-        7z x SDL2-devel-2.0.20-VC.zip
-        Copy-Item "SDL2-2.0.20\lib\x64\SDL2*" "C:\Users\runneradmin\.rustup\toolchains\stable-x86_64-pc-windows-msvc\lib\rustlib\x86_64-pc-windows-msvc\lib"
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
-    - name: cargo fetch
-      uses: actions-rs/cargo@v1
-      with:
-        command: fetch
+        Invoke-WebRequest -Uri "https://www.libsdl.org/release/SDL2-devel-$env:SDL2_VERSION-VC.zip" -OutFile "SDL2-devel-$env:SDL2_VERSION-VC.zip"
+        7z x "SDL2-devel-$env:SDL2_VERSION-VC.zip"
+        $sdl2Dir = "$(Get-Location)\SDL2-$env:SDL2_VERSION\lib\x64"
+        echo "LIB=$sdl2Dir;$env:LIB" >> $env:GITHUB_ENV
+        echo "PATH=$sdl2Dir;$env:PATH" >> $env:GITHUB_ENV
+
     - name: cargo test
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --verbose
+      run: cargo test --verbose
