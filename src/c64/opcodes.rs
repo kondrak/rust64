@@ -896,6 +896,14 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
             cpu.set_operand(v);
             cpu.sbc(v);
         },
+        Op::AXS => {
+            if cpu.ba_low { return false; }
+            let v = cpu.get_operand();
+            let res = (cpu.a & cpu.x) as i16 - v as i16;
+            cpu.x = res as u8;
+            cpu.set_status_flag(cpu::StatusFlag::Carry, res >= 0);
+            cpu.set_zn_flags(res as u8);
+        }
         _ => panic!("Unknown instruction: {} at ${:04X}", cpu.instruction, cpu.pc)
     }
 
