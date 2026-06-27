@@ -1162,7 +1162,7 @@ impl VIC {
         self.window_buffer[screen_pos + 4] = self.window_buffer[screen_pos + 5];
         self.window_buffer[screen_pos + 3] = utils::fetch_c64_color_rgba(color[(data & 3) as usize]); data >>= 2;
         self.window_buffer[screen_pos + 2] = self.window_buffer[screen_pos + 3];
-        self.window_buffer[screen_pos + 1] = utils::fetch_c64_color_rgba(color[(data as usize)]);
+        self.window_buffer[screen_pos + 1] = utils::fetch_c64_color_rgba(color[data as usize]);
         self.window_buffer[screen_pos    ] = self.window_buffer[screen_pos + 1];
     }
     
