@@ -15,16 +15,16 @@ impl Clock {
             clock_period: 1.0 / freq,
         };
 
-        clock.last_time = time::precise_time_s();
+        clock.last_time = time::OffsetDateTime::now_utc().unix_timestamp_nanos() as f64 / 1E09;
         clock
     }
 
     pub fn tick(&mut self) -> bool {
-        self.curr_time = time::precise_time_s();
+        self.curr_time = time::OffsetDateTime::now_utc().unix_timestamp_nanos() as f64 / 1E09;
 
         if self.curr_time - self.last_time >= self.clock_period {
             self.last_time = self.curr_time;
-            return true
+            return true;
         }
 
         false
