@@ -30,6 +30,7 @@ jobs:
     - name: Install SDL2 (macOS)
       if: matrix.os == 'macos-latest'
       run: |
+        brew trust aws/tap
         brew install sdl2
         echo "LIBRARY_PATH=$(brew --prefix sdl2)/lib" >> $GITHUB_ENV
 
