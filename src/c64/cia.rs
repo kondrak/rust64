@@ -36,7 +36,7 @@ impl CIATimer {
     pub fn new(is_ta: bool) -> CIATimer {
         CIATimer {
             state: TimerState::Stop,
-            is_ta: is_ta,
+            is_ta,
             value: 0xFFFF,
             latch: 1,
             ctrl: 0,
@@ -228,7 +228,7 @@ impl CIA {
             cpu_ref: None,
             vic_ref: None,
 
-            is_cia1: is_cia1,
+            is_cia1,
             timer_a: CIATimer::new(true),
             timer_b: CIATimer::new(false),
             irq_mask: 0,
@@ -578,15 +578,13 @@ impl CIA {
                 && (self.tod_sec == self.alarm_sec)
                 && (self.tod_min == self.alarm_min)
                 && (self.tod_hour == self.alarm_hour)
-            {
-                if self.trigger_irq(4) {
+                && self.trigger_irq(4) {
                     if self.is_cia1 {
                         as_mut!(self.cpu_ref).set_cia_irq(true);
                     } else {
                         as_mut!(self.cpu_ref).set_nmi(true);
                     };
                 }
-            }
         }
     }
 

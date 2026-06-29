@@ -45,8 +45,8 @@ impl SysFont {
             self.draw_char_rgb(
                 window_buffer,
                 window_w,
-                x * 8 + 8 * i as usize,
-                y * 8 as usize,
+                x * 8 + 8 * i,
+                y * 8_usize,
                 self.ascii_to_petscii(chars[i]),
                 color,
             );
@@ -67,8 +67,8 @@ impl SysFont {
             self.draw_char(
                 window_buffer,
                 window_w,
-                x * 8 + 8 * i as usize,
-                y * 8 as usize,
+                x * 8 + 8 * i,
+                y * 8_usize,
                 self.ascii_to_petscii(chars[i]),
                 c64_color,
             );

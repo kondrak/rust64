@@ -136,7 +136,7 @@ impl C64 {
             self.powered_on = self.cpu.borrow_mut().pc == 0xFCE2;
             if self.powered_on {
                 let crt_file = &self.crt_to_load.to_owned()[..];
-                if crt_file.len() > 0 {
+                if !crt_file.is_empty() {
                     let crt = crt::Crt::from_filename(crt_file).unwrap();
                     println!("{:?}", crt);
                     crt.load_into_memory(self.memory.borrow_mut());
@@ -151,7 +151,7 @@ impl C64 {
             if self.boot_complete {
                 let prg_file = &self.file_to_load.to_owned()[..];
 
-                if prg_file.len() > 0 {
+                if !prg_file.is_empty() {
                     self.boot_complete = true;
                     self.load_prg(prg_file);
                 }
@@ -178,14 +178,11 @@ impl C64 {
             self.cpu.borrow_mut().update(self.cycle_count);
 
             // update the debugger window if it exists
-            match self.debugger {
-                Some(ref mut dbg) => {
-                    dbg.update_vic_window(&mut self.vic);
-                    if should_trigger_vblank {
-                        dbg.render(&mut self.cpu, &mut self.memory);
-                    }
+            if let Some(ref mut dbg) = self.debugger {
+                dbg.update_vic_window(&mut self.vic);
+                if should_trigger_vblank {
+                    dbg.render(&mut self.cpu, &mut self.memory);
                 }
-                None => (),
             }
 
             // redraw the screen and process input on VBlank

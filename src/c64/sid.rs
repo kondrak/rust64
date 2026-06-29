@@ -338,18 +338,18 @@ impl SIDAudioDevice {
         match addr {
             0xD419..=0xD41A => {
                 self.last_sid_byte = 0;
-                let rval = 0xFF;
-                rval
+                
+                0xFF
             }
             0xD41B..=0xD41C => {
                 self.last_sid_byte = 0;
-                let rval = rand::random::<u8>();
-                rval
+                
+                rand::random::<u8>()
             }
             0xD420..=0xD7FF => self.read_register(0xD400 + (addr % 0x0020)),
             _ => {
-                let rval = self.last_sid_byte;
-                rval
+                
+                self.last_sid_byte
             }
         }
     }
@@ -535,7 +535,7 @@ impl SIDAudioDevice {
             arg = 0.01;
         }
 
-        self.g2 = 0.55 + 1.2 * arg * arg - 1.2 * arg + 0.0133333333 * self.filter_resonance as f32;
+        self.g2 = 0.55 + 1.2 * arg * arg - 1.2 * arg + 0.013_333_334 * self.filter_resonance as f32;
         self.g1 = -2.0 * self.g2.sqrt() * (f32::consts::PI * arg).cos();
 
         match self.filter_type {
@@ -644,7 +644,7 @@ impl AudioCallback for SIDAudioDevice {
             let mut total_output_filter: i32 = 0;
 
             for i in 0..3 {
-                let envelope: f32;
+                
 
                 match self.voices[i].state {
                     VoiceState::Attack => {
@@ -687,7 +687,7 @@ impl AudioCallback for SIDAudioDevice {
                     }
                 }
 
-                envelope = ((self.voices[i].level as f32) * master_volume as f32)
+                let envelope: f32 = ((self.voices[i].level as f32) * master_volume as f32)
                     / (0xFFFFFF * 0xF) as f32;
                 let modulatee = self.voices[i].modulatee;
                 let modulator = self.voices[i].modulator;

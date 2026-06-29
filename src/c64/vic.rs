@@ -168,7 +168,7 @@ impl VIC {
         match addr {
             0xD000..=0xD00F => {
                 let idx = ((addr & 0x000F) >> 1) as usize;
-                if (addr % 2) == 0 {
+                if addr.is_multiple_of(2) {
                     self.mx[idx] as u8
                 } else {
                     self.my[idx]
@@ -205,7 +205,7 @@ impl VIC {
             0xD000..=0xD00F => {
                 let idx = ((addr & 0x000F) >> 1) as usize;
 
-                if (addr % 2) == 0 {
+                if addr.is_multiple_of(2) {
                     self.mx[idx] = (self.mx[idx] & 0xFF00) | value as u16;
                     as_mut!(self.mem_ref)
                         .get_ram_bank(memory::MemType::Io)
@@ -304,7 +304,7 @@ impl VIC {
                     .write(addr, value);
             }
             0xD019 => {
-                self.irq_flag = self.irq_flag & (!value & 0x0F);
+                self.irq_flag &= !value & 0x0F;
 
                 if (self.irq_flag & self.irq_mask) != 0 {
                     self.irq_flag |= 0x80;
@@ -412,10 +412,7 @@ impl VIC {
                     self.raster_cnt += 1;
 
                     if self.raster_cnt == self.raster_irq {
-                        match self.raster_irq() {
-                            cpu::Callback::TriggerVICIrq => as_mut!(self.cpu_ref).set_vic_irq(true),
-                            _ => (),
-                        }
+                        if let cpu::Callback::TriggerVICIrq = self.raster_irq() { as_mut!(self.cpu_ref).set_vic_irq(true) }
                     }
 
                     if self.raster_cnt == 0x30 {
@@ -465,10 +462,7 @@ impl VIC {
                     self.line_start_offset = 0;
 
                     if self.raster_irq == 0 {
-                        match self.raster_irq() {
-                            cpu::Callback::TriggerVICIrq => as_mut!(self.cpu_ref).set_vic_irq(true),
-                            _ => (),
-                        }
+                        if let cpu::Callback::TriggerVICIrq = self.raster_irq() { as_mut!(self.cpu_ref).set_vic_irq(true) }
                     }
                 }
 
@@ -849,7 +843,7 @@ impl VIC {
                                 utils::fetch_c64_color_rgba(self.border_color_sample[i]);
                             utils::memset8(
                                 &mut self.window_buffer,
-                                self.line_start_offset + i * 8 as usize,
+                                self.line_start_offset + i * 8_usize,
                                 color_rgba,
                             );
                         }

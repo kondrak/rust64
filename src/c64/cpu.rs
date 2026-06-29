@@ -148,24 +148,21 @@ impl CPU {
 
     pub fn update(&mut self, c64_cycle_cnt: u32) {
         // check for irq and nmi
-        match self.state {
-            CPUState::FetchOp => {
-                if self.nmi
-                    && self.nmi_cycles_left == 0
-                    && (c64_cycle_cnt - (self.first_nmi_cycle as u32) >= 2)
-                {
-                    self.nmi_cycles_left = 7;
-                    self.state = CPUState::ProcessNMI;
-                } else if !self.get_status_flag(StatusFlag::InterruptDisable) {
-                    let irq_ready = (self.cia_irq || self.vic_irq) && self.irq_cycles_left == 0;
+        if let CPUState::FetchOp = self.state {
+            if self.nmi
+                && self.nmi_cycles_left == 0
+                && (c64_cycle_cnt - self.first_nmi_cycle >= 2)
+            {
+                self.nmi_cycles_left = 7;
+                self.state = CPUState::ProcessNMI;
+            } else if !self.get_status_flag(StatusFlag::InterruptDisable) {
+                let irq_ready = (self.cia_irq || self.vic_irq) && self.irq_cycles_left == 0;
 
-                    if irq_ready && (c64_cycle_cnt - (self.first_irq_cycle as u32) >= 2) {
-                        self.irq_cycles_left = 7;
-                        self.state = CPUState::ProcessIRQ;
-                    }
+                if irq_ready && (c64_cycle_cnt - self.first_irq_cycle >= 2) {
+                    self.irq_cycles_left = 7;
+                    self.state = CPUState::ProcessIRQ;
                 }
             }
-            _ => {}
         }
 
         match self.state {
@@ -398,7 +395,9 @@ impl CPU {
             return self.instruction.rmw_buffer;
         }
 
-        let val = match self.instruction.addr_mode {
+        
+
+        match self.instruction.addr_mode {
             opcodes::AddrMode::Implied => panic!("Can't get operand value!"),
             opcodes::AddrMode::Accumulator => self.a,
             opcodes::AddrMode::Immediate => self.next_byte(),
@@ -406,9 +405,7 @@ impl CPU {
                 let addr = self.instruction.operand_addr;
                 self.read_byte(addr)
             }
-        };
-
-        val
+        }
     }
 
     pub fn set_operand(&mut self, val: u8) {

@@ -202,7 +202,7 @@ impl Debugger {
             self.mempage_offset -= 0x400;
         }
 
-        let mut start = 0x0000 + self.mempage_offset as u16;
+        let mut start = self.mempage_offset as u16;
         let mut title = Vec::new();
         let mut hex_offset_x = 0;
         let _ = write!(
@@ -311,7 +311,7 @@ impl Debugger {
 
         for y in 0..25 {
             for x in 0..40 {
-                if start >= 0xDC10 && start < 0xDD00 {
+                if (0xDC10..0xDD00).contains(&start) {
                     hex_offset_x += 1;
                     start += 1;
                     continue;

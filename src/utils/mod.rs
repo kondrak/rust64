@@ -23,8 +23,8 @@ macro_rules! as_mut {
 pub fn open_file(filename: &str, offset: u64) -> Vec<u8> {
     let path = Path::new(&filename);
 
-    let mut file = match File::open(&path) {
-        Err(why) => panic!("Couldn't open {}: {}", path.display(), why.to_string()),
+    let mut file = match File::open(path) {
+        Err(why) => panic!("Couldn't open {}: {}", path.display(), why),
         Ok(file) => file,
     };
 
@@ -34,7 +34,7 @@ pub fn open_file(filename: &str, offset: u64) -> Vec<u8> {
     let result = file.read_to_end(&mut file_data);
 
     match result {
-        Err(why) => panic!("Error reading file: {}", why.to_string()),
+        Err(why) => panic!("Error reading file: {}", why),
         Ok(result) => println!("Read {}: {} bytes", path.display(), result),
     };
 
@@ -124,12 +124,12 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU) {
     // instruction opcode and arglist formatting based on addressing mode
     match cpu.instruction.addr_mode {
         opcodes::AddrMode::Implied => {
-            operand_hex = format!("       ");
-            operand = format!("       ");
+            operand_hex = "       ".to_string();
+            operand = "       ".to_string();
         }
         opcodes::AddrMode::Accumulator => {
-            operand_hex = format!("       ");
-            operand = format!("A      ");
+            operand_hex = "       ".to_string();
+            operand = "A      ".to_string();
         }
         opcodes::AddrMode::Immediate => {
             operand_hex = format!(" {:02X}    ", cpu.read_byte(prev_pc));
@@ -223,9 +223,6 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU) {
 
     // JSR? push on queue to supress logging
     if !debug_loops {
-        match cpu.instruction.opcode {
-            opcodes::Op::JSR => cpu.op_debugger.jump_queue.push(opcode),
-            _ => (),
-        }
+        if let opcodes::Op::JSR = cpu.instruction.opcode { cpu.op_debugger.jump_queue.push(opcode) }
     }
 }

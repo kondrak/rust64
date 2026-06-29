@@ -264,8 +264,7 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool {
                 cpu.instruction.operand_addr = cpu.next_byte() as u16;
             }
             1 => {
-                cpu.instruction.operand_addr =
-                    cpu.instruction.operand_addr | ((cpu.next_byte() as u16) << 8);
+                cpu.instruction.operand_addr |= (cpu.next_byte() as u16) << 8;
             }
             _ => panic!(
                 "Too many cycles for operand address fetch! ({}) ",
@@ -344,7 +343,7 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool {
             1 => {
                 let x = cpu.x as u16;
                 let base_addr = cpu.instruction.operand_addr;
-                cpu.instruction.operand_addr = (base_addr.wrapping_add(x) as u16) & 0xFF;
+                cpu.instruction.operand_addr = base_addr.wrapping_add(x) & 0xFF;
             }
             _ => panic!(
                 "Too many cycles for operand address fetch! ({}) ",
@@ -358,7 +357,7 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool {
             1 => {
                 let y = cpu.y as u16;
                 let base_addr = cpu.instruction.operand_addr;
-                cpu.instruction.operand_addr = (base_addr.wrapping_add(y) as u16) & 0xFF;
+                cpu.instruction.operand_addr = base_addr.wrapping_add(y) & 0xFF;
             }
             _ => panic!(
                 "Too many cycles for operand address fetch! ({}) ",
@@ -379,7 +378,7 @@ pub fn fetch_operand_addr(cpu: &mut cpu::CPU) -> bool {
             1 => {
                 let idx = cpu.instruction.index_addr;
                 let hi = cpu.read_byte((idx + 1) & 0xFF) as u16;
-                cpu.instruction.operand_addr = cpu.instruction.operand_addr | (hi << 8);
+                cpu.instruction.operand_addr |= hi << 8;
             }
             _ => panic!(
                 "Too many cycles for operand address fetch! ({}) ",
@@ -719,10 +718,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
         }
         Op::ASL => {
             if cpu.ba_low {
-                match cpu.instruction.addr_mode {
-                    AddrMode::Accumulator => return false,
-                    _ => (),
-                }
+                if let AddrMode::Accumulator = cpu.instruction.addr_mode { return false }
             }
             let v = cpu.get_operand();
             cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x80) != 0);
@@ -732,10 +728,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
         }
         Op::LSR => {
             if cpu.ba_low {
-                match cpu.instruction.addr_mode {
-                    AddrMode::Accumulator => return false,
-                    _ => (),
-                }
+                if let AddrMode::Accumulator = cpu.instruction.addr_mode { return false }
             }
             let v = cpu.get_operand();
             cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x01) != 0);
@@ -745,10 +738,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
         }
         Op::ROL => {
             if cpu.ba_low {
-                match cpu.instruction.addr_mode {
-                    AddrMode::Accumulator => return false,
-                    _ => (),
-                }
+                if let AddrMode::Accumulator = cpu.instruction.addr_mode { return false }
             }
             let c = cpu.get_status_flag(cpu::StatusFlag::Carry);
             let v = cpu.get_operand();
@@ -762,10 +752,7 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
         }
         Op::ROR => {
             if cpu.ba_low {
-                match cpu.instruction.addr_mode {
-                    AddrMode::Accumulator => return false,
-                    _ => (),
-                }
+                if let AddrMode::Accumulator = cpu.instruction.addr_mode { return false }
             }
             let c = cpu.get_status_flag(cpu::StatusFlag::Carry);
             let v = cpu.get_operand();

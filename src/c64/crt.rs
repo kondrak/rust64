@@ -60,26 +60,26 @@ impl Crt {
 
             chips.push(Chip {
                 signature: chip_signature,
-                length: length,
-                chip_type: chip_type,
-                bank_number: bank_number,
-                load_addr: load_addr,
-                data_size: data_size,
-                data: data,
+                length,
+                chip_type,
+                bank_number,
+                load_addr,
+                data_size,
+                data,
             });
         }
 
         Ok(Crt {
             header: Header {
-                signature: signature,
-                header_len: header_len,
-                version: version,
-                hw_type: hw_type,
-                exrom: exrom,
-                game: game,
-                name: name,
+                signature,
+                header_len,
+                version,
+                hw_type,
+                exrom,
+                game,
+                name,
             },
-            chips: chips,
+            chips,
         })
     }
 
