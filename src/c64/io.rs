@@ -1,8 +1,8 @@
 // keyboard and joystick support
 extern crate minifb;
 
-use minifb::*;
 use c64::cia;
+use minifb::*;
 
 /*
  C64 keyboard map:
@@ -22,7 +22,7 @@ use c64::cia;
 pub struct IO {
     keyboard_state: [bool; 0xFF], // key states, including shift presses
     joystick_state: [bool; 0x0A], // 9 directions (num-pad) + 1 fire button
-    joy_port1: bool,  // is joystick plugged to port 1?
+    joy_port1: bool,              // is joystick plugged to port 1?
 }
 
 impl IO {
@@ -30,10 +30,9 @@ impl IO {
         IO {
             keyboard_state: [false; 0xFF],
             joystick_state: [false; 0x0A],
-            joy_port1: false
+            joy_port1: false,
         }
     }
-
 
     pub fn update(&mut self, window: &Window, cia1: &mut cia::CIAShared) {
         // keyboard processing
@@ -84,32 +83,36 @@ impl IO {
         self.process_key(window.is_key_down(Key::F7), Key::F7, cia1);
         self.process_key(window.is_key_down(Key::F8), Key::F8, cia1);
 
-        self.process_key(window.is_key_down(Key::Down),  Key::Down,  cia1);
-        self.process_key(window.is_key_down(Key::Up),    Key::Up,    cia1);
+        self.process_key(window.is_key_down(Key::Down), Key::Down, cia1);
+        self.process_key(window.is_key_down(Key::Up), Key::Up, cia1);
         self.process_key(window.is_key_down(Key::Right), Key::Right, cia1);
-        self.process_key(window.is_key_down(Key::Left),  Key::Left,  cia1);
-        self.process_key(window.is_key_down(Key::Space),  Key::Space,  cia1);
-        self.process_key(window.is_key_down(Key::Comma),  Key::Comma,  cia1);
+        self.process_key(window.is_key_down(Key::Left), Key::Left, cia1);
+        self.process_key(window.is_key_down(Key::Space), Key::Space, cia1);
+        self.process_key(window.is_key_down(Key::Comma), Key::Comma, cia1);
         self.process_key(window.is_key_down(Key::Period), Key::Period, cia1);
-        self.process_key(window.is_key_down(Key::Slash),  Key::Slash,  cia1);
-        self.process_key(window.is_key_down(Key::Enter),  Key::Enter,  cia1);
-        self.process_key(window.is_key_down(Key::Backspace),  Key::Backspace,  cia1);
-        self.process_key(window.is_key_down(Key::Backquote),  Key::Backquote,  cia1);
-        self.process_key(window.is_key_down(Key::LeftShift),  Key::LeftShift,  cia1);
+        self.process_key(window.is_key_down(Key::Slash), Key::Slash, cia1);
+        self.process_key(window.is_key_down(Key::Enter), Key::Enter, cia1);
+        self.process_key(window.is_key_down(Key::Backspace), Key::Backspace, cia1);
+        self.process_key(window.is_key_down(Key::Backquote), Key::Backquote, cia1);
+        self.process_key(window.is_key_down(Key::LeftShift), Key::LeftShift, cia1);
         self.process_key(window.is_key_down(Key::RightShift), Key::RightShift, cia1);
-        self.process_key(window.is_key_down(Key::Escape),     Key::Escape,     cia1);
-        self.process_key(window.is_key_down(Key::Minus),  Key::Minus,  cia1);
-        self.process_key(window.is_key_down(Key::Equal),  Key::Equal,  cia1);
+        self.process_key(window.is_key_down(Key::Escape), Key::Escape, cia1);
+        self.process_key(window.is_key_down(Key::Minus), Key::Minus, cia1);
+        self.process_key(window.is_key_down(Key::Equal), Key::Equal, cia1);
         self.process_key(window.is_key_down(Key::Insert), Key::Insert, cia1);
-        self.process_key(window.is_key_down(Key::Home),   Key::Home,   cia1);
-        self.process_key(window.is_key_down(Key::LeftBracket),  Key::LeftBracket,  cia1);
-        self.process_key(window.is_key_down(Key::RightBracket), Key::RightBracket, cia1);
-        self.process_key(window.is_key_down(Key::Delete),     Key::Delete,     cia1);
-        self.process_key(window.is_key_down(Key::Semicolon),  Key::Semicolon,  cia1);
+        self.process_key(window.is_key_down(Key::Home), Key::Home, cia1);
+        self.process_key(window.is_key_down(Key::LeftBracket), Key::LeftBracket, cia1);
+        self.process_key(
+            window.is_key_down(Key::RightBracket),
+            Key::RightBracket,
+            cia1,
+        );
+        self.process_key(window.is_key_down(Key::Delete), Key::Delete, cia1);
+        self.process_key(window.is_key_down(Key::Semicolon), Key::Semicolon, cia1);
         self.process_key(window.is_key_down(Key::Apostrophe), Key::Apostrophe, cia1);
-        self.process_key(window.is_key_down(Key::Backslash),  Key::Backslash,  cia1);
-        self.process_key(window.is_key_down(Key::Tab),        Key::Tab,        cia1);
-        self.process_key(window.is_key_down(Key::LeftCtrl),   Key::LeftCtrl,   cia1);
+        self.process_key(window.is_key_down(Key::Backslash), Key::Backslash, cia1);
+        self.process_key(window.is_key_down(Key::Tab), Key::Tab, cia1);
+        self.process_key(window.is_key_down(Key::LeftCtrl), Key::LeftCtrl, cia1);
 
         // joystick processing
         self.process_joystick(window.is_key_down(Key::NumPad1), Key::NumPad1, cia1);
@@ -130,58 +133,53 @@ impl IO {
 
             if self.joy_port1 {
                 cia1.borrow_mut().joystick_2 = 0xFF;
-            }
-            else {
+            } else {
                 cia1.borrow_mut().joystick_1 = 0xFF;
             }
-            
-            println!("Using joystick in port {}", if self.joy_port1 { "1" } else { "2" });
+
+            println!(
+                "Using joystick in port {}",
+                if self.joy_port1 { "1" } else { "2" }
+            );
         }
     }
-
 
     pub fn check_restore_key(&self, window: &Window) -> bool {
         // End will serve as the Restore key
         window.is_key_pressed(Key::End, KeyRepeat::No)
     }
 
-
     // *** private functions *** //
 
-    fn process_key(&mut self, key_pressed: bool, keycode: Key, cia1: &mut cia::CIAShared) {   
+    fn process_key(&mut self, key_pressed: bool, keycode: Key, cia1: &mut cia::CIAShared) {
         if key_pressed {
             self.on_key_press(keycode, cia1);
-        }
-        else {
+        } else {
             self.on_key_release(keycode, cia1);
         }
-    }    
-
+    }
 
     fn on_key_press(&mut self, keycode: Key, cia1: &mut cia::CIAShared) {
         let c64_keycode = self.keycode_to_c64(keycode);
 
-        if self.keyboard_state[c64_keycode as usize] || c64_keycode == 0xFF
-        {
-            return
+        if self.keyboard_state[c64_keycode as usize] || c64_keycode == 0xFF {
+            return;
         }
 
         self.keyboard_state[c64_keycode as usize] = true;
 
-        let c64_bit  = c64_keycode & 7;
+        let c64_bit = c64_keycode & 7;
         let c64_byte = (c64_keycode >> 3) & 7;
-        
+
         // key is shifted?
-        if (c64_keycode & 0x80) != 0
-        {
+        if (c64_keycode & 0x80) != 0 {
             cia1.borrow_mut().key_matrix[6] &= 0xEF;
             cia1.borrow_mut().rev_matrix[4] &= 0xBF;
         }
-        
-        cia1.borrow_mut().key_matrix[c64_byte as usize] &= !(1 << c64_bit);
-        cia1.borrow_mut().rev_matrix[c64_bit as usize]  &= !(1 << c64_byte);
-    }
 
+        cia1.borrow_mut().key_matrix[c64_byte as usize] &= !(1 << c64_bit);
+        cia1.borrow_mut().rev_matrix[c64_bit as usize] &= !(1 << c64_byte);
+    }
 
     fn on_key_release(&mut self, keycode: Key, cia1: &mut cia::CIAShared) {
         let c64_keycode = self.keycode_to_c64(keycode);
@@ -189,115 +187,191 @@ impl IO {
         if !self.keyboard_state[c64_keycode as usize] || c64_keycode == 0xFF {
             return;
         }
-        
+
         self.keyboard_state[c64_keycode as usize] = false;
 
-        let c64_bit  = c64_keycode & 7;
+        let c64_bit = c64_keycode & 7;
         let c64_byte = (c64_keycode >> 3) & 7;
-        
+
         // key is shifted?
         if (c64_keycode & 0x80) != 0 {
             cia1.borrow_mut().key_matrix[6] |= 0x10;
             cia1.borrow_mut().rev_matrix[4] |= 0x40;
         }
-        
-        cia1.borrow_mut().key_matrix[c64_byte as usize] |= 1 << c64_bit;
-        cia1.borrow_mut().rev_matrix[c64_bit as usize]  |= 1 << c64_byte;
-    }
 
+        cia1.borrow_mut().key_matrix[c64_byte as usize] |= 1 << c64_bit;
+        cia1.borrow_mut().rev_matrix[c64_bit as usize] |= 1 << c64_byte;
+    }
 
     fn process_joystick(&mut self, key_pressed: bool, keycode: Key, cia1: &mut cia::CIAShared) {
         if key_pressed {
             self.on_joy_press(keycode, cia1);
-        }
-        else {
+        } else {
             self.on_joy_release(keycode, cia1);
         }
     }
 
-
     fn on_joy_press(&mut self, keycode: Key, cia1: &mut cia::CIAShared) {
-        let mut joystate = if self.joy_port1 { cia1.borrow_mut().joystick_1 } else { cia1.borrow_mut().joystick_2 };
+        let mut joystate = if self.joy_port1 {
+            cia1.borrow_mut().joystick_1
+        } else {
+            cia1.borrow_mut().joystick_2
+        };
 
         match keycode {
             // down-left
-            Key::NumPad1 => { self.joystick_state[0] = true; joystate = (joystate | 0x09) & !0x06; },
+            Key::NumPad1 => {
+                self.joystick_state[0] = true;
+                joystate = (joystate | 0x09) & !0x06;
+            }
             // down
-            Key::NumPad2 => { self.joystick_state[1] = true; joystate = (joystate | 0x01) & !0x02; },
+            Key::NumPad2 => {
+                self.joystick_state[1] = true;
+                joystate = (joystate | 0x01) & !0x02;
+            }
             // down-right
-            Key::NumPad3 => { self.joystick_state[2] = true; joystate = (joystate | 0x05) & !0x0A; },
+            Key::NumPad3 => {
+                self.joystick_state[2] = true;
+                joystate = (joystate | 0x05) & !0x0A;
+            }
             // left
-            Key::NumPad4 => { self.joystick_state[3] = true; joystate = (joystate | 0x08) & !0x04; },
+            Key::NumPad4 => {
+                self.joystick_state[3] = true;
+                joystate = (joystate | 0x08) & !0x04;
+            }
             // center
-            Key::NumPad5 => { self.joystick_state[4] = true; joystate |= 0x0F; },
+            Key::NumPad5 => {
+                self.joystick_state[4] = true;
+                joystate |= 0x0F;
+            }
             // right
-            Key::NumPad6 => { self.joystick_state[5] = true; joystate = (joystate | 0x04) & !0x08; },
+            Key::NumPad6 => {
+                self.joystick_state[5] = true;
+                joystate = (joystate | 0x04) & !0x08;
+            }
             // up-left
-            Key::NumPad7 => { self.joystick_state[6] = true; joystate = (joystate | 0x0A) & !0x05; },
+            Key::NumPad7 => {
+                self.joystick_state[6] = true;
+                joystate = (joystate | 0x0A) & !0x05;
+            }
             // up
-            Key::NumPad8 => { self.joystick_state[7] = true; joystate = (joystate | 0x02) & !0x01; },
+            Key::NumPad8 => {
+                self.joystick_state[7] = true;
+                joystate = (joystate | 0x02) & !0x01;
+            }
             // up-right
-            Key::NumPad9 => { self.joystick_state[8] = true; joystate = (joystate | 0x06) & !0x09; },
+            Key::NumPad9 => {
+                self.joystick_state[8] = true;
+                joystate = (joystate | 0x06) & !0x09;
+            }
             // fire button
-            Key::RightCtrl => { self.joystick_state[9] = true; joystate &= !0x10; },
+            Key::RightCtrl => {
+                self.joystick_state[9] = true;
+                joystate &= !0x10;
+            }
             _ => (),
         }
 
         if self.joy_port1 {
             cia1.borrow_mut().joystick_1 = joystate;
-        }
-        else {
+        } else {
             cia1.borrow_mut().joystick_2 = joystate;
         }
     }
 
-
     fn on_joy_release(&mut self, keycode: Key, cia1: &mut cia::CIAShared) {
-        let mut joystate = if self.joy_port1 { cia1.borrow_mut().joystick_1 } else { cia1.borrow_mut().joystick_2 };
+        let mut joystate = if self.joy_port1 {
+            cia1.borrow_mut().joystick_1
+        } else {
+            cia1.borrow_mut().joystick_2
+        };
 
         if joystate == 0xFF {
             return;
         }
-        
+
         match keycode {
             // down-left
-            Key::NumPad1 => if self.joystick_state[0] { joystate |= 0x06; self.joystick_state[0] = false; },
+            Key::NumPad1 => {
+                if self.joystick_state[0] {
+                    joystate |= 0x06;
+                    self.joystick_state[0] = false;
+                }
+            }
             // down
-            Key::NumPad2 => if self.joystick_state[1] { joystate |= 0x02; self.joystick_state[1] = false; },
+            Key::NumPad2 => {
+                if self.joystick_state[1] {
+                    joystate |= 0x02;
+                    self.joystick_state[1] = false;
+                }
+            }
             // down-right
-            Key::NumPad3 => if self.joystick_state[2] { joystate |= 0x0A; self.joystick_state[2] = false; },
+            Key::NumPad3 => {
+                if self.joystick_state[2] {
+                    joystate |= 0x0A;
+                    self.joystick_state[2] = false;
+                }
+            }
             // left
-            Key::NumPad4 => if self.joystick_state[3] { joystate |= 0x04; self.joystick_state[3] = false; },
+            Key::NumPad4 => {
+                if self.joystick_state[3] {
+                    joystate |= 0x04;
+                    self.joystick_state[3] = false;
+                }
+            }
             // center
             Key::NumPad5 => self.joystick_state[4] = false,
             // right
-            Key::NumPad6 => if self.joystick_state[5] { joystate |= 0x08; self.joystick_state[5] = false; },
+            Key::NumPad6 => {
+                if self.joystick_state[5] {
+                    joystate |= 0x08;
+                    self.joystick_state[5] = false;
+                }
+            }
             // up-left
-            Key::NumPad7 => if self.joystick_state[6] { joystate |= 0x05; self.joystick_state[6] = false; },
+            Key::NumPad7 => {
+                if self.joystick_state[6] {
+                    joystate |= 0x05;
+                    self.joystick_state[6] = false;
+                }
+            }
             // up
-            Key::NumPad8 => if self.joystick_state[7] { joystate |= 0x01; self.joystick_state[7] = false; },
+            Key::NumPad8 => {
+                if self.joystick_state[7] {
+                    joystate |= 0x01;
+                    self.joystick_state[7] = false;
+                }
+            }
             // up-right
-            Key::NumPad9 => if self.joystick_state[8] { joystate |= 0x09; self.joystick_state[8] = false; },
+            Key::NumPad9 => {
+                if self.joystick_state[8] {
+                    joystate |= 0x09;
+                    self.joystick_state[8] = false;
+                }
+            }
             // fire button
-            Key::RightCtrl => if self.joystick_state[9] { joystate |= 0x10; self.joystick_state[9] = false; },
+            Key::RightCtrl => {
+                if self.joystick_state[9] {
+                    joystate |= 0x10;
+                    self.joystick_state[9] = false;
+                }
+            }
             _ => (),
         }
 
         if self.joy_port1 {
             cia1.borrow_mut().joystick_1 = joystate;
             cia1.borrow_mut().joystick_2 = 0xFF;
-        }
-        else {
+        } else {
             cia1.borrow_mut().joystick_1 = 0xFF;
             cia1.borrow_mut().joystick_2 = joystate;
         }
     }
 
-
     fn keycode_to_c64(&self, keycode: Key) -> u8 {
         // fetch key's bit combination as represented in C64 keyboard matrix
         let to_c64 = |row_bit: u8, col_bit: u8| (row_bit << 3) | col_bit;
-        
+
         match keycode {
             Key::Key0 => to_c64(4, 3),
             Key::Key1 => to_c64(7, 0),
@@ -343,38 +417,38 @@ impl IO {
             Key::F6 => to_c64(0, 6) | 0x80,
             Key::F7 => to_c64(0, 3),
             Key::F8 => to_c64(0, 3) | 0x80,
-            Key::Down   => to_c64(0, 7),
-            Key::Up     => to_c64(0, 7) | 0x80,
-            Key::Right  => to_c64(0, 2),
-            Key::Left   => to_c64(0, 2) | 0x80,
-            Key::Space  => to_c64(7, 4),
-            Key::Comma  => to_c64(5, 7),
+            Key::Down => to_c64(0, 7),
+            Key::Up => to_c64(0, 7) | 0x80,
+            Key::Right => to_c64(0, 2),
+            Key::Left => to_c64(0, 2) | 0x80,
+            Key::Space => to_c64(7, 4),
+            Key::Comma => to_c64(5, 7),
             Key::Period => to_c64(5, 4),
-            Key::Slash  => to_c64(6, 7),
-            Key::Enter     => to_c64(0, 1),
+            Key::Slash => to_c64(6, 7),
+            Key::Enter => to_c64(0, 1),
             Key::Backspace => to_c64(0, 0),
             // Left arrow key
-            Key::Backquote  => to_c64(7, 1),
-            Key::LeftShift  => to_c64(1, 7),
+            Key::Backquote => to_c64(7, 1),
+            Key::LeftShift => to_c64(1, 7),
             Key::RightShift => to_c64(6, 4),
             // Run Stop key
             Key::Escape => to_c64(7, 7),
             // Plus key
-            Key::Minus  => to_c64(5, 0),
+            Key::Minus => to_c64(5, 0),
             // Minus key
-            Key::Equal  => to_c64(5, 3),
+            Key::Equal => to_c64(5, 3),
             // Pound key
             Key::Insert => to_c64(6, 0),
             // CLR/Home key
-            Key::Home   => to_c64(6, 3),
+            Key::Home => to_c64(6, 3),
             // Home key
             Key::Delete => to_c64(6, 6),
             // @ key
-            Key::LeftBracket  => to_c64(5, 6),
+            Key::LeftBracket => to_c64(5, 6),
             // * key
             Key::RightBracket => to_c64(6, 1),
             // Colon key
-            Key::Semicolon  => to_c64(5, 5),
+            Key::Semicolon => to_c64(5, 5),
             // Semicolon key
             Key::Apostrophe => to_c64(6, 2),
             // Equals key
@@ -384,7 +458,7 @@ impl IO {
             // Commodore key
             Key::LeftCtrl => to_c64(7, 5),
             // unknown
-            _ => 0xFF
+            _ => 0xFF,
         }
     }
 }
