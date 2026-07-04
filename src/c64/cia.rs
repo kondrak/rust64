@@ -671,7 +671,7 @@ impl CIA {
         }
     }
 
-    fn write_cia1_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::Callback) {
+    fn write_cia1_register(&mut self, addr: u16, value: u8, _on_cia_write: &mut cpu::Callback) {
         match addr {
             0xDC00 => {
                 self.pra = value;
@@ -700,7 +700,7 @@ impl CIA {
                 self.check_lp();
             }
             0xDC10..=0xDCFF => {
-                self.write_cia1_register(0xDC00 + (addr % 0x0010), value, on_cia_write)
+                self.write_cia1_register(0xDC00 + (addr % 0x0010), value, _on_cia_write)
             }
             _ => panic!("Address out of CIA1 memory range"),
         }
@@ -718,7 +718,7 @@ impl CIA {
         }
     }
 
-    fn write_cia2_register(&mut self, addr: u16, value: u8, on_cia_write: &mut cpu::Callback) {
+    fn write_cia2_register(&mut self, addr: u16, value: u8, _on_cia_write: &mut cpu::Callback) {
         match addr {
             0xDD00 => {
                 // TODO
@@ -748,7 +748,7 @@ impl CIA {
                     .write(addr, value);
             }
             0xDD10..=0xDDFF => {
-                self.write_cia2_register(0xDD00 + (addr % 0x0010), value, on_cia_write)
+                self.write_cia2_register(0xDD00 + (addr % 0x0010), value, _on_cia_write)
             }
             _ => panic!("Address out of CIA2 memory range"),
         }

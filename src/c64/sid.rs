@@ -499,8 +499,6 @@ impl SIDAudioDevice {
 
     fn calculate_filter(&mut self) {
         let f = self.filter_freq as f32;
-        let resonance: f32;
-        let mut arg: f32;
 
         match self.filter_type {
             FilterType::None => {
@@ -519,21 +517,18 @@ impl SIDAudioDevice {
                 self.iir_att = 1.0;
                 return;
             }
+            _ => {}
+        }
+        let resonance = match self.filter_type{
             FilterType::Lowpass | FilterType::LowBandpass => {
-                resonance = self.lowpass_resonance(f);
+                self.lowpass_resonance(f)
             }
             _ => {
-                resonance = self.highpass_resonance(f);
+                self.highpass_resonance(f)
             }
-        }
+        };
 
-        arg = resonance / ((SAMPLE_FREQ >> 1) as f32);
-        if arg > 0.99 {
-            arg = 0.99;
-        }
-        if arg < 0.01 {
-            arg = 0.01;
-        }
+        let arg = (resonance / ((SAMPLE_FREQ >> 1) as f32)).clamp(0.01, 0.99);
 
         self.g2 = 0.55 + 1.2 * arg * arg - 1.2 * arg + 0.013_333_334 * self.filter_resonance as f32;
         self.g1 = -2.0 * self.g2.sqrt() * (f32::consts::PI * arg).cos();

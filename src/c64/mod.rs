@@ -25,7 +25,7 @@ pub const SCREEN_HEIGHT: usize = 272; // extend 36 pixels top and down for the b
 const CLOCK_FREQ: f64 = 1.5 * 985248.0;
 
 pub struct C64 {
-    pub main_window: minifb::Window,
+    pub main_window: Window,
     pub file_to_load: String,
     pub crt_to_load: String,
     memory: memory::MemShared,
@@ -229,10 +229,10 @@ impl C64 {
             filename, start_address, start_address
         );
 
-        for i in 2..(prg_data.len()) {
+        for (i,data) in prg_data.iter().enumerate().skip(2) {
             self.memory
                 .borrow_mut()
-                .write_byte(start_address + (i as u16) - 2, prg_data[i]);
+                .write_byte(start_address + (i as u16) - 2, *data);
         }
     }
 }

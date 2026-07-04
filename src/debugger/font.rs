@@ -33,7 +33,7 @@ impl SysFont {
 
     pub fn draw_text_rgb(
         &self,
-        window_buffer: &mut Vec<u32>,
+        window_buffer: &mut [u32],
         window_w: usize,
         x: usize,
         y: usize,
@@ -41,13 +41,13 @@ impl SysFont {
         color: u32,
     ) {
         let chars: Vec<char> = text.chars().collect();
-        for i in 0..text.len() {
+        for( i, char) in chars.iter().enumerate() {
             self.draw_char_rgb(
                 window_buffer,
                 window_w,
                 x * 8 + 8 * i,
                 y * 8_usize,
-                self.ascii_to_petscii(chars[i]),
+                self.ascii_to_petscii(*char),
                 color,
             );
         }
@@ -55,7 +55,7 @@ impl SysFont {
 
     pub fn draw_text(
         &self,
-        window_buffer: &mut Vec<u32>,
+        window_buffer: &mut [u32],
         window_w: usize,
         x: usize,
         y: usize,
@@ -63,13 +63,13 @@ impl SysFont {
         c64_color: u8,
     ) {
         let chars: Vec<char> = text.chars().collect();
-        for i in 0..text.len() {
+        for( i, char) in chars.iter().enumerate() {
             self.draw_char(
                 window_buffer,
                 window_w,
                 x * 8 + 8 * i,
                 y * 8_usize,
-                self.ascii_to_petscii(chars[i]),
+                self.ascii_to_petscii(*char),
                 c64_color,
             );
         }
@@ -77,7 +77,7 @@ impl SysFont {
 
     pub fn draw_char(
         &self,
-        window_buffer: &mut Vec<u32>,
+        window_buffer: &mut [u32],
         window_w: usize,
         x: usize,
         y: usize,
@@ -96,7 +96,7 @@ impl SysFont {
 
     pub fn draw_char_rgb(
         &self,
-        window_buffer: &mut Vec<u32>,
+        window_buffer: &mut [u32],
         window_w: usize,
         x: usize,
         y: usize,
@@ -110,16 +110,11 @@ impl SysFont {
         let data_w = data_x + char_w;
         let data_h = data_y + char_h;
 
-        let mut k = 0;
-        let mut l = 0;
-        for i in data_y..data_h {
-            for j in data_x..data_w {
+        for (k,i) in (data_y..data_h).enumerate() {
+            for (l, j) in (data_x..data_w).enumerate() {
                 window_buffer[x + l + window_w * (y + k)] =
                     self.data[j as usize + (i * 256) as usize] as u32 * color;
-                l += 1;
             }
-            l = 0;
-            k += 1;
         }
     }
 

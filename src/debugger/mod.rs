@@ -21,8 +21,8 @@ const RASTER_COLOR: u32 = 0x000000FF;
 const BADLINE_COLOR: u32 = 0x0000FF00;
 
 pub struct Debugger {
-    debug_window: minifb::Window,
-    vic_window: minifb::Window,
+    debug_window: Window,
+    vic_window: Window,
     font: font::SysFont,
     window_buffer: Vec<u32>, // main debugger window data buffer
     vic_buffer: Vec<u32>,    // VIC window data buffer

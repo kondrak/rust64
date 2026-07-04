@@ -22,15 +22,15 @@ fn main() {
     let mut window_scale = Scale::X1;
 
     // process cmd line params
-    for i in 1..args.len() {
-        if args[i] == "debugger" {
+    for arg in args {
+        if arg == "debugger" {
             debugger_on = true;
-        } else if args[i] == "x2" {
+        } else if arg == "x2" {
             window_scale = Scale::X2;
-        } else if args[i].ends_with(".prg") {
-            prg_to_load = args[i].clone();
-        } else if args[i].ends_with(".crt") {
-            crt_to_load = args[i].clone();
+        } else if arg.ends_with(".prg") {
+            prg_to_load = arg.clone();
+        } else if arg.ends_with(".crt") {
+            crt_to_load = arg.clone();
         }
     }
 
