@@ -41,7 +41,7 @@ impl SysFont {
         color: u32,
     ) {
         let chars: Vec<char> = text.chars().collect();
-        for( i, char) in chars.iter().enumerate() {
+        for (i, char) in chars.iter().enumerate() {
             self.draw_char_rgb(
                 window_buffer,
                 window_w,
@@ -63,7 +63,7 @@ impl SysFont {
         c64_color: u8,
     ) {
         let chars: Vec<char> = text.chars().collect();
-        for( i, char) in chars.iter().enumerate() {
+        for (i, char) in chars.iter().enumerate() {
             self.draw_char(
                 window_buffer,
                 window_w,
@@ -110,7 +110,7 @@ impl SysFont {
         let data_w = data_x + char_w;
         let data_h = data_y + char_h;
 
-        for (k,i) in (data_y..data_h).enumerate() {
+        for (k, i) in (data_y..data_h).enumerate() {
             for (l, j) in (data_x..data_w).enumerate() {
                 window_buffer[x + l + window_w * (y + k)] =
                     self.data[j as usize + (i * 256) as usize] as u32 * color;

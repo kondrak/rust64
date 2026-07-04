@@ -149,9 +149,7 @@ impl CPU {
     pub fn update(&mut self, c64_cycle_cnt: u32) {
         // check for irq and nmi
         if let CPUState::FetchOp = self.state {
-            if self.nmi
-                && self.nmi_cycles_left == 0
-                && (c64_cycle_cnt - self.first_nmi_cycle >= 2)
+            if self.nmi && self.nmi_cycles_left == 0 && (c64_cycle_cnt - self.first_nmi_cycle >= 2)
             {
                 self.nmi_cycles_left = 7;
                 self.state = CPUState::ProcessNMI;
@@ -394,8 +392,6 @@ impl CPU {
         if self.instruction.is_rmw {
             return self.instruction.rmw_buffer;
         }
-
-        
 
         match self.instruction.addr_mode {
             opcodes::AddrMode::Implied => panic!("Can't get operand value!"),

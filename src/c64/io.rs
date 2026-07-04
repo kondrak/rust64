@@ -350,11 +350,10 @@ impl IO {
                 }
             }
             // fire button
-            Key::RightCtrl
-                if self.joystick_state[9] => {
-                    joystate |= 0x10;
-                    self.joystick_state[9] = false;
-                }
+            Key::RightCtrl if self.joystick_state[9] => {
+                joystate |= 0x10;
+                self.joystick_state[9] = false;
+            }
             _ => (),
         }
 

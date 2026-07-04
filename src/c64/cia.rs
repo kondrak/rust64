@@ -578,13 +578,14 @@ impl CIA {
                 && (self.tod_sec == self.alarm_sec)
                 && (self.tod_min == self.alarm_min)
                 && (self.tod_hour == self.alarm_hour)
-                && self.trigger_irq(4) {
-                    if self.is_cia1 {
-                        as_mut!(self.cpu_ref).set_cia_irq(true);
-                    } else {
-                        as_mut!(self.cpu_ref).set_nmi(true);
-                    };
-                }
+                && self.trigger_irq(4)
+            {
+                if self.is_cia1 {
+                    as_mut!(self.cpu_ref).set_cia_irq(true);
+                } else {
+                    as_mut!(self.cpu_ref).set_nmi(true);
+                };
+            }
         }
     }
 

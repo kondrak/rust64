@@ -338,19 +338,16 @@ impl SIDAudioDevice {
         match addr {
             0xD419..=0xD41A => {
                 self.last_sid_byte = 0;
-                
+
                 0xFF
             }
             0xD41B..=0xD41C => {
                 self.last_sid_byte = 0;
-                
+
                 rand::random::<u8>()
             }
             0xD420..=0xD7FF => self.read_register(0xD400 + (addr % 0x0020)),
-            _ => {
-                
-                self.last_sid_byte
-            }
+            _ => self.last_sid_byte,
         }
     }
 
@@ -519,13 +516,9 @@ impl SIDAudioDevice {
             }
             _ => {}
         }
-        let resonance = match self.filter_type{
-            FilterType::Lowpass | FilterType::LowBandpass => {
-                self.lowpass_resonance(f)
-            }
-            _ => {
-                self.highpass_resonance(f)
-            }
+        let resonance = match self.filter_type {
+            FilterType::Lowpass | FilterType::LowBandpass => self.lowpass_resonance(f),
+            _ => self.highpass_resonance(f),
         };
 
         let arg = (resonance / ((SAMPLE_FREQ >> 1) as f32)).clamp(0.01, 0.99);
@@ -639,8 +632,6 @@ impl AudioCallback for SIDAudioDevice {
             let mut total_output_filter: i32 = 0;
 
             for i in 0..3 {
-                
-
                 match self.voices[i].state {
                     VoiceState::Attack => {
                         self.voices[i].level =

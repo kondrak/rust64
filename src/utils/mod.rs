@@ -223,6 +223,8 @@ pub fn debug_instruction(opcode: u8, cpu: &mut cpu::CPU) {
 
     // JSR? push on queue to supress logging
     if !debug_loops {
-        if let opcodes::Op::JSR = cpu.instruction.opcode { cpu.op_debugger.jump_queue.push(opcode) }
+        if let opcodes::Op::JSR = cpu.instruction.opcode {
+            cpu.op_debugger.jump_queue.push(opcode)
+        }
     }
 }

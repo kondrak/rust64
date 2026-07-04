@@ -718,7 +718,9 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
         }
         Op::ASL => {
             if cpu.ba_low {
-                if let AddrMode::Accumulator = cpu.instruction.addr_mode { return false }
+                if let AddrMode::Accumulator = cpu.instruction.addr_mode {
+                    return false;
+                }
             }
             let v = cpu.get_operand();
             cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x80) != 0);
@@ -728,7 +730,9 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
         }
         Op::LSR => {
             if cpu.ba_low {
-                if let AddrMode::Accumulator = cpu.instruction.addr_mode { return false }
+                if let AddrMode::Accumulator = cpu.instruction.addr_mode {
+                    return false;
+                }
             }
             let v = cpu.get_operand();
             cpu.set_status_flag(cpu::StatusFlag::Carry, (v & 0x01) != 0);
@@ -738,7 +742,9 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
         }
         Op::ROL => {
             if cpu.ba_low {
-                if let AddrMode::Accumulator = cpu.instruction.addr_mode { return false }
+                if let AddrMode::Accumulator = cpu.instruction.addr_mode {
+                    return false;
+                }
             }
             let c = cpu.get_status_flag(cpu::StatusFlag::Carry);
             let v = cpu.get_operand();
@@ -752,7 +758,9 @@ pub fn run(cpu: &mut cpu::CPU) -> bool {
         }
         Op::ROR => {
             if cpu.ba_low {
-                if let AddrMode::Accumulator = cpu.instruction.addr_mode { return false }
+                if let AddrMode::Accumulator = cpu.instruction.addr_mode {
+                    return false;
+                }
             }
             let c = cpu.get_status_flag(cpu::StatusFlag::Carry);
             let v = cpu.get_operand();

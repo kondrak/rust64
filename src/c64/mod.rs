@@ -229,7 +229,7 @@ impl C64 {
             filename, start_address, start_address
         );
 
-        for (i,data) in prg_data.iter().enumerate().skip(2) {
+        for (i, data) in prg_data.iter().enumerate().skip(2) {
             self.memory
                 .borrow_mut()
                 .write_byte(start_address + (i as u16) - 2, *data);

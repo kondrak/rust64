@@ -412,7 +412,9 @@ impl VIC {
                     self.raster_cnt += 1;
 
                     if self.raster_cnt == self.raster_irq {
-                        if let cpu::Callback::TriggerVICIrq = self.raster_irq() { as_mut!(self.cpu_ref).set_vic_irq(true) }
+                        if let cpu::Callback::TriggerVICIrq = self.raster_irq() {
+                            as_mut!(self.cpu_ref).set_vic_irq(true)
+                        }
                     }
 
                     if self.raster_cnt == 0x30 {
@@ -462,7 +464,9 @@ impl VIC {
                     self.line_start_offset = 0;
 
                     if self.raster_irq == 0 {
-                        if let cpu::Callback::TriggerVICIrq = self.raster_irq() { as_mut!(self.cpu_ref).set_vic_irq(true) }
+                        if let cpu::Callback::TriggerVICIrq = self.raster_irq() {
+                            as_mut!(self.cpu_ref).set_vic_irq(true)
+                        }
                     }
                 }
 
